@@ -27,3 +27,6 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
+# Claude Code personal settings (never commit)
+.claude/settings.local.json
