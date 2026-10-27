@@ -30,6 +30,42 @@ _Last updated: 2026-10-27_
 - **Subscriptions, version A:** a list with amount, billing cycle and next payment date. **Version B** (automatically creating expenses on the billing date) is planned after the MVP.
 - **Currency:** EUR only.
 
+### Interface language
+**Decision:** The app interface is in European Portuguese (pt-PT). Code, comments and documentation are written in English.
+
+---
+
+## Design
+
+### Visual identity: "Graphite"
+**Decision:** A monochrome, restrained style. The accent colour is used only for data.
+
+**Why:** Graphite was chosen from three explored directions. Its restraint keeps the focus on the data and matches the project's references: Revolut's simplicity and Notion's understated style. Keeping the accent colour for data only makes the numbers stand out.
+
+- **Themes:** light and dark, switching automatically with the system setting (`prefers-color-scheme`). The theme follows the iPhone's setting, and dark mode is comfortable at night and at the gym.
+- **Typography:** Instrument Sans (Google Fonts), with tabular numbers (`font-variant-numeric: tabular-nums`), so values keep the same width when they update.
+- **Corner radius:** cards 16px, buttons 12px.
+- **Status colours:** a muted red only for warnings and errors, and a muted green only for confirmations. Exact values are defined during implementation, with approval.
+
+| Token | Dark theme | Light theme |
+|---|---|---|
+| Background | `#0B0C0E` | `#F4F4F3` |
+| Surface | `#141518` | `#FFFFFF` |
+| Border | `#24262B` | `#E3E3E1` |
+| Text | `#ECEDEF` | `#121314` |
+| Secondary text | `#8B8F98` | `#61646A` |
+| Primary action | `#ECEDEF` | `#121314` |
+| Primary action text | `#0B0C0E` | `#FFFFFF` |
+| Data accent | `#8FB0DD` | `#1F3A5F` |
+| Heatmap scale (lowest to highest activity) | `#1C1E22`, `#26354B`, `#3E5F8C`, `#8FB0DD` | `#EBEBE9`, `#C4CFDE`, `#6F89AE`, `#1F3A5F` |
+
+### Navigation
+- **Mobile:** a bottom tab bar with four tabs: Home ("Início"), Workout ("Treino"), Weight ("Peso") and Finance ("Finanças"). They cover the MVP modules.
+- **Desktop:** the same four items in a sidebar.
+- **Settings and account** are reached through the avatar on Home, not through a tab. They are rarely used and do not justify a tab.
+- **The active workout is full screen**, without the tab bar. The workout duration and the "Finish" ("Terminar") button are always visible. This keeps the focus on the workout, allows larger buttons and prevents switching tabs by accident in the middle of a set.
+- **No central "+" button** in the tab bar. Quick actions (start workout, log weight, add expense) live on Home, and each tab has its own add button. This keeps the bar cleaner and consistent with the restrained style, and Home is the first screen when the app opens. This may be revisited after the MVP.
+
 ---
 
 ## Architecture
@@ -190,7 +226,6 @@ The MVP runs on free tiers: GitHub, Supabase Free and Vercel Hobby (personal, no
 
 | Question | When |
 |---|---|
-| Visual identity (colours, typography) | Phase 2 |
 | Email delivery: Google sign-in or custom SMTP | Phase 3 |
 | Backup strategy | Before Phase 5 |
 | Custom domain | Phase 5 (optional) |
