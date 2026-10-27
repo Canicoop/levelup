@@ -1,75 +1,100 @@
-# React + TypeScript + Vite
+# LevelUP
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A personal life dashboard to track gym workouts, body weight and personal finances in one place. Mobile-first, designed to be used every day on an iPhone.
 
-Currently, two official plugins are available:
+[![CI](https://github.com/Canicoop/levelup/actions/workflows/ci.yml/badge.svg)](https://github.com/Canicoop/levelup/actions/workflows/ci.yml)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+> **Status:** 🚧 In development. Phase 1 (repository and environment) is complete; Phase 2 (visual foundation) is next.
 
-## React Compiler
+## Planned features (MVP)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Gym
+- Workout routines with target sets and optional rep ranges
+- Workout logging (sets, reps, weight), pre-filled from the selected routine
+- Previous session's values shown next to each exercise
+- Workout history by day
+- GitHub-style activity heatmap
+- In-progress workouts saved on the device, so a lost connection never loses data
 
-## Expanding the ESLint configuration
+### Body weight
+- Daily weight log with a progress chart
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Finance
+- Income and expense tracking with custom categories
+- Fixed monthly budget (overall and per category)
+- Spending by category chart
+- Subscription tracking
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Dashboard
+- Overview of all modules using real data
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Platform
+- Multi-user, with each user's data isolated by Row Level Security
+- Installable on iPhone through Safari ("Add to Home Screen")
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Tech stack
 
+| Area | Technology | Status |
+|---|---|---|
+| Frontend | React 19, TypeScript 6, Vite 8 | ✅ In use |
+| Linting | ESLint with typescript-eslint | ✅ In use |
+| CI | GitHub Actions | ✅ In use |
+| UI | Tailwind CSS v4, shadcn/ui | Planned |
+| Routing | React Router | Planned |
+| Data fetching | TanStack Query | Planned |
+| Forms | React Hook Form, Zod | Planned |
+| Charts | Recharts | Planned |
+| Backend | Supabase (PostgreSQL, Auth, Row Level Security) | Planned |
+| Testing | Vitest, React Testing Library, Playwright | Planned |
+| Hosting | Vercel | Planned |
+
+## Getting started
+
+### Prerequisites
+- [Node.js](https://nodejs.org/) 24 (LTS)
+- npm
+- Git
+
+### Run locally
+
+```bash
+git clone https://github.com/Canicoop/levelup.git
+cd levelup
+npm install
+cp .env.example .env.local
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+Then open http://localhost:5173.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+> Environment variables are not required yet. They will be needed once Supabase is added (Phase 3). Fill in `.env.local` with your own values and **never commit it**.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Scripts
 
-```
+| Command | Description |
+|---|---|
+| `npm run dev` | Start the development server |
+| `npm run build` | Type-check and build for production |
+| `npm run lint` | Run ESLint |
+| `npm run preview` | Preview the production build locally |
+
+## Roadmap
+
+- [x] **Phase 0** — Planning, MVP and architecture
+- [x] **Phase 1** — Repository, development environment and CI
+- [ ] **Phase 2** — Visual foundation and navigation
+- [ ] **Phase 3** — Supabase, authentication and security
+- [ ] **Phase 4** — Gym module
+- [ ] **Phase 5** — First production deploy
+- [ ] **Phase 6** — Body weight module
+- [ ] **Phase 7** — Finance module
+- [ ] **Phase 8** — Dashboard
+- [ ] **Phase 9** — Quality, testing and polish
+
+## Documentation
+
+- [Decision log](docs/decisions.md) — what was decided and why
+
+## License
+
+[MIT](LICENSE)
