@@ -129,6 +129,42 @@ GitHub Actions runs lint and build on every push to `main` and on pull requests.
 
 ---
 
+## AI-assisted development
+
+### Claude Code for implementation
+**Decision:** Claude Code (VS Code extension) is used to implement the project. Product and design decisions are discussed beforehand and recorded in this document.
+
+The project's working rules for Claude Code live in `CLAUDE.md`.
+
+### Manual permissions
+**Decision:** The default permission mode is manual (`defaultMode: "default"`), set in `.claude/settings.json`. Reading and editing `.env`, `.env.local` and `.env.*.local` are denied.
+
+**Why:** Every change needs explicit approval, and local secrets are never exposed to the AI.
+
+### Project skills
+Skills live in `.claude/skills/` and are pinned in `skills-lock.json`.
+
+| Skill | Source | Use |
+|---|---|---|
+| impeccable | `pbakaus/impeccable` | Typography, colour, spacing and layout |
+| emil-design-eng | `emilkowalski/skills` | Animation and interaction polish |
+| mobile-native | `emilkowalski/skills` | Native-feeling behaviour on iPhone |
+| review-animations | `emilkowalski/skills` | Animation review, manual invocation only (`/review-animations`) |
+
+**Evaluated and not installed:**
+- **Taste skill:** focused on landing pages, and instructs the agent not to ask for approval, which conflicts with the project's working rules.
+- **Other skills from `emilkowalski/skills`:** they overlap with the installed skills or are specific to native apps.
+
+### Playwright MCP
+**Decision:** The Playwright MCP server is configured in `.mcp.json`, pinned to `@playwright/mcp@0.0.83`, and runs Playwright's Chromium in isolated mode.
+
+**Note:** The configuration uses a `cmd /c` wrapper, which only works on Windows. On other systems, the configuration must be adjusted.
+
+### No Figma
+**Decision:** Figma is not used. Design is done directly in code.
+
+---
+
 ## Deployment and costs
 
 ### Early deploy
