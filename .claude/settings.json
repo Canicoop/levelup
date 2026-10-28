@@ -8,7 +8,22 @@
       "Read(./.env.*.local)",
       "Edit(./.env)",
       "Edit(./.env.local)",
-      "Edit(./.env.*.local)"
+      "Edit(./.env.*.local)",
+      "Bash(*skills/impeccable/scripts/impeccable*)",
+      "Bash(*skills\\impeccable\\scripts\\impeccable*)",
+      "Bash(./impeccable*)",
+      "Bash(impeccable *)",
+      "Bash(*impeccable.cmd*)",
+      "Bash(*impeccable.exe*)",
+      "Bash(npx impeccable*)",
+      "PowerShell(*skills/impeccable/scripts/impeccable*)",
+      "PowerShell(*skills\\impeccable\\scripts\\impeccable*)",
+      "PowerShell(./impeccable*)",
+      "PowerShell(.\\impeccable*)",
+      "PowerShell(impeccable *)",
+      "PowerShell(*impeccable.cmd*)",
+      "PowerShell(*impeccable.exe*)",
+      "PowerShell(npx impeccable*)"
     ]
   }
 }

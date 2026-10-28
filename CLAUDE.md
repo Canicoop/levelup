@@ -40,6 +40,7 @@ LevelUP is a mobile-first personal life dashboard (gym, body weight, finance, da
 
 ## Design
 - Use the **impeccable** skill for typography, colour, spacing and layout, and the **emil-design-eng** skill for motion and interaction polish.
+- Use the **impeccable** skill only through its text guides (`SKILL.md` and `reference/*.md`). Never run its launcher (`scripts/impeccable`, `scripts/impeccable.cmd`) or any `impeccable` command: it downloads and runs a compiled binary from the internet. When the skill asks for `impeccable context`, read `docs/decisions.md` and the relevant guides instead. Deny rules in `.claude/settings.json` enforce this.
 - Mobile-first (iPhone), responsive on desktop. Dark mode is first-class.
 - The app must not look like a generic admin template. Use colour sparingly; keep animations subtle and fast, and respect `prefers-reduced-motion`.
 - Brand and visual identity decisions live in `docs/decisions.md`. **Never invent brand decisions** (colours, fonts, logo): ask the user.

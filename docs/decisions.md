@@ -212,6 +212,13 @@ Skills live in `.claude/skills/` and are pinned in `skills-lock.json`.
 - **Taste skill:** focused on landing pages, and instructs the agent not to ask for approval, which conflicts with the project's working rules.
 - **Other skills from `emilkowalski/skills`:** they overlap with the installed skills or are specific to native apps.
 
+### Impeccable launcher blocked
+**Decision:** The impeccable skill is used only through its Markdown guides. Its launcher (`scripts/impeccable`, `scripts/impeccable.cmd`) is never run, and deny rules in `.claude/settings.json` block it in Bash and PowerShell.
+
+**Why:** The launcher downloads a compiled engine from the skill's GitHub releases into `~/.impeccable` and runs it with the agent's environment and network access. Its behaviour can't be reviewed from the repository: the checksum check proves the file is the published one, not what it does. The guides cover what the project needs.
+
+**Limitation:** deny rules match the command text, not the program, and Claude Code's documentation states they are not a security boundary. They stop the usual invocations; the rule in `CLAUDE.md` covers the intent.
+
 ### Playwright MCP
 **Decision:** The Playwright MCP server is configured in `.mcp.json`, pinned to `@playwright/mcp@0.0.83`, and runs Playwright's Chromium in isolated mode.
 
