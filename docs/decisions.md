@@ -2,7 +2,7 @@
 
 This document records the main technical and product decisions for LevelUP, and the reasons behind them. New decisions are added as the project evolves.
 
-_Last updated: 2026-10-27_
+_Last updated: 2026-10-28_
 
 ---
 
@@ -42,10 +42,10 @@ _Last updated: 2026-10-27_
 
 **Why:** Graphite was chosen from three explored directions. Its restraint keeps the focus on the data and matches the project's references: Revolut's simplicity and Notion's understated style. Keeping the accent colour for data only makes the numbers stand out.
 
-- **Themes:** light and dark, switching automatically with the system setting (`prefers-color-scheme`). The theme follows the iPhone's setting, and dark mode is comfortable at night and at the gym.
-- **Typography:** Instrument Sans (Google Fonts), with tabular numbers (`font-variant-numeric: tabular-nums`), so values keep the same width when they update.
+- **Themes:** light and dark, switching automatically with the system setting (`prefers-color-scheme`). The theme follows the iPhone's setting, and dark mode is comfortable at night and at the gym. There is no manual toggle and no `.dark` class: `src/index.css` redefines Tailwind's `dark:` variant with `@custom-variant dark (@media (prefers-color-scheme: dark))`, so shadcn/ui components follow the system setting too.
+- **Typography:** Instrument Sans, self-hosted through the `@fontsource-variable/instrument-sans` package, with tabular numbers (`font-variant-numeric: tabular-nums`), so values keep the same width when they update. The font is bundled with the app instead of loaded from Google Fonts: no third-party requests, and it works on poor gym connections.
 - **Corner radius:** cards 16px, buttons 12px.
-- **Status colours:** a muted red only for warnings and errors, and a muted green only for confirmations. Exact values are defined during implementation, with approval.
+- **Status colours:** a muted red only for warnings and errors, and a muted green only for confirmations (values in the table below). All pass WCAG AA (at least 4.5:1) as text on both the background and the surface. White text on the dark-theme red is only 2.7:1, so solid red fills use dark text (`--destructive-foreground`) or the tinted style (`bg-destructive/10 text-destructive`).
 
 | Token | Dark theme | Light theme |
 |---|---|---|
@@ -58,6 +58,13 @@ _Last updated: 2026-10-27_
 | Primary action text | `#0B0C0E` | `#FFFFFF` |
 | Data accent | `#8FB0DD` | `#1F3A5F` |
 | Heatmap scale (lowest to highest activity) | `#1C1E22`, `#26354B`, `#3E5F8C`, `#8FB0DD` | `#EBEBE9`, `#C4CFDE`, `#6F89AE`, `#1F3A5F` |
+| Neutral fill (muted, secondary, hover) | `#1C1E22` | `#EBEBE9` |
+| Focus ring | `#8B8F98` | `#61646A` |
+| Error and warning (red) | `#D9827C` | `#A8342D` |
+| Confirmation (green) | `#86BFA0` | `#2F6E4E` |
+
+- **Neutral fill:** the palette had no neutral fill for shadcn/ui's `muted`, `secondary` and `accent` roles, so it reuses heatmap level 0 instead of introducing a new colour.
+- **Focus ring:** Secondary text at full opacity, 5.4 to 6.0:1 against the background and the surface. shadcn/ui's default 50% opacity gives only 2.1 to 2.3:1, below the 3:1 minimum for focus indicators, so generated components use `ring-ring` instead of `ring-ring/50`. Check this after every `shadcn add`.
 
 ### Navigation
 - **Mobile:** a bottom tab bar with four tabs: Home ("Início"), Workout ("Treino"), Weight ("Peso") and Finance ("Finanças"). They cover the MVP modules.
@@ -106,10 +113,24 @@ _Last updated: 2026-10-27_
 
 **Why:** `typescript-eslint` does not support TypeScript 7 yet, and installation fails with a peer dependency conflict. Upgrade once `typescript-eslint` adds support.
 
+**Import alias:** `@/` points to `src/`, configured with `paths` only (`"@/*": ["./src/*"]` in `tsconfig.json` and `tsconfig.app.json`) and the matching `resolve.alias` in `vite.config.ts`. `baseUrl` is not used: it is deprecated in TypeScript 6 and removed in 7, although the shadcn/ui setup guide still shows it.
+
 ### ESLint instead of Oxlint
 **Decision:** ESLint is used as the linter.
 
 **Why:** It is the industry standard, with wide documentation and plugin support. Oxlint's speed advantage is not significant at this project's size.
+
+### shadcn/ui on Base UI
+**Decision:** shadcn/ui components are built on Base UI (`shadcn init -b base`, `base-nova` style, `neutral` base colour), not Radix.
+
+**Why:** Base UI is shadcn/ui's default since July 2026 and where new components are developed first. Radix is still supported, but no longer the focus.
+
+**Trade-off:** fewer community examples than Radix, and composition uses the `render` prop instead of `asChild`.
+
+**Setup notes:**
+- **The `shadcn` package is a dev dependency.** `src/index.css` imports `shadcn/tailwind.css` from it (shared variants and animations for the components), so it must be installed, but it is only used at build time and is not part of the JavaScript bundle.
+- **ESLint:** the `react-refresh/only-export-components` rule is disabled only for `src/components/ui/`. These are generated files that export variants alongside components.
+- **Known `npm audit` findings:** 3 low-severity issues in `deepmerge` (prototype poisoning, GHSA-gcqx-w48m-w2h4), reached through the shadcn CLI (`shadcn` → `@shadcn/registry`). The code only runs inside the CLI and never reaches the bundle. `npm audit fix --force` would downgrade `shadcn` to 1.0.0, so the findings are accepted until shadcn updates the dependency.
 
 ### Installable on iPhone (no App Store)
 **Decision:** A web app manifest and icon allow installation through Safari's "Add to Home Screen". No native app.
