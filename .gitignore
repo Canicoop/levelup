@@ -30,3 +30,6 @@ dist-ssr
 
 # Claude Code personal settings (never commit)
 .claude/settings.local.json
+
+# Playwright MCP output (screenshots, snapshots, console logs)
+.playwright-mcp/
