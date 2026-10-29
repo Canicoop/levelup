@@ -23,7 +23,8 @@
       "PowerShell(impeccable *)",
       "PowerShell(*impeccable.cmd*)",
       "PowerShell(*impeccable.exe*)",
-      "PowerShell(npx impeccable*)"
+      "PowerShell(npx impeccable*)",
+      "mcp__playwright__browser_run_code_unsafe"
     ]
   }
 }
