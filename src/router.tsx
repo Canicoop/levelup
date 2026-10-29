@@ -24,6 +24,19 @@ export const router = createBrowserRouter([
           { path: 'peso', Component: WeightPage },
           { path: 'financas', Component: FinancePage },
           { path: 'definicoes', Component: SettingsPage },
+          // Development-only preview of shared states. The branch is removed
+          // from production builds, so the page and its chunk are never emitted.
+          ...(import.meta.env.DEV
+            ? [
+                {
+                  path: 'dev/componentes',
+                  lazy: () =>
+                    import('@/features/dev/pages/components-page').then(
+                      ({ ComponentsPage }) => ({ Component: ComponentsPage }),
+                    ),
+                },
+              ]
+            : []),
           { path: '*', Component: NotFoundPage },
         ],
       },
