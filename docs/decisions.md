@@ -2,7 +2,7 @@
 
 This document records the main technical and product decisions for LevelUP, and the reasons behind them. New decisions are added as the project evolves.
 
-_Last updated: 2026-10-28_
+_Last updated: 2026-10-29_
 
 ---
 
@@ -72,6 +72,12 @@ _Last updated: 2026-10-28_
 - **Settings and account** are reached through the avatar on Home, not through a tab. They are rarely used and do not justify a tab.
 - **The active workout is full screen**, without the tab bar. The workout duration and the "Finish" ("Terminar") button are always visible. This keeps the focus on the workout, allows larger buttons and prevents switching tabs by accident in the middle of a set.
 - **No central "+" button** in the tab bar. Quick actions (start workout, log weight, add expense) live on Home, and each tab has its own add button. This keeps the bar cleaner and consistent with the restrained style, and Home is the first screen when the app opens. This may be revisited after the MVP.
+- **Breakpoint:** the bottom tab bar is shown below 1024px (`lg`) and the sidebar from 1024px. Both render the same list, `src/components/layout/nav-items.ts`, so they cannot drift apart.
+- **Icons:** Lucide (`lucide-react`).
+- **Active item:** the text colour (`text-foreground`, inactive items use secondary text) and a heavier icon stroke (2.25 instead of 1.75), so the state does not depend on colour alone. In the sidebar, the active item also has the neutral fill as background.
+- **Sidebar header:** "LevelUP" as plain text at the top, until there is a logo.
+- **No shadcn/ui `Sidebar` component.** The sidebar is a short, fixed list of four links; the component brings collapsing, mobile sheets and state the app does not need.
+- **Page header:** `PageHeader` is at least 44px tall (the height of the Home avatar), so the title sits at the same height on every page and does not jump when switching tabs.
 
 ---
 
@@ -102,7 +108,7 @@ _Last updated: 2026-10-28_
 |---|---|---|
 | Framework | React + TypeScript + Vite | Familiar, fast, strongly typed |
 | Styling | Tailwind CSS v4 + shadcn/ui | Consistent design system; components live in the codebase and can be customised |
-| Routing | React Router | Standard routing solution |
+| Routing | React Router 8 (data mode) | Standard routing solution; see below |
 | Server state | TanStack Query | Handles loading, errors, caching and refetching consistently |
 | Forms | React Hook Form + Zod | Performant forms with schema validation |
 | Charts | Recharts | Simple, composable React charts |
@@ -120,6 +126,52 @@ _Last updated: 2026-10-28_
 
 **Why:** It is the industry standard, with wide documentation and plugin support. Oxlint's speed advantage is not significant at this project's size.
 
+### React Router 8 in data mode
+**Decision:** Routes are defined with `createBrowserRouter` (data mode), not with `<BrowserRouter>` and `<Routes>` (declarative mode).
+
+**Why:** Data mode enables features the app will need:
+- **`lazy` per route**, to split each module into its own chunk.
+- **`<ScrollRestoration />`**: new pages open at the top, and back and forward restore the previous position.
+- **`useBlocker`**, to warn before leaving the active workout (Phase 4).
+- **An `ErrorBoundary` per route**, so an error shows an error screen instead of a blank page.
+
+**Lazy loading:** pages are imported eagerly for now. Each one moves to `lazy` once its module has real code; splitting empty pages would only add requests.
+
+**Package:** React Router 8 has no `react-router-dom` package. Everything is imported from `react-router`, except `RouterProvider`, which comes from `react-router/dom`.
+
+### Route structure
+Defined in `src/router.tsx`:
+- **A root route with the `ErrorBoundary`** (`RouteError`) and no component of its own. The error screen therefore renders outside the app shell, without navigation, which still works if the shell itself fails.
+- **`AppShell`** (sidebar, tab bar, `<ScrollRestoration />`) wraps every page with navigation.
+- **The 404 page** (`path: '*'`) is inside the shell, so the navigation stays available to leave it.
+- **Full-screen screens** (the active workout, Phase 4) are added as siblings of `AppShell`, so they render without the tab bar.
+
+**URLs are in Portuguese**, matching the interface language:
+
+| Path | Page |
+|---|---|
+| `/` | Home ("Início") |
+| `/treino` | Workout ("Treino") |
+| `/peso` | Weight ("Peso") |
+| `/financas` | Finance ("Finanças") |
+| `/definicoes` | Settings ("Definições"), reached through the avatar on Home |
+
+### Mobile baseline
+Applied in `index.html` and `src/index.css` so the app feels native on the iPhone:
+- **`viewport-fit=cover`** with safe area insets (`env(safe-area-inset-*)`): content clears the notch, the home indicator and, in landscape, the rounded corners.
+- **No tap highlight** (`-webkit-tap-highlight-color: transparent`). Controls provide their own `:active` feedback.
+- **Controls** (buttons and navigation links) use `touch-action: manipulation` (no double-tap delay) and cannot be selected or show the callout on long press. Content text stays selectable.
+- **Inputs are 16px on touch screens** (`pointer: coarse`), because iOS zooms into smaller inputs. This is a base style: a smaller text utility on an input overrides it, so inputs must not use one on touch screens.
+- **`min-h-dvh`** instead of `100vh`, which is wrong on iOS when the browser toolbar shows or hides.
+- **The iOS bounce (overscroll) is kept.** It is the expected native behaviour, and there is no pull-to-refresh or custom gesture that needs it disabled.
+
+### Touch targets
+**Decision:** On touch screens (`pointer: coarse`), the `default`, `lg`, `icon` and `icon-lg` button sizes are 44px (`pointer-coarse:h-11` and `pointer-coarse:size-11` in `src/components/ui/button.tsx`). `xs` and `sm` (and their icon versions) are unchanged; they are meant for dense desktop UI.
+
+**Why:** 44px is Apple's minimum touch target. The shadcn/ui sizes (32 to 36px) are designed for a mouse.
+
+**Warning:** `shadcn add button --overwrite` replaces the file and removes these changes, as it does with `ring-ring` (see *Focus ring*). Check both after every overwrite.
+
 ### shadcn/ui on Base UI
 **Decision:** shadcn/ui components are built on Base UI (`shadcn init -b base`, `base-nova` style, `neutral` base colour), not Radix.
 
@@ -131,6 +183,7 @@ _Last updated: 2026-10-28_
 - **The `shadcn` package is a dev dependency.** `src/index.css` imports `shadcn/tailwind.css` from it (shared variants and animations for the components), so it must be installed, but it is only used at build time and is not part of the JavaScript bundle.
 - **ESLint:** the `react-refresh/only-export-components` rule is disabled only for `src/components/ui/`. These are generated files that export variants alongside components.
 - **Known `npm audit` findings:** 3 low-severity issues in `deepmerge` (prototype poisoning, GHSA-gcqx-w48m-w2h4), reached through the shadcn CLI (`shadcn` → `@shadcn/registry`). The code only runs inside the CLI and never reaches the bundle. `npm audit fix --force` would downgrade `shadcn` to 1.0.0, so the findings are accepted until shadcn updates the dependency.
+- **The `cn` package** (about 26 kB minified), which the generated components import, entered the bundle with the navigation bars. Lighter alternatives (such as `cn/lite`) will be evaluated later.
 
 ### Installable on iPhone (no App Store)
 **Decision:** A web app manifest and icon allow installation through Safari's "Add to Home Screen". No native app.
@@ -237,6 +290,8 @@ Skills live in `.claude/skills/` and are pinned in `skills-lock.json`.
 **Why:** Real daily use surfaces problems early, while they are still easy to fix.
 
 **Requirement:** A backup strategy must be in place before the first deploy, because the Supabase free plan does not include automatic backups.
+
+**Routing on Vercel:** the app uses client-side routing, so Vercel needs a rewrite that serves `index.html` for every path. Without it, opening or reloading a URL such as `/treino` returns a 404.
 
 ### Costs
 The MVP runs on free tiers: GitHub, Supabase Free and Vercel Hobby (personal, non-commercial use).

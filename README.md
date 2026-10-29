@@ -4,7 +4,7 @@ A personal life dashboard to track gym workouts, body weight and personal financ
 
 [![CI](https://github.com/Canicoop/levelup/actions/workflows/ci.yml/badge.svg)](https://github.com/Canicoop/levelup/actions/workflows/ci.yml)
 
-> **Status:** 🚧 In development. Phase 1 (repository and environment) is complete; Phase 2 (visual foundation) is next.
+> **Status:** 🚧 In development. Phase 1 (repository and environment) is complete. Phase 2 (visual foundation and navigation) is in progress: the visual identity, mobile baseline and navigation (bottom tab bar on mobile, sidebar on desktop) are in place, with empty pages for each module.
 
 ## Planned features (MVP)
 
@@ -39,8 +39,8 @@ A personal life dashboard to track gym workouts, body weight and personal financ
 | Frontend | React 19, TypeScript 6, Vite 8 | ✅ In use |
 | Linting | ESLint with typescript-eslint | ✅ In use |
 | CI | GitHub Actions | ✅ In use |
-| UI | Tailwind CSS v4, shadcn/ui | Planned |
-| Routing | React Router | Planned |
+| UI | Tailwind CSS v4, shadcn/ui | ✅ In use |
+| Routing | React Router 8 | ✅ In use |
 | Data fetching | TanStack Query | Planned |
 | Forms | React Hook Form, Zod | Planned |
 | Charts | Recharts | Planned |
