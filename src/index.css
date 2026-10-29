@@ -170,11 +170,36 @@
   }
   html {
     @apply font-sans;
+    /* No gray flash on tap; controls provide their own :active feedback. */
+    -webkit-tap-highlight-color: transparent;
+    /* No font inflation in landscape on iOS. */
+    -webkit-text-size-adjust: 100%;
   }
   body {
     @apply bg-background text-foreground;
     font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Controls: no double-tap delay, no text selection or callout on long press.
+     Content text stays selectable. */
+  button,
+  [role='button'],
+  nav a {
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /* iOS zooms into inputs under 16px. This is a base default: utilities
+     override it, so inputs must not use a smaller size on touch screens. */
+  @media (pointer: coarse) {
+    input,
+    textarea,
+    select {
+      font-size: 16px;
+    }
   }
 }
