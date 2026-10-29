@@ -1,10 +1,19 @@
 import { UserRound } from 'lucide-react'
 import { Link } from 'react-router'
 import { PageHeader } from '@/components/layout/page-header'
+import { getGreeting } from '@/features/home/lib/greeting'
+import { useNow } from '@/hooks/use-now'
+import { formatLongDate, toISODate } from '@/lib/format'
 
 export function HomePage() {
+  const now = useNow()
+
   return (
-    <PageHeader title="Início">
+    <PageHeader
+      title={getGreeting(now)}
+      documentTitle="Início"
+      subtitle={<time dateTime={toISODate(now)}>{formatLongDate(now)}</time>}
+    >
       {/* Settings and account live behind the avatar, not in a tab. */}
       <Link
         to="/definicoes"
