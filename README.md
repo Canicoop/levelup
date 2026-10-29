@@ -4,7 +4,7 @@ A personal life dashboard to track gym workouts, body weight and personal financ
 
 [![CI](https://github.com/Canicoop/levelup/actions/workflows/ci.yml/badge.svg)](https://github.com/Canicoop/levelup/actions/workflows/ci.yml)
 
-> **Status:** 🚧 In development. Phase 1 (repository and environment) is complete. Phase 2 (visual foundation and navigation) is in progress: the visual identity, mobile baseline and navigation (bottom tab bar on mobile, sidebar on desktop) are in place, with empty pages for each module.
+> **Status:** 🚧 In development. Phase 1 (repository and environment) is complete. Phase 2 (visual foundation and navigation) is in progress: the visual identity, mobile baseline and navigation (bottom tab bar on mobile, sidebar on desktop) are in place. Home has a greeting, quick actions and a card per module with empty states, and loading, empty and error states are shared components. The other pages are still empty.
 
 ## Planned features (MVP)
 

@@ -65,6 +65,8 @@ _Last updated: 2026-10-29_
 
 - **Neutral fill:** the palette had no neutral fill for shadcn/ui's `muted`, `secondary` and `accent` roles, so it reuses heatmap level 0 instead of introducing a new colour.
 - **Focus ring:** Secondary text at full opacity, 5.4 to 6.0:1 against the background and the surface. shadcn/ui's default 50% opacity gives only 2.1 to 2.3:1, below the 3:1 minimum for focus indicators, so generated components use `ring-ring` instead of `ring-ring/50`. Check this after every `shadcn add`.
+- **Skeleton:** loading placeholders use the border colour (`bg-border`), not the neutral fill. On the dark-theme surface the neutral fill (`#1C1E22` on `#141518`) is barely visible.
+- **Content width:** the main area is capped at `max-w-4xl` (56rem including padding, 52rem of content), with 1rem side padding on mobile and 2rem from 1024px. It fits three cards in a row next to the sidebar. Pages that need a narrower measure (forms, long text) constrain themselves.
 
 ### Navigation
 - **Mobile:** a bottom tab bar with four tabs: Home ("Início"), Workout ("Treino"), Weight ("Peso") and Finance ("Finanças"). They cover the MVP modules.
@@ -78,6 +80,17 @@ _Last updated: 2026-10-29_
 - **Sidebar header:** "LevelUP" as plain text at the top, until there is a logo.
 - **No shadcn/ui `Sidebar` component.** The sidebar is a short, fixed list of four links; the component brings collapsing, mobile sheets and state the app does not need.
 - **Page header:** `PageHeader` is at least 44px tall (the height of the Home avatar), so the title sits at the same height on every page and does not jump when switching tabs.
+
+### Home
+- **Greeting by local time:** "Bom dia" from 06:00, "Boa tarde" from 12:00 and "Boa noite" from 20:00. Below it, the date in European Portuguese (`Intl.DateTimeFormat('pt-PT')`, for example "quinta-feira, 29 de outubro"). No user name until there is login (Phase 3).
+- **The greeting is the page heading.** The browser tab still reads "Início". The date sits below the 44px title row, so the heading stays at the same height as on every other page.
+- **Kept up to date:** an installed app can stay in memory for hours, so the greeting and the date refresh every minute and when the app returns to the foreground (`useNow`, `src/hooks/use-now.ts`).
+- **Quick actions:** three equal tiles ("Iniciar treino", "Registar peso", "Adicionar despesa") with the same icons as the navigation. Icon above the label on phones, beside it from 640px. Neutral surface only: the accent colour is reserved for data. For now they open each module; they will open the action itself once the forms exist.
+- **One card per module** (Workout, Weight, Finance), in the navigation order. Until there is data, each card shows an empty state. No placeholder numbers.
+- **Only the card title links to the module**, not the whole card: once the cards hold data (heatmap, charts) they will have controls of their own, and interactive elements cannot be nested inside a link.
+- **No button in the empty states on Home:** the quick actions above already offer them.
+- **Grid:** one column below 1024px, three from 1024px. The cards use the same gap as the quick actions (12px), so their columns line up.
+- **Touch targets:** the avatar, quick actions and card titles are at least 44px with any pointer, not only on touch screens.
 
 ---
 
@@ -135,7 +148,7 @@ _Last updated: 2026-10-29_
 - **`useBlocker`**, to warn before leaving the active workout (Phase 4).
 - **An `ErrorBoundary` per route**, so an error shows an error screen instead of a blank page.
 
-**Lazy loading:** pages are imported eagerly for now. Each one moves to `lazy` once its module has real code; splitting empty pages would only add requests.
+**Lazy loading:** pages are imported eagerly for now. Each one moves to `lazy` once its module has real code; splitting empty pages would only add requests. The exception is the development-only page (see *Development-only page*).
 
 **Package:** React Router 8 has no `react-router-dom` package. Everything is imported from `react-router`, except `RouterProvider`, which comes from `react-router/dom`.
 
@@ -156,6 +169,8 @@ Defined in `src/router.tsx`:
 | `/financas` | Finance ("Finanças") |
 | `/definicoes` | Settings ("Definições"), reached through the avatar on Home |
 
+In development only, `/dev/componentes` previews the shared states (see *Development-only page*).
+
 ### Mobile baseline
 Applied in `index.html` and `src/index.css` so the app feels native on the iPhone:
 - **`viewport-fit=cover`** with safe area insets (`env(safe-area-inset-*)`): content clears the notch, the home indicator and, in landscape, the rounded corners.
@@ -171,6 +186,24 @@ Applied in `index.html` and `src/index.css` so the app feels native on the iPhon
 **Why:** 44px is Apple's minimum touch target. The shadcn/ui sizes (32 to 36px) are designed for a mouse.
 
 **Warning:** `shadcn add button --overwrite` replaces the file and removes these changes, as it does with `ring-ring` (see *Focus ring*). Check both after every overwrite.
+
+### Shared states
+Loading, empty and error states are shared components, so every module handles them the same way.
+- **`Skeleton`** (`src/components/ui/skeleton.tsx`, from shadcn/ui): uses the border colour (see *Skeleton*) and stops pulsing when reduced motion is on (`motion-reduce:animate-none`).
+- **`EmptyState`** (`src/components/empty-state.tsx`): optional icon, title, description and action. Left-aligned and without a border or background of its own, so it sits inside a card without becoming a card within a card. shadcn/ui's `Empty` component is not used: its centred, dashed style reads as a generic template.
+- **`ErrorState`** (`src/components/error-state.tsx`): a message and a "Tentar outra vez" button, announced with `role="alert"`. The muted red marks only the icon.
+- **Loading pattern:** the container has `aria-busy="true"` and a visually hidden "A carregar…" label; the skeletons are hidden from assistive technology (`aria-hidden`).
+
+### Development-only page
+**Decision:** `/dev/componentes` previews the shared states. The route is registered only when `import.meta.env.DEV` is true, with a dynamic `import()`, so the production build contains neither the page nor a chunk for it.
+
+**Why:** the states can be checked at real widths, in both themes, before any module uses them, without shipping a hidden page.
+
+**Verified:** after `npm run build`, none of the page's text appears in `dist/`, and `npm run preview` shows the 404 page at that address.
+
+**Known side effects:**
+- Tailwind scans all of `src/`, so the page's utility classes still end up in the production CSS: a small amount of CSS, with no content and no JavaScript.
+- In development, opening the page directly logs a React Router warning about a missing `HydrateFallback`, because it is the only lazy route. The warning does not appear in production.
 
 ### shadcn/ui on Base UI
 **Decision:** shadcn/ui components are built on Base UI (`shadcn init -b base`, `base-nova` style, `neutral` base colour), not Radix.
@@ -276,6 +309,10 @@ Skills live in `.claude/skills/` and are pinned in `skills-lock.json`.
 **Decision:** The Playwright MCP server is configured in `.mcp.json`, pinned to `@playwright/mcp@0.0.83`, and runs Playwright's Chromium in isolated mode.
 
 **Note:** The configuration uses a `cmd /c` wrapper, which only works on Windows. On other systems, the configuration must be adjusted.
+
+**`browser_run_code_unsafe` is denied** in `.claude/settings.json`. It runs arbitrary JavaScript in the Playwright server process, outside the page, which is equivalent to running code on the machine. Checks use the tools that act inside the page instead (`browser_navigate`, `browser_resize`, `browser_emulate_media`, `browser_evaluate`, `browser_take_screenshot`).
+
+**Trade-off:** without it there is no control over the browser clock (`page.clock`) and no new browser contexts (such as touch emulation). Time-based logic is kept in pure functions (`getGreeting`, `formatLongDate`) so it can be tested directly, and with Vitest later. 44px touch targets that only apply on touch screens are checked through their classes (`pointer-coarse:h-11`).
 
 ### No Figma
 **Decision:** Figma is not used. Design is done directly in code.
