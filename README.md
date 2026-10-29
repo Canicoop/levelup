@@ -4,7 +4,7 @@ A personal life dashboard to track gym workouts, body weight and personal financ
 
 [![CI](https://github.com/Canicoop/levelup/actions/workflows/ci.yml/badge.svg)](https://github.com/Canicoop/levelup/actions/workflows/ci.yml)
 
-> **Status:** 🚧 In development. Phase 1 (repository and environment) is complete. Phase 2 (visual foundation and navigation) is in progress: the visual identity, mobile baseline and navigation (bottom tab bar on mobile, sidebar on desktop) are in place. Home has a greeting, quick actions and a card per module with empty states, and loading, empty and error states are shared components. The other pages are still empty.
+> **Status:** 🚧 In development. Phases 1 (repository and environment) and 2 (visual foundation and navigation) are complete. The app has its visual identity, mobile baseline and navigation, a Home screen with a greeting, quick actions and a card per module, shared loading, empty and error states, and an icon and web manifest, so it can be added to the iPhone home screen. The module pages are still empty. Next: Phase 3 (Supabase, authentication and security).
 
 ## Planned features (MVP)
 
@@ -82,7 +82,7 @@ Then open http://localhost:5173.
 
 - [x] **Phase 0** — Planning, MVP and architecture
 - [x] **Phase 1** — Repository, development environment and CI
-- [ ] **Phase 2** — Visual foundation and navigation
+- [x] **Phase 2** — Visual foundation and navigation
 - [ ] **Phase 3** — Supabase, authentication and security
 - [ ] **Phase 4** — Gym module
 - [ ] **Phase 5** — First production deploy

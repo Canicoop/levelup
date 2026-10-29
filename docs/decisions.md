@@ -92,6 +92,53 @@ _Last updated: 2026-10-29_
 - **Grid:** one column below 1024px, three from 1024px. The cards use the same gap as the quick actions (12px), so their columns line up.
 - **Touch targets:** the avatar, quick actions and card titles are at least 44px with any pointer, not only on touch screens.
 
+### App icon
+**Decision:** an "L" made of five heatmap cells on graphite (`#121314`). It is drawn on a 100×100 grid and every cell has `rx="4"`.
+
+**Why:** the cells come from the workout heatmap, and the "L" stands for LevelUP. The icon is drawn with the data colours, which keeps it inside the Graphite identity. A solid "L" with a separate block was considered and dropped: it looked like the symbol of an existing brand.
+
+**Two versions:**
+
+| | App | Favicon |
+|---|---|---|
+| Used for | `apple-touch-icon.png` and the manifest icons | `favicon.svg` and `favicon.ico` |
+| Cells | 16×16 at (22,22), (22,42), (22,62), (42,62), (62,62) | 18×18 at (20,20), (20,41), (20,62), (41,62), (62,62) |
+| Colours, top to end of the "L" | `#8FB0DD`, `#3E5F8C`, `#26354B`, `#3E5F8C`, `#8FB0DD` | `#8FB0DD`, `#6F89AE`, `#3E5F8C`, `#6F89AE`, `#8FB0DD` |
+| Background | `#121314` | `#121314`, `rx="22"` |
+
+- **The favicon has larger cells and lighter tones**, so the "L" still reads at 16–32px.
+- **Colours:** every cell colour comes from the heatmap scales in the palette. The background is the light theme's text colour.
+
+**Files:**
+
+| File | Source | Size | Background |
+|---|---|---|---|
+| `public/apple-touch-icon.png` | `assets/icons/icon-square.svg` | 180×180 | Full square, opaque: iOS rounds the corners itself |
+| `public/icon-192.png`, `public/icon-512.png` | `assets/icons/icon.svg` | 192, 512 | `rx="22"`, transparent corners (`purpose: "any"`) |
+| `public/icon-maskable-512.png` | `assets/icons/icon-maskable.svg` | 512×512 | Full square (`purpose: "maskable"`) |
+| `public/favicon.svg` | itself | vector | `rx="22"` |
+| `public/favicon.ico` | `public/favicon.svg` | 32×32 | `rx="22"`, transparent corners |
+
+- **Maskable at 80%:** Android crops maskable icons to its own shapes and only guarantees a centred circle of 80% diameter (the safe zone). The cells are scaled to 80% around the centre (`transform` in the SVG). The farthest corner of the "L" then sits 31.7 units from the centre, inside the safe zone's radius of 40. At full size it would sit at 39.6, right on the edge.
+- **Generation:** the SVG files are the single source. `npm run icons` runs `scripts/generate-icons.ts`:
+  - `@resvg/resvg-js` (a dev dependency, pinned to the exact version 2.6.2) renders the PNGs;
+  - the ICO is built by hand around the 32×32 PNG: a 22-byte header followed by the PNG, which every current browser supports;
+  - the output is deterministic, so running the script again changes nothing.
+
+  The generated files are committed, so the build does not depend on resvg. resvg ships a prebuilt native binary per platform; it is only run by hand, never in the build or the bundle.
+- **Favicon on a dark tab bar:** the background (`#121314`) barely stands out from a dark tab bar, so only the "L" shows. Accepted.
+
+#### Manifest and iOS
+- **`public/manifest.webmanifest`:**
+  - name and short name "LevelUP", description "O teu painel pessoal de treino, peso e finanças.", `lang` `pt-PT`;
+  - `id`, `start_url` and `scope` `/`, `display: "standalone"`, and no `orientation`, so the app rotates with the device;
+  - icons: 192 and 512 for `any`, and 512 for `maskable`.
+- **Dark background in the manifest:** `background_color` and `theme_color` are `#0B0C0E`, the dark-theme background. The manifest takes a single colour, not one per theme. On launch, Android shows the icon centred on the `background_color`; on a dark background the icon's graphite square blends into that screen, with no outline around it.
+- **`theme-color` per theme** in `index.html`: `#F4F4F3` with `prefers-color-scheme: light` and `#0B0C0E` with `dark`, the background of each theme.
+- **iOS:** `index.html` links `apple-touch-icon.png` and sets `apple-mobile-web-app-title` to "LevelUP". There is no `apple-mobile-web-app-capable`: `display: "standalone"` in the manifest already opens the app full screen.
+- **No `apple-mobile-web-app-status-bar-style`.** Tested on an iPhone over the local network (2026-10-29): the icon and the name show correctly, the app opens full screen, and with the default style the status bar is readable in both themes. `black-translucent` would force white status bar text, which is unreadable on the light theme.
+- **No service worker yet.** Offline support (see *Offline handling*) comes later.
+
 ---
 
 ## Architecture
@@ -222,6 +269,8 @@ Loading, empty and error states are shared components, so every module handles t
 **Decision:** A web app manifest and icon allow installation through Safari's "Add to Home Screen". No native app.
 
 **Why:** Free, no App Store account required, and the app opens full screen like a native app.
+
+Icons, manifest and iOS details: see *App icon*.
 
 ### Offline handling
 **Decision:** The in-progress workout is persisted on the device and synced when finished. Full offline support is out of scope.

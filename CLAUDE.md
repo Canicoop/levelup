@@ -5,7 +5,7 @@ LevelUP is a mobile-first personal life dashboard (gym, body weight, finance, da
 
 - Product scope and all technical decisions: `docs/decisions.md`. Read it before planning any work.
 - Roadmap and setup: `README.md`.
-- **Current phase: Phase 2 — Visual foundation and navigation.**
+- **Current phase: Phase 3 — Supabase, authentication and security.**
 
 ## How we work (mandatory)
 1. **Communicate with the user in European Portuguese.** Code, comments, commit messages and documentation are written in English.
