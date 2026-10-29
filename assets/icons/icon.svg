@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- App icon: an "L" of five heatmap cells on graphite. Source of icon-192.png and icon-512.png. -->
+  <rect width="100" height="100" rx="22" fill="#121314"/>
+  <rect x="22" y="22" width="16" height="16" rx="4" fill="#8FB0DD"/>
+  <rect x="22" y="42" width="16" height="16" rx="4" fill="#3E5F8C"/>
+  <rect x="22" y="62" width="16" height="16" rx="4" fill="#26354B"/>
+  <rect x="42" y="62" width="16" height="16" rx="4" fill="#3E5F8C"/>
+  <rect x="62" y="62" width="16" height="16" rx="4" fill="#8FB0DD"/>
+</svg>

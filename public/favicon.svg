@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Favicon: larger cells and a lighter scale than the app icon, so the "L" reads at 16-32px.
+       Source of favicon.ico. -->
+  <rect width="100" height="100" rx="22" fill="#121314"/>
+  <rect x="20" y="20" width="18" height="18" rx="4" fill="#8FB0DD"/>
+  <rect x="20" y="41" width="18" height="18" rx="4" fill="#6F89AE"/>
+  <rect x="20" y="62" width="18" height="18" rx="4" fill="#3E5F8C"/>
+  <rect x="41" y="62" width="18" height="18" rx="4" fill="#6F89AE"/>
+  <rect x="62" y="62" width="18" height="18" rx="4" fill="#8FB0DD"/>
+</svg>
