@@ -1,6 +1,8 @@
-import { UserRound } from 'lucide-react'
+import { Dumbbell, Scale, UserRound, Wallet } from 'lucide-react'
 import { Link } from 'react-router'
+import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/layout/page-header'
+import { ModuleCard } from '@/features/home/components/module-card'
 import { QuickActions } from '@/features/home/components/quick-actions'
 import { getGreeting } from '@/features/home/lib/greeting'
 import { useNow } from '@/hooks/use-now'
@@ -26,6 +28,30 @@ export function HomePage() {
         </Link>
       </PageHeader>
       <QuickActions />
+      {/* gap-3 matches the quick actions, so the columns line up on desktop. */}
+      <div className="grid gap-3 lg:grid-cols-3">
+        <ModuleCard to="/treino" title="Treino">
+          <EmptyState
+            icon={Dumbbell}
+            title="Ainda não registaste nenhum treino"
+            description="Aqui vais ver o teu último treino e os dias em que treinaste."
+          />
+        </ModuleCard>
+        <ModuleCard to="/peso" title="Peso">
+          <EmptyState
+            icon={Scale}
+            title="Ainda não registaste o teu peso"
+            description="Aqui vais ver o teu peso mais recente e a evolução."
+          />
+        </ModuleCard>
+        <ModuleCard to="/financas" title="Finanças">
+          <EmptyState
+            icon={Wallet}
+            title="Ainda não adicionaste nenhuma despesa"
+            description="Aqui vais ver quanto gastaste este mês e quanto resta do orçamento."
+          />
+        </ModuleCard>
+      </div>
     </div>
   )
 }
