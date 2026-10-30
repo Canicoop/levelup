@@ -2,6 +2,7 @@ import { createBrowserRouter } from 'react-router'
 import { RouteError } from '@/components/errors/route-error'
 import { NotFoundPage } from '@/components/errors/not-found-page'
 import { AppShell } from '@/components/layout/app-shell'
+import { SignInPage } from '@/features/auth/pages/sign-in-page'
 import { FinancePage } from '@/features/finance/pages/finance-page'
 import { HomePage } from '@/features/home/pages/home-page'
 import { SettingsPage } from '@/features/settings/pages/settings-page'
@@ -14,6 +15,8 @@ export const router = createBrowserRouter([
   {
     ErrorBoundary: RouteError,
     children: [
+      // Full screen, without navigation.
+      { path: 'entrar', Component: SignInPage },
       {
         // Screens with navigation. Full-screen screens (the active workout,
         // Phase 4) are siblings of this route, so they render without it.
