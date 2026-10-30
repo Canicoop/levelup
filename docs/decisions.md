@@ -160,7 +160,7 @@ _Last updated: 2026-10-30_
 
 **Why:** Supabase's built-in email service only delivers to the project's team members, with a very low rate limit, so confirmation and password-reset emails would not reach anyone else without a custom SMTP provider. Google sign-in needs no email delivery at all.
 
-**Current limit:** while the Google OAuth app is in testing mode, only the test users added in Google Cloud (up to 100) can sign in. Publishing the app is planned for Phase 5.
+**Testing mode:** the Google OAuth app is in testing mode, but it only asks for the identity scopes (name, email, profile), so the test-user list does not apply and any Google account can sign in. This was confirmed with an account that is not a test user. Publishing the app is only needed to show its name and logo on Google's sign-in screen.
 
 ---
 
@@ -238,7 +238,7 @@ Google's account chooser shows the Supabase project's domain (`<project>.supabas
 - **iPhone, installed app:** Google opened in a sheet on top of the app and returned with a session. To repeat the test over HTTPS:
   1. start a temporary Cloudflare tunnel: `cloudflared tunnel --url http://localhost:5173`;
   2. add the `trycloudflare.com` address it prints to Supabase's Redirect URLs;
-  3. start Vite with `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS='.trycloudflare.com'`, so it accepts the tunnel's host without changing `vite.config.ts`;
+  3. start Vite so it accepts the tunnel's host, without changing `vite.config.ts` (PowerShell): `$env:__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS = '.trycloudflare.com'; npm run dev`;
   4. open the address on the iPhone, add the app to the home screen and sign in from it;
   5. at the end, stop the tunnel and remove the address from Supabase's Redirect URLs.
 - **Supabase blocked** (DevTools request conditions), with an expired token:
@@ -474,7 +474,6 @@ The MVP runs on free tiers: GitHub, Supabase Free and Vercel Hobby (personal, no
 **Known limits:**
 - Free Supabase projects pause after a week of inactivity.
 - No automatic backups on the free plan.
-- Google sign-in in testing mode: only test users (up to 100) until the app is published (see *Sign-in with Google only*).
 
 **Optional costs:** custom domain.
 
@@ -484,10 +483,9 @@ The MVP runs on free tiers: GitHub, Supabase Free and Vercel Hobby (personal, no
 
 | Question | When |
 |---|---|
-| Confirm that a Google account that is not a test user is refused (on the first day a non-test account got in, probably before the configuration propagated) | Phase 3 |
 | Offline mode and service worker (today the app does not open without network, and opening it with an expired token on a weak network waits up to 30 s) | Phase 4 |
 | Backup strategy | Before Phase 5 |
-| Publish the Google OAuth app and complete its Branding | Phase 5 |
+| Publish the Google OAuth app and complete its Branding (optional: only to show the app's name and logo on Google's sign-in screen) | Phase 5 |
 | Create the production Supabase project (`levelup-prod`) | Phase 5 |
 | Custom domain | Phase 5 (optional) |
 | Lazy loading per module, to address Vite's 500 kB chunk warning | When the modules have code |
