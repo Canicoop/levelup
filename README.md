@@ -4,7 +4,7 @@ A personal life dashboard to track gym workouts, body weight and personal financ
 
 [![CI](https://github.com/Canicoop/levelup/actions/workflows/ci.yml/badge.svg)](https://github.com/Canicoop/levelup/actions/workflows/ci.yml)
 
-> **Status:** 🚧 In development. Phases 1 (repository and environment) and 2 (visual foundation and navigation) are complete. The app has its visual identity, mobile baseline and navigation, a Home screen with a greeting, quick actions and a card per module, shared loading, empty and error states, and an icon and web manifest, so it can be added to the iPhone home screen. The module pages are still empty. Next: Phase 3 (Supabase, authentication and security).
+> **Status:** 🚧 In development. Phases 1 (repository and environment) and 2 (visual foundation and navigation) are complete. Phase 3 (Supabase, authentication and security) is in progress: the app is connected to Supabase, users sign in with Google, and every page needs a session. The app also has its visual identity, navigation, a Home screen with quick actions and a card per module, shared loading, empty and error states, and an icon and web manifest for the iPhone home screen. The module pages are still empty.
 
 ## Planned features (MVP)
 
@@ -41,10 +41,10 @@ A personal life dashboard to track gym workouts, body weight and personal financ
 | CI | GitHub Actions | ✅ In use |
 | UI | Tailwind CSS v4, shadcn/ui | ✅ In use |
 | Routing | React Router 8 | ✅ In use |
-| Data fetching | TanStack Query | Planned |
+| Data fetching | TanStack Query | ✅ In use |
 | Forms | React Hook Form, Zod | Planned |
 | Charts | Recharts | Planned |
-| Backend | Supabase (PostgreSQL, Auth, Row Level Security) | Planned |
+| Backend | Supabase (PostgreSQL, Auth, Row Level Security) | ✅ In use |
 | Testing | Vitest, React Testing Library, Playwright | Planned |
 | Hosting | Vercel | Planned |
 
@@ -67,7 +67,7 @@ npm run dev
 
 Then open http://localhost:5173.
 
-> Environment variables are not required yet. They will be needed once Supabase is added (Phase 3). Fill in `.env.local` with your own values and **never commit it**.
+> Environment variables are required: `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`, from your own Supabase project. Fill them in `.env.local` and **never commit it**; without them the app stops with an error naming the missing variable. Signing in also needs the Google provider enabled in that project, with `http://localhost:5173/**` in its Redirect URLs.
 
 ## Scripts
 

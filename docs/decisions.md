@@ -2,7 +2,7 @@
 
 This document records the main technical and product decisions for LevelUP, and the reasons behind them. New decisions are added as the project evolves.
 
-_Last updated: 2026-10-29_
+_Last updated: 2026-10-30_
 
 ---
 
@@ -155,10 +155,97 @@ _Last updated: 2026-10-29_
 
 **Why:** Friends may use the app. Designing for multiple users from the start avoids a rewrite later.
 
-### Open registration
-**Decision:** Anyone can sign up, with email confirmation.
+### Sign-in with Google only
+**Decision:** Users sign in only with Google. There is no email and password, and the Email provider is disabled in Supabase. Signing in for the first time creates the account, so there is no separate sign-up screen.
 
-**Open question:** Supabase's built-in email service only delivers to project team members and has a very low rate limit. Before real users sign up, either Google sign-in or a custom SMTP provider is required. To be decided in Phase 3.
+**Why:** Supabase's built-in email service only delivers to the project's team members, with a very low rate limit, so confirmation and password-reset emails would not reach anyone else without a custom SMTP provider. Google sign-in needs no email delivery at all.
+
+**Current limit:** while the Google OAuth app is in testing mode, only the test users added in Google Cloud (up to 100) can sign in. Publishing the app is planned for Phase 5.
+
+---
+
+## Authentication
+
+### Client options
+- **PKCE flow** (`flowType: 'pkce'`): Google returns a one-time code, not tokens in the URL. The client exchanges it when the app loads (`detectSessionInUrl`).
+- **Default storage and automatic refresh:** the session lives in `localStorage` (`persistSession`) and the access token is refreshed before it expires (`autoRefreshToken`).
+- **Account chooser:** sign-in passes `prompt: 'select_account'`, so after signing out the next sign-in can switch accounts instead of reusing the last one silently.
+
+### Session store
+**Decision:** one subscription to `onAuthStateChange` for the whole app (`src/features/auth/session.ts`), read by components through `useSession()`, which uses `useSyncExternalStore`.
+
+**Why:** a single source of truth; separate subscriptions per component could briefly disagree. `useSyncExternalStore` is React's way to read external state without effects or tearing. The state is `loading` until `INITIAL_SESSION` arrives, then `signed-in` or `signed-out`.
+
+The callback only stores the session and notifies: Supabase warns that awaiting other Supabase calls inside it can deadlock.
+
+### Route protection
+**Decision:** the checks run in route loaders, not in components:
+- `requireSession` on the app shell route: without a session, redirect to `/entrar?next=<page>`.
+- `redirectIfSignedIn` on `/entrar`: with a session, go back into the app.
+
+**Why:** loaders run before anything is drawn, so a protected page never flashes, and `getSession()` waits for the client to start, including the code exchange when returning from Google.
+
+**Revalidation:** the shell route has no path of its own, so React Router does not re-run its loader when moving between pages. A sign-out is picked up by `router.revalidate()` instead (see *Sign-out*).
+
+**Offline with an expired access token:** `getSession()` retries the refresh for up to 30 seconds and then returns no session, although the session is still stored. `requireSession` treats that network error as "stay in the app"; the token is refreshed once the network is back.
+
+### Returning to the requested page
+**Decision:** the requested page is kept in `sessionStorage` (`levelup:return-path`) while the browser goes to Google and back. The `redirectTo` sent to Supabase is always `/entrar`.
+
+**Why:** Supabase's documentation does not say how query strings are matched against the Redirect URLs list, and a URL that does not match could fall back to the Site URL silently. This way the page never travels through Supabase's or Google's URLs.
+
+**Validation** (`getSafeReturnPath`, a pure function), applied when the path is saved and again when it is read:
+- it must start with `/` and not with `//`;
+- no backslash and no control characters (browsers treat `\` as `/`, and the URL parser drops tabs and newlines, so `/\t/evil.com` would become `//evil.com`);
+- resolved with `new URL(path, origin)`, it must keep the app's origin, and only `pathname + search + hash` is used;
+- the final path must not start with `//` either: `/..//evil.com` resolves to `//evil.com`, which React Router's `redirect()` treats as an external URL;
+- `/entrar` itself is refused, to avoid a loop;
+- anything else falls back to `/`.
+
+### Loading screen
+**Decision:** the root route has a `HydrateFallback` (`AppLoading`): only the background at first, and the app icon fading in after 400ms if loading takes longer, for example a token refresh on a slow network.
+
+**Why:** reading the session is usually instant, and a spinner for a few milliseconds would only flicker.
+
+### Sign-out
+**Decision:** "Terminar sessão" in Settings signs out on this device only (`scope: 'local'`), without confirmation, and goes to `/entrar`.
+
+**Without network:** the local session is still removed (the server is not told). The exception is an expired access token: the sign-out first tries to refresh it, for up to 30 seconds, and then fails without removing the session. The app detects this through the `SIGNED_OUT` event, without calling `getSession()` again, and shows "Sem ligação. Tenta terminar a sessão quando voltares a estar online."
+
+**Any sign-out** (this device, another tab, a revoked session) clears TanStack Query's cache and revalidates the router, so the previous user's data is dropped and the session guard sends the app to `/entrar`.
+- This lives in `src/main.tsx`, the only module that knows the store, the cache and the router, so none of them has to import another.
+- It runs in a `setTimeout`, because the loaders call `getSession()` and Supabase warns against calling it inside `onAuthStateChange`.
+- Other tabs receive the event through Supabase's `BroadcastChannel`.
+
+### Name and photo
+- **Fields:** Google's sign-in (through Supabase) stores `full_name` / `name` and `avatar_url` / `picture` in `user_metadata`; there is no `given_name`. The greeting uses the first word of the full name ("Boa tarde, Vitor").
+- **Validation:** `user_metadata` can be changed by the user through the API, so only non-empty text is used, and the photo only over `https:`.
+- **Photo:** loaded with `referrerPolicy="no-referrer"`, which Google photos may otherwise refuse. Without a photo, or if it fails, the avatar shows the initial in a neutral circle; without a name, the person icon.
+
+### Neutral state inside the app
+Inside the app the store can be `loading`, or `signed-out` while a session is still stored (offline with an expired token: `INITIAL_SESSION` arrives without a session). Screens handle it without errors:
+- the greeting has no name;
+- the avatar shows the person icon;
+- Settings shows "Conta indisponível", or skeletons while loading;
+- signing out stays available.
+
+### Google's sign-in screen
+Google's account chooser shows the Supabase project's domain (`<project>.supabase.co`), not LevelUP's. Showing our own domain requires Supabase's custom domain add-on, which is paid.
+
+### Tested
+- **Real sign-in on a PC:** the right account, the session kept after a reload, the button back to normal after going back from Google.
+- **Return path:** a deep page with a query string, and `//evil.com` in `sessionStorage` ignored and removed.
+- **iPhone, installed app:** Google opened in a sheet on top of the app and returned with a session. To repeat the test over HTTPS:
+  1. start a temporary Cloudflare tunnel: `cloudflared tunnel --url http://localhost:5173`;
+  2. add the `trycloudflare.com` address it prints to Supabase's Redirect URLs;
+  3. start Vite with `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS='.trycloudflare.com'`, so it accepts the tunnel's host without changing `vite.config.ts`;
+  4. open the address on the iPhone, add the app to the home screen and sign in from it;
+  5. at the end, stop the tunnel and remove the address from Supabase's Redirect URLs.
+- **Supabase blocked** (DevTools request conditions), with an expired token:
+  - after about 30 seconds the app opened in the neutral state;
+  - signing out showed the no-connection message;
+  - with the network back, the name and photo returned.
+- **Not reproduced:** once, during that test, the loading screen showed a broken image instead of the icon. The icon is inlined as a `data:` URI, so it needs no request, and it rendered correctly when tested on its own.
 
 ---
 
@@ -277,6 +364,8 @@ Icons, manifest and iOS details: see *App icon*.
 
 **Why:** Gyms often have poor connectivity, and losing logged sets is unacceptable. Full offline sync is significantly more complex.
 
+**Current state:** there is no service worker yet, so without network the app does not open at all. The wait of up to 30 seconds (see *Route protection*) only happens with a weak network or with Supabase unreachable. Offline support is planned for Phase 4.
+
 ---
 
 ## Data
@@ -385,7 +474,7 @@ The MVP runs on free tiers: GitHub, Supabase Free and Vercel Hobby (personal, no
 **Known limits:**
 - Free Supabase projects pause after a week of inactivity.
 - No automatic backups on the free plan.
-- Built-in email delivery is restricted (see *Open registration*).
+- Google sign-in in testing mode: only test users (up to 100) until the app is published (see *Sign-in with Google only*).
 
 **Optional costs:** custom domain.
 
@@ -395,6 +484,10 @@ The MVP runs on free tiers: GitHub, Supabase Free and Vercel Hobby (personal, no
 
 | Question | When |
 |---|---|
-| Email delivery: Google sign-in or custom SMTP | Phase 3 |
+| Confirm that a Google account that is not a test user is refused (on the first day a non-test account got in, probably before the configuration propagated) | Phase 3 |
+| Offline mode and service worker (today the app does not open without network, and opening it with an expired token on a weak network waits up to 30 s) | Phase 4 |
 | Backup strategy | Before Phase 5 |
+| Publish the Google OAuth app and complete its Branding | Phase 5 |
+| Create the production Supabase project (`levelup-prod`) | Phase 5 |
 | Custom domain | Phase 5 (optional) |
+| Lazy loading per module, to address Vite's 500 kB chunk warning | When the modules have code |

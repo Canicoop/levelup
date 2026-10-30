@@ -34,7 +34,7 @@ LevelUP is a mobile-first personal life dashboard (gym, body weight, finance, da
 ## Tech stack and conventions
 - React 19, Vite 8, ESLint with typescript-eslint.
 - **TypeScript is pinned to `~6.0.3`.** Do not upgrade to 7 until typescript-eslint supports it.
-- Planned: Tailwind CSS v4 (CSS-first configuration, no `tailwind.config.js`), shadcn/ui, React Router, TanStack Query, React Hook Form + Zod, Recharts, Supabase.
+- In use: Tailwind CSS v4 (CSS-first configuration, no `tailwind.config.js`), shadcn/ui, React Router, TanStack Query, Supabase. Planned: React Hook Form + Zod, Recharts.
 - Feature-based structure: `src/features/<feature>/` (components, pages, api, hooks, schemas). Shared code goes in `src/lib/` and `src/components/`.
 - Money is never stored or calculated as a floating point number.
 
