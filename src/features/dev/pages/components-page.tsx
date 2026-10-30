@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { UserAvatar } from '@/features/auth/components/user-avatar'
 
 // Development-only preview of the shared states. The route is registered only
 // when import.meta.env.DEV is true (see src/router.tsx).
@@ -46,7 +47,29 @@ export function ComponentsPage() {
       <Section title="Erro">
         <RetryDemo />
       </Section>
+      <Section title="Avatar">
+        <Card>
+          <CardContent className="flex flex-wrap gap-6 text-sm text-muted-foreground">
+            {/* URLs passed straight to the component: the https-only rule lives
+                in getUserProfile, not here. /nao-existe.png returns the app's
+                HTML, so the image fails and falls back to the initial. */}
+            <AvatarSample label="Foto" avatarUrl="/icon-192.png" initial="A" />
+            <AvatarSample label="Foto partida" avatarUrl="/nao-existe.png" initial="A" />
+            <AvatarSample label="Inicial" avatarUrl={null} initial="A" />
+            <AvatarSample label="Sem nome" avatarUrl={null} initial={null} />
+          </CardContent>
+        </Card>
+      </Section>
     </div>
+  )
+}
+
+function AvatarSample({ label, ...props }: { label: string; avatarUrl: string | null; initial: string | null }) {
+  return (
+    <figure data-avatar-sample={label} className="flex flex-col items-center gap-2">
+      <UserAvatar {...props} className="size-12 text-lg" />
+      <figcaption>{label}</figcaption>
+    </figure>
   )
 }
 

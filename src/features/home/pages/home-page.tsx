@@ -1,7 +1,9 @@
-import { Dumbbell, Scale, UserRound, Wallet } from 'lucide-react'
+import { Dumbbell, Scale, Wallet } from 'lucide-react'
 import { Link } from 'react-router'
 import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/layout/page-header'
+import { UserAvatar } from '@/features/auth/components/user-avatar'
+import { useCurrentUser } from '@/features/auth/hooks/use-current-user'
 import { ModuleCard } from '@/features/home/components/module-card'
 import { QuickActions } from '@/features/home/components/quick-actions'
 import { getGreeting } from '@/features/home/lib/greeting'
@@ -10,11 +12,15 @@ import { formatLongDate, toISODate } from '@/lib/format'
 
 export function HomePage() {
   const now = useNow()
+  const user = useCurrentUser()
+  const greeting = getGreeting(now)
 
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
-        title={getGreeting(now)}
+        // Without a name (session loading or unavailable offline) the greeting
+        // stands on its own.
+        title={user.firstName ? `${greeting}, ${user.firstName}` : greeting}
         documentTitle="Início"
         subtitle={<time dateTime={toISODate(now)}>{formatLongDate(now)}</time>}
       >
@@ -24,7 +30,7 @@ export function HomePage() {
           aria-label="Definições"
           className="flex size-11 shrink-0 touch-manipulation items-center justify-center rounded-full bg-muted text-muted-foreground outline-none select-none transition-transform duration-150 ease-out hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100 motion-reduce:active:opacity-70"
         >
-          <UserRound aria-hidden className="size-5" />
+          <UserAvatar avatarUrl={user.avatarUrl} initial={user.initial} className="size-full text-base" />
         </Link>
       </PageHeader>
       <QuickActions />
