@@ -24,7 +24,15 @@
       "PowerShell(*impeccable.cmd*)",
       "PowerShell(*impeccable.exe*)",
       "PowerShell(npx impeccable*)",
-      "mcp__playwright__browser_run_code_unsafe"
+      "mcp__playwright__browser_run_code_unsafe",
+      "Bash(*supabase*config push*)",
+      "Bash(*supabase*db reset*)",
+      "Bash(*supabase*migration repair*)",
+      "Bash(*supabase*db push*)",
+      "PowerShell(*supabase*config push*)",
+      "PowerShell(*supabase*db reset*)",
+      "PowerShell(*supabase*migration repair*)",
+      "PowerShell(*supabase*db push*)"
     ]
   }
 }

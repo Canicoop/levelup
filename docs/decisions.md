@@ -375,13 +375,51 @@ Icons, manifest and iOS details: see *App icon*.
 - **Archive instead of delete** when historical records reference an item (categories, exercises, routines).
 - **Money uses `numeric(12,2)`**, never floating point.
 - **Timestamps use `timestamptz`.** Daily grouping uses the user's local day.
-- **One body weight entry per day.** A second entry on the same day replaces the first.
+- **One body weight entry per day.** A second entry on the same day replaces the first (a `unique (user_id, entry_date)` constraint and an upsert).
 
 ### Main tables
 - **Account:** `profiles`
 - **Gym:** `exercises`, `routines`, `routine_exercises`, `workouts`, `workout_exercises`, `workout_sets`
-- **Body weight:** `body_weights`
+- **Body weight:** `weight_entries`
 - **Finance:** `categories`, `transactions`, `budgets`, `subscriptions`
+
+### weight_entries
+The daily body weight log, created by `supabase/migrations/20261030165634_create_weight_entries.sql`. Named for what each row is, one entry, instead of the earlier `body_weights`.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` | Primary key, `gen_random_uuid()` |
+| `user_id` | `uuid` | `default auth.uid()`, references `auth.users` with `on delete cascade` |
+| `entry_date` | `date` | The user's local day |
+| `weight_kg` | `numeric(5,2)` | `check (weight_kg > 0 and weight_kg <= 500)`: only impossible values. The tighter range for real use is the form's job (Zod) |
+| `created_at`, `updated_at` | `timestamptz` | `default now()`; `updated_at` is refreshed by the `set_updated_at` trigger |
+
+- **One entry per day:** `unique (user_id, entry_date)`. Its index also serves the RLS filter and ordering by date, so there is no other index.
+- **No "not in the future" check:** a `check` constraint with `current_date` would depend on the day it runs, and PostgreSQL assumes check constraints always give the same result. The form validates it instead.
+- **`set_updated_at()`** is generic, so later tables reuse it. It has an empty `search_path` (Supabase's linter rule) and no `EXECUTE` for `public`, `anon` or `authenticated`.
+
+### Privileges and RLS
+**Decision:** every table starts from no privileges and grants only what the app needs. For `weight_entries`:
+- `revoke all on table … from anon, authenticated`: in this project, new tables give both roles `TRUNCATE`, `TRIGGER` and `MAINTAIN` by default, and `TRUNCATE` ignores RLS.
+- `authenticated`: `SELECT` and `DELETE` on the table; `INSERT` and `UPDATE` only on `entry_date` and `weight_kg`. `id`, `user_id` and the timestamps always come from the database, and `user_id` can neither be set to another user nor changed later.
+- `anon`: nothing.
+- RLS enabled explicitly (even though the project enables it automatically), with one policy per operation, for `authenticated` only, comparing `(select auth.uid())` with `user_id`. The `select` wrapper makes PostgreSQL evaluate it once per statement instead of once per row.
+
+**Why:** the project settings are "Enable automatic RLS" on (an event trigger, `ensure_rls`) and "Automatically expose new tables" off, so nothing is reachable through the Data API until it is granted. Column-level grants make the database, not the frontend, decide which fields a user may write. The insert policy stays as a second barrier.
+
+**Upsert:** omitted columns take their defaults without needing a privilege, so `insert (entry_date, weight_kg) … on conflict (user_id, entry_date) do update set weight_kg = excluded.weight_kg` works without `user_id`. From the app: send only `{ entry_date, weight_kg }` with `onConflict: 'user_id,entry_date'`; sending `id` or `user_id` fails with a permission error.
+
+### Generated types
+- `src/lib/database.types.ts` comes from `npm run db:types` (`supabase gen types typescript --linked --schema public`), and is never edited by hand. It is regenerated after each migration. The client is created with `createClient<Database>`.
+- **The generated `Insert` and `Update` types are wider than the database allows:** they show `id`, `user_id` and the timestamps as optional, because the generator does not know about column-level privileges. The Weight module's data layer must accept only `{ entry_date, weight_kg }`, with its own narrower type.
+- **`weight_kg` arrives as a `number`:** the Data API returns `numeric` as a JSON number. For weights with two decimals this loses no precision, and they are not used in money calculations, so the rule "money is never floating point" does not apply.
+
+### Accepted advisor warnings
+Supabase's Security Advisor reports three warnings that are not about the app's tables, accepted as they are:
+- **`rls_auto_enable()` is `SECURITY DEFINER` and executable by `anon` and `authenticated`** (reported for each role): it is Supabase's own function behind "Enable automatic RLS", run by an event trigger. Event trigger functions cannot be called directly, and it is not ours to change.
+- **Leaked password protection is disabled:** the app has no passwords, only Google sign-in.
+
+Neither advisor reports anything about `weight_entries` or `set_updated_at`.
 
 ---
 
@@ -392,10 +430,54 @@ Icons, manifest and iOS details: see *App icon*.
 
 **Why:** Running Supabase locally requires Docker, which adds setup complexity on Windows. The free plan allows two active projects. Database changes are kept as versioned SQL migrations in the repository.
 
+### Supabase CLI and migrations
+**Decision:** database changes are versioned SQL migrations in `supabase/migrations/`, applied with the Supabase CLI, a dev dependency pinned to an exact version (`supabase@2.122.0`).
+
+**Install:** everything comes from the npm registry: the `supabase` package is a small launcher, and the native binary comes in a per-platform package (`@supabase/cli-windows-x64` on Windows), checked by npm's integrity hash. There are no install scripts.
+
+**In the repository:** `supabase/config.toml` (local-stack settings, no secrets), `supabase/.gitignore`, `supabase/migrations/`, `supabase/tests/` and `src/lib/database.types.ts`. Out of it: `supabase/.temp/` and `supabase/.branches/`. The access token (`supabase login`) and the database password never enter the project.
+
+| Command | Who runs it | What it does |
+|---|---|---|
+| `npx supabase login` | the user | Stores an access token outside the project |
+| `npx supabase link --project-ref <ref>` | the user | Links the folder to `levelup-dev` (asks for the database password) |
+| `npx supabase migration new <name>` | Claude Code, with approval | Creates an empty migration file; does not touch the database |
+| `npx supabase db push --linked --dry-run`, then `npx supabase db push --linked` | the user | Shows, then applies, the pending migrations |
+| `npm run db:types` | the user | Regenerates `src/lib/database.types.ts` from the linked project |
+
+Every command that reaches the remote database is run by the user, never by Claude Code.
+
+**Never run:**
+- `supabase config push`: it would overwrite the project's settings with `config.toml`, which holds local defaults (Site URL `http://127.0.0.1:3000`, email sign-up on, Google off) and would break Google sign-in.
+- `supabase db reset` and `supabase migration repair`: they erase data or rewrite the migration history.
+
+Deny rules in `.claude/settings.json` block these three for Claude Code, and also `supabase db push` (including `--dry-run`): migrations are only ever applied by the user, in their own terminal.
+
+### Database security tests
+**Decision:** security tests are plain SQL files in `supabase/tests/`, run by the user in the SQL Editor of `levelup-dev`. `supabase test db` (pgTAP) runs in Docker, which the project does not use.
+
+**How they work:**
+- Everything runs inside one transaction that is never committed, so nothing is kept.
+- Users are simulated the way the Data API does it: the `anon` or `authenticated` role plus the JWT claims that `auth.uid()` reads.
+- Two fake users are created in `auth.users` inside the transaction, so the repository holds no real user IDs.
+- A failed check raises an error starting with `FAIL`, and the last result reads "All … checks passed".
+
+**`supabase/tests/weight_entries_rls.sql` covers:**
+- `anon` cannot select, insert, update, delete or truncate;
+- a user inserts without `user_id` and gets their own;
+- inserting with another user's `user_id`, or with a chosen `id`, fails on privileges;
+- a user sees, updates and deletes only their own entries; another user's entry is not visible even by `id`, and updates or deletes of it affect 0 rows;
+- changing `user_id` and `TRUNCATE` fail on privileges;
+- an upsert without `user_id` replaces the weight, keeps the row and its `user_id`, and refreshes `updated_at`;
+- a second plain insert for the same day and impossible weights (0, 600) are rejected;
+- the other user's entry is untouched by all of the above.
+
+**Result on 2026-10-30:** all checks passed, and no fake users or entries were left behind. A manual test in the app with two Google accounts follows when the Weight screen exists (Phase 6).
+
 ### Testing strategy
 - **Unit tests (Vitest):** business logic such as money calculations, budgets, subscription totals and date grouping.
 - **Component tests (React Testing Library):** critical interactions only, such as set logging and form validation.
-- **Security tests:** RLS isolation between users. Mandatory.
+- **Security tests:** RLS isolation between users. Mandatory. Plain SQL in `supabase/tests/` (see *Database security tests*).
 - **End-to-end tests (Playwright):** two or three key flows, added before the MVP is considered complete.
 
 ### Continuous integration

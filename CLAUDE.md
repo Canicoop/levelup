@@ -30,6 +30,8 @@ LevelUP is a mobile-first personal life dashboard (gym, body weight, finance, da
 - Every `VITE_` variable is public: it is bundled into the browser.
 - **Never use the Supabase secret / service role key in the frontend.**
 - Every database table has a `user_id` column and Row Level Security policies.
+- Database changes only through migrations in `supabase/migrations/`. The user runs every command that reaches the remote database (`supabase login`, `link`, `db push`, `npm run db:types`); Claude Code may only create migration files (`supabase migration new`).
+- **Never run `supabase config push`, `supabase db reset`, `supabase migration repair` or `supabase db push`** (migrations are applied only by the user). Deny rules in `.claude/settings.json` enforce this.
 
 ## Tech stack and conventions
 - React 19, Vite 8, ESLint with typescript-eslint.

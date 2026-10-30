@@ -4,7 +4,7 @@ A personal life dashboard to track gym workouts, body weight and personal financ
 
 [![CI](https://github.com/Canicoop/levelup/actions/workflows/ci.yml/badge.svg)](https://github.com/Canicoop/levelup/actions/workflows/ci.yml)
 
-> **Status:** 🚧 In development. Phases 1 (repository and environment) and 2 (visual foundation and navigation) are complete. Phase 3 (Supabase, authentication and security) is in progress: the app is connected to Supabase, users sign in with Google, and every page needs a session. The app also has its visual identity, navigation, a Home screen with quick actions and a card per module, shared loading, empty and error states, and an icon and web manifest for the iPhone home screen. The module pages are still empty.
+> **Status:** 🚧 In development. Phases 1 (repository and environment) and 2 (visual foundation and navigation) are complete. Phase 3 (Supabase, authentication and security) is in progress: users sign in with Google, every page needs a session, and the first table (`weight_entries`) is in place, with Row Level Security, column-level privileges and SQL security tests, managed through versioned migrations. The app also has its visual identity, navigation, a Home screen with quick actions and a card per module, shared loading, empty and error states, and an icon and web manifest for the iPhone home screen. The module pages are still empty.
 
 ## Planned features (MVP)
 
@@ -69,6 +69,14 @@ Then open http://localhost:5173.
 
 > Environment variables are required: `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`, from your own Supabase project. Fill them in `.env.local` and **never commit it**; without them the app stops with an error naming the missing variable. Signing in also needs the Google provider enabled in that project, with `http://localhost:5173/**` in its Redirect URLs.
 
+To create the database tables in your own Supabase project, link it and apply the migrations:
+
+```bash
+npx supabase login
+npx supabase link --project-ref <your-project-ref>
+npx supabase db push --linked
+```
+
 ## Scripts
 
 | Command | Description |
@@ -77,6 +85,8 @@ Then open http://localhost:5173.
 | `npm run build` | Type-check and build for production |
 | `npm run lint` | Run ESLint |
 | `npm run preview` | Preview the production build locally |
+| `npm run icons` | Regenerate the app icons in `public/` from the SVG sources |
+| `npm run db:types` | Regenerate the database types from the linked Supabase project (`src/lib/database.types.ts`) |
 
 ## Roadmap
 
