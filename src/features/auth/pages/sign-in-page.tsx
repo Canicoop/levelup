@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
 import { CircleAlert } from 'lucide-react'
-import { Navigate, useLocation, useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import iconUrl from '../../../../assets/icons/icon.svg'
 import { signInWithGoogle } from '@/features/auth/api/sign-in-with-google'
 import { GoogleIcon } from '@/features/auth/components/google-icon'
 import { useSession } from '@/features/auth/hooks/use-session'
+import { saveReturnPath } from '@/features/auth/lib/return-path'
 import { readRedirectResult } from '@/features/auth/lib/sign-in-error'
 
-// Full-screen sign-in, outside the app shell. Google returns here: with a code
-// the client creates the session, with an error the page explains it.
+// Full-screen sign-in, outside the app shell. Google returns here. When sign-in
+// worked, the route loader (redirectIfSignedIn) has already moved on before this
+// page renders; when it did not, the page explains why.
 export function SignInPage() {
   const auth = useSession()
   const location = useLocation()
@@ -21,12 +23,13 @@ export function SignInPage() {
 
   const exchangeFailed = redirect.hasCode && auth.status === 'signed-out'
   const error = startFailed || exchangeFailed ? 'failed' : redirect.error
-  const creatingSession = redirect.hasCode && auth.status === 'loading'
 
-  // Once the outcome is known, drop ?code / ?error from the address.
+  // Once the outcome is known, drop ?code / ?error from the address. Only the
+  // Google result is cleaned: ?next must stay until the button is pressed.
   useEffect(() => {
+    const hasResult = redirect.error !== null || redirect.hasCode
     const hasParams = location.search !== '' || location.hash !== ''
-    if (!hasParams || auth.status !== 'signed-out') return
+    if (!hasResult || !hasParams || auth.status !== 'signed-out') return
     // Cancelling is not an error; only failures are logged.
     if (redirect.error === 'failed' || redirect.hasCode) {
       console.error('Google sign-in did not complete:', redirect.description ?? 'code exchange failed')
@@ -47,6 +50,7 @@ export function SignInPage() {
   async function handleSignIn() {
     setPending(true)
     setStartFailed(false)
+    saveReturnPath(new URLSearchParams(location.search).get('next'))
     const { error: startError } = await signInWithGoogle()
     if (startError) {
       console.error('Google sign-in could not start:', startError.message)
@@ -54,9 +58,6 @@ export function SignInPage() {
       setStartFailed(true)
     }
   }
-
-  // Step 3.4.3 moves this into the route loader, with the return path.
-  if (auth.status === 'signed-in') return <Navigate to="/" replace />
 
   return (
     // The extra bottom padding lifts the block slightly above the centre,
@@ -87,22 +88,16 @@ export function SignInPage() {
             </p>
           )}
 
-          {creatingSession ? (
-            <p role="status" className="flex h-12 items-center justify-center text-muted-foreground">
-              A iniciar sessão…
-            </p>
-          ) : (
-            <button
-              type="button"
-              onClick={handleSignIn}
-              disabled={pending}
-              aria-busy={pending}
-              className="flex h-12 w-full touch-manipulation items-center justify-center gap-3 rounded-lg border border-border bg-card px-4 font-medium outline-none select-none transition-[transform,background-color] duration-150 ease-out hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring active:scale-[0.97] disabled:pointer-events-none disabled:opacity-60 motion-reduce:transition-none motion-reduce:active:scale-100 motion-reduce:active:opacity-70"
-            >
-              <GoogleIcon className="size-5 shrink-0" />
-              {pending ? 'A abrir o Google…' : 'Iniciar sessão com o Google'}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleSignIn}
+            disabled={pending}
+            aria-busy={pending}
+            className="flex h-12 w-full touch-manipulation items-center justify-center gap-3 rounded-lg border border-border bg-card px-4 font-medium outline-none select-none transition-[transform,background-color] duration-150 ease-out hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring active:scale-[0.97] disabled:pointer-events-none disabled:opacity-60 motion-reduce:transition-none motion-reduce:active:scale-100 motion-reduce:active:opacity-70"
+          >
+            <GoogleIcon className="size-5 shrink-0" />
+            {pending ? 'A abrir o Google…' : 'Iniciar sessão com o Google'}
+          </button>
         </div>
       </div>
     </main>
