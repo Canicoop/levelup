@@ -3,6 +3,9 @@
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/instrument-sans';
 
+/* Tests are not UI: their text must not generate classes. */
+@source not "./**/*.test.ts";
+
 /* The theme follows the system setting only: no .dark class. */
 @custom-variant dark (@media (prefers-color-scheme: dark));
 
