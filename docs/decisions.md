@@ -349,7 +349,13 @@ Loading, empty and error states are shared components, so every module handles t
 **Setup notes:**
 - **The `shadcn` package is a dev dependency.** `src/index.css` imports `shadcn/tailwind.css` from it (shared variants and animations for the components), so it must be installed, but it is only used at build time and is not part of the JavaScript bundle.
 - **ESLint:** the `react-refresh/only-export-components` rule is disabled only for `src/components/ui/`. These are generated files that export variants alongside components.
-- **Known `npm audit` findings:** 3 low-severity issues in `deepmerge` (prototype poisoning, GHSA-gcqx-w48m-w2h4), reached through the shadcn CLI (`shadcn` → `@shadcn/registry`). The code only runs inside the CLI and never reaches the bundle. `npm audit fix --force` would downgrade `shadcn` to 1.0.0, so the findings are accepted until shadcn updates the dependency.
+- **Known `npm audit` findings: `deepmerge`** (low severity, prototype poisoning, GHSA-gcqx-w48m-w2h4), reached through the shadcn CLI (`shadcn` → `@shadcn/registry`). The code only runs inside the CLI and never reaches the bundle. `npm audit fix --force` would downgrade `shadcn` to 1.0.0, so the finding is accepted until shadcn updates the dependency.
+- **Known `npm audit` findings: `minimatch`** below 11.0.1 (moderate, denial of service through crafted glob patterns, GHSA-g3hv-75wg-m249, added to GitHub's advisory database on 2026-10-30). It is reached through ESLint, typescript-eslint, `eslint-plugin-react-refresh` and shadcn's `ts-morph`, and accounts for 15 of the findings (`npm audit` on 2026-10-31: 17 in total, 2 low and 15 moderate). Accepted because:
+  - it only affects code that receives glob patterns from an attacker; here `minimatch` runs only in development tools, with patterns from the repository, and never reaches the bundle;
+  - it did not come from the Vitest install (the installed `minimatch@10.2.6` did not change);
+  - the suggested fix downgrades major versions (typescript-eslint 8.14, `@eslint/js` 9, shadcn 1.0) with `--force`, which would break the setup.
+
+  Update once ESLint and typescript-eslint depend on `minimatch` 11.0.1 or later.
 - **The `cn` package** (about 26 kB minified), which the generated components import, entered the bundle with the navigation bars. Lighter alternatives (such as `cn/lite`) will be evaluated later.
 
 ### Installable on iPhone (no App Store)
@@ -475,13 +481,39 @@ Deny rules in `.claude/settings.json` block these three for Claude Code, and als
 **Result on 2026-10-30:** all checks passed, and no fake users or entries were left behind. A manual test in the app with two Google accounts follows when the Weight screen exists (Phase 6).
 
 ### Testing strategy
-- **Unit tests (Vitest):** business logic such as money calculations, budgets, subscription totals and date grouping.
+- **Unit tests (Vitest):** in use. Pure logic now (see *Unit tests*); later money calculations, budgets, subscription totals and date grouping.
 - **Component tests (React Testing Library):** critical interactions only, such as set logging and form validation.
 - **Security tests:** RLS isolation between users. Mandatory. Plain SQL in `supabase/tests/` (see *Database security tests*).
 - **End-to-end tests (Playwright):** two or three key flows, added before the MVP is considered complete.
 
+### Unit tests
+**Decision:** Vitest, a dev dependency pinned to an exact version (`vitest@5.0.5`). It uses the project's Vite 8 (a peer dependency) and adds 16 small packages, none with install scripts.
+
+**Configuration:** a `test` block in `vite.config.ts`, not a separate `vitest.config.ts`. Vitest reads that file, so tests share the `@/` alias without repeating it.
+- **Environment:** `node` (the default). Only pure functions are tested for now, so there is no jsdom and no Testing Library yet; they come with component tests.
+- **Location:** tests sit next to the code they test, as `*.test.ts` (`include: ['src/**/*.test.ts']`). They are type-checked by `tsc -b` (part of `npm run build`) and linted by ESLint, and they never reach the bundle because no app file imports them.
+- **Fixed time zone:** `test.env.TZ = 'Europe/Lisbon'`, so date tests give the same result on any machine and in CI. Lisbon rather than UTC because its summer offset (UTC+1) is exactly what makes `toISODate` differ from `toISOString`. A test checks that the zone took effect; it was also run with the process set to `America/New_York`, and still ran in Lisbon.
+- **`@source not "./**/*.test.ts"` in `src/index.css`:** Tailwind scans all of `src` for class names, and words in test descriptions ("absolute", "relative") had added `.absolute` and `.relative` to the production CSS. With the exclusion, the CSS and JS are byte-for-byte the same as without tests.
+
+**What the 57 tests cover:**
+
+| File | Tests | Covers |
+|---|---|---|
+| `src/features/auth/lib/return-path.test.ts` | 21 | `getSafeReturnPath`: internal paths kept; missing, empty, relative and padded values fall back to `/`; `//evil.com`, `/\evil.com`, `\evil.com`, `https://evil.com`, `javascript:`, `/\t/evil.com`, a newline, `/..//evil.com` and `/.//evil.com` refused; `/entrar` refused; encoded characters kept as plain text |
+| `src/features/auth/lib/user-profile.test.ts` | 11 | `getUserProfile`: `full_name` / `name`, first name, initial (including accented), extra spaces, non-text names, photos only over `https:` (`avatar_url` / `picture`), no user |
+| `src/features/auth/lib/sign-in-error.test.ts` | 6 | `readRedirectResult`: plain visit, `code`, cancelled (`access_denied`), failed with description, errors in the hash, query string first |
+| `src/lib/supabase-config.test.ts` | 7 | `getSupabaseConfig`: missing or empty variables named exactly, both set, and the error message never containing the values |
+| `src/features/home/lib/greeting.test.ts` | 8 | `getGreeting`: 00:00, 05:59, 06:00, 11:59, 12:00, 19:59, 20:00 and 23:59 |
+| `src/lib/format.test.ts` | 4 | the time zone check, `toISODate` (including 1 July 00:30, where `toISOString` gives 30 June) and `formatLongDate` in European Portuguese |
+
+**Tests fail when a rule breaks:** removing the final `//` check from `getSafeReturnPath` made exactly the two expected tests fail (`/..//evil.com` and `/.//evil.com`); the function was then restored unchanged.
+
+**Scripts:** `npm test` (watch mode) and `npm run test:run` (once).
+
+**CI:** a `Test` step runs `npm run test:run` between `Lint` and `Build`, in the job now named "Lint, test and build".
+
 ### Continuous integration
-GitHub Actions runs lint and build on every push to `main` and on pull requests.
+GitHub Actions runs lint, unit tests and build on every push to `main` and on pull requests.
 
 ### Repository conventions
 - **Public repository**, MIT license.

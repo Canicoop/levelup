@@ -4,7 +4,7 @@ A personal life dashboard to track gym workouts, body weight and personal financ
 
 [![CI](https://github.com/Canicoop/levelup/actions/workflows/ci.yml/badge.svg)](https://github.com/Canicoop/levelup/actions/workflows/ci.yml)
 
-> **Status:** 🚧 In development. Phases 1 (repository and environment) and 2 (visual foundation and navigation) are complete. Phase 3 (Supabase, authentication and security) is in progress: users sign in with Google, every page needs a session, and the first table (`weight_entries`) is in place, with Row Level Security, column-level privileges and SQL security tests, managed through versioned migrations. The app also has its visual identity, navigation, a Home screen with quick actions and a card per module, shared loading, empty and error states, and an icon and web manifest for the iPhone home screen. The module pages are still empty.
+> **Status:** 🚧 In development. Phases 1 (repository and environment) and 2 (visual foundation and navigation) are complete. Phase 3 (Supabase, authentication and security) is in progress: users sign in with Google, every page needs a session, and the first table (`weight_entries`) is in place, with Row Level Security, column-level privileges and SQL security tests, managed through versioned migrations. Unit tests run with Vitest, locally and in CI. The app also has its visual identity, navigation, a Home screen with quick actions and a card per module, shared loading, empty and error states, and an icon and web manifest for the iPhone home screen. The module pages are still empty.
 
 ## Planned features (MVP)
 
@@ -45,7 +45,8 @@ A personal life dashboard to track gym workouts, body weight and personal financ
 | Forms | React Hook Form, Zod | Planned |
 | Charts | Recharts | Planned |
 | Backend | Supabase (PostgreSQL, Auth, Row Level Security) | ✅ In use |
-| Testing | Vitest, React Testing Library, Playwright | Planned |
+| Unit tests | Vitest | ✅ In use |
+| Component and end-to-end tests | React Testing Library, Playwright | Planned |
 | Hosting | Vercel | Planned |
 
 ## Getting started
@@ -84,6 +85,8 @@ npx supabase db push --linked
 | `npm run dev` | Start the development server |
 | `npm run build` | Type-check and build for production |
 | `npm run lint` | Run ESLint |
+| `npm test` | Run the unit tests in watch mode |
+| `npm run test:run` | Run the unit tests once |
 | `npm run preview` | Preview the production build locally |
 | `npm run icons` | Regenerate the app icons in `public/` from the SVG sources |
 | `npm run db:types` | Regenerate the database types from the linked Supabase project (`src/lib/database.types.ts`) |

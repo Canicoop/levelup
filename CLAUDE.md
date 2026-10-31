@@ -23,7 +23,7 @@ LevelUP is a mobile-first personal life dashboard (gym, body weight, finance, da
 - Commits follow **Conventional Commits** (`feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `ci`, `style`), written in English, small and focused.
 - **Never commit or push without approval.** Show `git status` and a summary of the diff, suggest a commit message, and wait.
 - Never use `git push --force`, `git reset --hard` or any other destructive command.
-- `npm run lint` and `npm run build` must pass before any commit.
+- `npm run lint`, `npm run test:run` and `npm run build` must pass before any commit.
 
 ## Security
 - Never put secrets in code or in the repository. Local values go in `.env.local` (git-ignored); `.env.example` lists variable names only.
@@ -36,7 +36,8 @@ LevelUP is a mobile-first personal life dashboard (gym, body weight, finance, da
 ## Tech stack and conventions
 - React 19, Vite 8, ESLint with typescript-eslint.
 - **TypeScript is pinned to `~6.0.3`.** Do not upgrade to 7 until typescript-eslint supports it.
-- In use: Tailwind CSS v4 (CSS-first configuration, no `tailwind.config.js`), shadcn/ui, React Router, TanStack Query, Supabase. Planned: React Hook Form + Zod, Recharts.
+- In use: Tailwind CSS v4 (CSS-first configuration, no `tailwind.config.js`), shadcn/ui, React Router, TanStack Query, Supabase, Vitest. Planned: React Hook Form + Zod, Recharts, React Testing Library, Playwright.
+- Unit tests sit next to the code as `*.test.ts` and run in a fixed time zone (`Europe/Lisbon`, set in `vite.config.ts`).
 - Feature-based structure: `src/features/<feature>/` (components, pages, api, hooks, schemas). Shared code goes in `src/lib/` and `src/components/`.
 - Money is never stored or calculated as a floating point number.
 
