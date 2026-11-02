@@ -21,34 +21,41 @@ type Direction = 'up' | 'down'
 // Every mutation refetches what it touched once it settles, whether it
 // succeeded or failed (no optimistic updates yet): if a move fails halfway,
 // with only one of two changes saved, the screen shows what really is in the
-// database. Returning the promise keeps the mutation pending until the refetch ends.
+// database.
+// On success, returning the refetch keeps the mutation pending until the new
+// data arrives, so the screen never shows the old state as saved. On failure
+// the refetch runs in the background and the error shows at once: offline,
+// the refetch would retry for several seconds before giving up.
 
 // Routines: the routines key also covers each open routine.
-function useInvalidateRoutines() {
+function useRefetchRoutines() {
   const queryClient = useQueryClient()
-  return () => queryClient.invalidateQueries({ queryKey: workoutKeys.routines() })
+  return (_data: unknown, error: Error | null) => {
+    const refetch = queryClient.invalidateQueries({ queryKey: workoutKeys.routines() })
+    return error ? undefined : refetch
+  }
 }
 
 export function useCreateRoutine() {
-  const invalidate = useInvalidateRoutines()
+  const refetch = useRefetchRoutines()
   return useMutation({
     mutationFn: ({ name, routines }: { name: string; routines: Routine[] }) =>
       createRoutine(name, nextPosition(routines)),
-    onSettled: invalidate,
+    onSettled: refetch,
   })
 }
 
 export function useRenameRoutine() {
-  const invalidate = useInvalidateRoutines()
+  const refetch = useRefetchRoutines()
   return useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) => renameRoutine(id, name),
-    onSettled: invalidate,
+    onSettled: refetch,
   })
 }
 
 // Reactivating puts the routine at the end of the active list.
 export function useSetRoutineArchived() {
-  const invalidate = useInvalidateRoutines()
+  const refetch = useRefetchRoutines()
   return useMutation({
     mutationFn: ({ id, archived, routines }: { id: string; archived: boolean; routines: Routine[] }) =>
       setRoutineArchived(
@@ -56,29 +63,32 @@ export function useSetRoutineArchived() {
         archived,
         archived ? undefined : nextPosition(routines.filter((routine) => !routine.archived_at)),
       ),
-    onSettled: invalidate,
+    onSettled: refetch,
   })
 }
 
 // `routines` is the active list, in the order it is shown.
 export function useMoveRoutine() {
-  const invalidate = useInvalidateRoutines()
+  const refetch = useRefetchRoutines()
   return useMutation({
     mutationFn: ({ routines, id, direction }: { routines: Routine[]; id: string; direction: Direction }) =>
       updateRoutinePositions(moveItem(routines, id, direction)),
-    onSettled: invalidate,
+    onSettled: refetch,
   })
 }
 
 // A routine's exercises: only that routine changes.
-function useInvalidateRoutine(routineId: string) {
+function useRefetchRoutine(routineId: string) {
   const queryClient = useQueryClient()
-  return () => queryClient.invalidateQueries({ queryKey: workoutKeys.routine(routineId) })
+  return (_data: unknown, error: Error | null) => {
+    const refetch = queryClient.invalidateQueries({ queryKey: workoutKeys.routine(routineId) })
+    return error ? undefined : refetch
+  }
 }
 
 // Added at the end, with 3 sets and no rep range.
 export function useAddRoutineExercise(routineId: string) {
-  const invalidate = useInvalidateRoutine(routineId)
+  const refetch = useRefetchRoutine(routineId)
   return useMutation({
     mutationFn: ({ exerciseId, entries }: { exerciseId: string; entries: RoutineExercise[] }) =>
       addRoutineExercise({
@@ -87,32 +97,32 @@ export function useAddRoutineExercise(routineId: string) {
         position: nextPosition(entries),
         ...DEFAULT_TARGETS,
       }),
-    onSettled: invalidate,
+    onSettled: refetch,
   })
 }
 
 export function useRemoveRoutineExercise(routineId: string) {
-  const invalidate = useInvalidateRoutine(routineId)
+  const refetch = useRefetchRoutine(routineId)
   return useMutation({
     mutationFn: (id: string) => removeRoutineExercise(id),
-    onSettled: invalidate,
+    onSettled: refetch,
   })
 }
 
 export function useUpdateRoutineExercise(routineId: string) {
-  const invalidate = useInvalidateRoutine(routineId)
+  const refetch = useRefetchRoutine(routineId)
   return useMutation({
     mutationFn: ({ id, targets }: { id: string; targets: Targets }) => updateRoutineExercise(id, targets),
-    onSettled: invalidate,
+    onSettled: refetch,
   })
 }
 
 // `entries` is the routine's exercise list, in the order it is shown.
 export function useMoveRoutineExercise(routineId: string) {
-  const invalidate = useInvalidateRoutine(routineId)
+  const refetch = useRefetchRoutine(routineId)
   return useMutation({
     mutationFn: ({ entries, id, direction }: { entries: RoutineExercise[]; id: string; direction: Direction }) =>
       updateRoutineExercisePositions(moveItem(entries, id, direction)),
-    onSettled: invalidate,
+    onSettled: refetch,
   })
 }

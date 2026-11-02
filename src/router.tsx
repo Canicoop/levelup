@@ -9,6 +9,7 @@ import { FinancePage } from '@/features/finance/pages/finance-page'
 import { HomePage } from '@/features/home/pages/home-page'
 import { SettingsPage } from '@/features/settings/pages/settings-page'
 import { WeightPage } from '@/features/weight/pages/weight-page'
+import { RoutineEditorPage } from '@/features/workout/pages/routine-editor-page'
 import { WorkoutPage } from '@/features/workout/pages/workout-page'
 
 // Pages are imported eagerly for now. Each one moves to `lazy` once its
@@ -31,6 +32,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, Component: HomePage },
           { path: 'treino', Component: WorkoutPage },
+          { path: 'treino/rotinas/:id', Component: RoutineEditorPage },
           { path: 'peso', Component: WeightPage },
           { path: 'financas', Component: FinancePage },
           { path: 'definicoes', Component: SettingsPage },

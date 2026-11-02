@@ -1,23 +1,34 @@
 import { RoutineNotFoundError, ValidationError, requireRows } from '@/features/workout/lib/errors'
 import { cleanName, validateRoutineName } from '@/features/workout/lib/names'
-import type { PositionChange, Routine, RoutineWithExercises } from '@/features/workout/lib/types'
+import type { PositionChange, Routine, RoutineSummary, RoutineWithExercises } from '@/features/workout/lib/types'
 import { supabase } from '@/lib/supabase'
 
-// All the user's routines, archived included, ordered by (position, created_at).
-export async function fetchRoutines(): Promise<Routine[]> {
+// All the user's routines, archived included, ordered by (position, created_at),
+// each with its number of exercises. `routine_exercises(count)` returns the
+// count as a one-row list: [{ count: 6 }].
+export async function fetchRoutines(): Promise<RoutineSummary[]> {
   const { data, error } = await supabase
     .from('routines')
-    .select('id, name, position, archived_at, created_at')
+    .select('id, name, position, archived_at, created_at, routine_exercises(count)')
     .order('position')
     .order('created_at')
   if (error) throw error
-  return data
+  return data.map(({ routine_exercises, ...routine }) => ({
+    ...routine,
+    exercise_count: routine_exercises[0]?.count ?? 0,
+  }))
 }
+
+// Any uuid shape, case-insensitive, as Postgres accepts it.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 // One routine with its exercises and their names. The exercise is embedded
 // through the composite foreign key by name; PostgREST builds the join from all
 // the key's columns. The list is ordered here, by (position, created_at).
 export async function fetchRoutine(id: string): Promise<RoutineWithExercises> {
+  // A mistyped address is not a routine: no request needed, and it works offline.
+  if (!UUID.test(id)) throw new RoutineNotFoundError()
+
   const { data, error } = await supabase
     .from('routines')
     .select(
@@ -25,7 +36,7 @@ export async function fetchRoutine(id: string): Promise<RoutineWithExercises> {
     )
     .eq('id', id)
     .maybeSingle()
-  // 22P02: the id is not even a uuid (a mistyped address).
+  // 22P02: Postgres refused the id as a uuid. The check above should catch it first.
   if (error?.code === '22P02') throw new RoutineNotFoundError()
   if (error) throw error
   if (!data) throw new RoutineNotFoundError()
