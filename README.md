@@ -4,7 +4,7 @@ A personal life dashboard to track gym workouts, body weight and personal financ
 
 [![CI](https://github.com/Canicoop/levelup/actions/workflows/ci.yml/badge.svg)](https://github.com/Canicoop/levelup/actions/workflows/ci.yml)
 
-> **Status:** 🚧 In development. Phases 1 (repository and environment) and 2 (visual foundation and navigation) are complete. Phase 3 (Supabase, authentication and security) is in progress: users sign in with Google, every page needs a session, and the first table (`weight_entries`) is in place, with Row Level Security, column-level privileges and SQL security tests, managed through versioned migrations. Unit tests run with Vitest, locally and in CI. The app also has its visual identity, navigation, a Home screen with quick actions and a card per module, shared loading, empty and error states, and an icon and web manifest for the iPhone home screen. The module pages are still empty.
+> **Status:** 🚧 In development. Phases 1 (repository and environment), 2 (visual foundation and navigation) and 3 (Supabase, authentication and security) are complete. Users sign in with Google, every page needs a session, and the first table (`weight_entries`) is in place, with Row Level Security, column-level privileges and SQL security tests, managed through versioned migrations. Unit tests run with Vitest, locally and in CI. The app also has its visual identity, navigation, a Home screen with quick actions and a card per module, shared loading, empty and error states, and an icon and web manifest for the iPhone home screen. The module pages are still empty. Next: Phase 4 (gym module).
 
 ## Planned features (MVP)
 
@@ -96,7 +96,7 @@ npx supabase db push --linked
 - [x] **Phase 0** — Planning, MVP and architecture
 - [x] **Phase 1** — Repository, development environment and CI
 - [x] **Phase 2** — Visual foundation and navigation
-- [ ] **Phase 3** — Supabase, authentication and security
+- [x] **Phase 3** — Supabase, authentication and security
 - [ ] **Phase 4** — Gym module
 - [ ] **Phase 5** — First production deploy
 - [ ] **Phase 6** — Body weight module
