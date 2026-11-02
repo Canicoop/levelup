@@ -442,6 +442,35 @@ The daily body weight log, created by `supabase/migrations/20261030165634_create
 - **No "not in the future" check:** a `check` constraint with `current_date` would depend on the day it runs, and PostgreSQL assumes check constraints always give the same result. The form validates it instead.
 - **`set_updated_at()`** is generic, so later tables reuse it. It has an empty `search_path` (Supabase's linter rule) and no `EXECUTE` for `public`, `anon` or `authenticated`.
 
+### Gym tables
+Created by `supabase/migrations/20261102165341_create_gym_tables.sql`. Every table has `id` (`gen_random_uuid()`, except `workouts`), `user_id` (`default auth.uid()`) and `created_at`. The tables the app edits also have `updated_at`, refreshed by the `set_updated_at` trigger.
+
+| Table | Columns | Rules |
+|---|---|---|
+| `exercises` | `name`, `archived_at` | Name 1–80 characters, no whitespace at either end; unique per user on `lower(name)`, archived exercises included |
+| `routines` | `name`, `position`, `archived_at` | Name 1–60 characters, no whitespace at either end; `position >= 0` |
+| `routine_exercises` | `routine_id`, `exercise_id`, `position`, `target_sets`, `rep_min`, `rep_max` | `target_sets` 1–20; reps both empty, or `1 <= rep_min <= rep_max <= 100`; `unique (routine_id, exercise_id)` |
+| `workouts` | `id`, `routine_id`, `started_at`, `finished_at` | `id` created on the device (no default); `finished_at >= started_at`; at most 24 hours |
+| `workout_exercises` | `workout_id`, `exercise_id`, `position` | `unique (workout_id, position)` and `unique (workout_id, exercise_id)` |
+| `workout_sets` | `workout_exercise_id`, `position`, `weight_kg`, `reps` | `weight_kg numeric(6,2)`, above 0 and at most 1000; `reps` 1–100; `unique (workout_exercise_id, position)` |
+
+- **Untrimmed names are refused, not trimmed:** the app trims them, and a `check` refuses whitespace at either end, tabs included. The rule stays visible and testable, instead of the database silently changing the input.
+- **The rep range check tests both values:** a `check` whose expression is null passes, so `rep_min = 8` with no `rep_max` would be accepted unless both nulls are tested explicitly.
+- **`position` is not unique:** lists are ordered by `(position, created_at)`, so swapping two positions in two requests never fails halfway.
+- **Indexes,** besides those behind the unique constraints: `routines (user_id, position)`, `routine_exercises (exercise_id)`, `workouts (user_id, finished_at desc)` and `(routine_id)`, and `workout_exercises (user_id, exercise_id)`.
+
+**Composite foreign keys**
+
+**Decision:** a row that points at another table uses a composite foreign key on `(id, user_id)`, and every referenced table has `unique (id, user_id)`. For example, `foreign key (routine_id, user_id) references routines (id, user_id)`.
+
+**Why:** foreign key checks do not go through RLS. With a plain foreign key on `routine_id`, a user who knew the id of someone else's routine could add their own exercise to it: the new row has their `user_id`, so RLS lets it through. With the composite key, and `user_id` always coming from `auth.uid()`, the referenced row must belong to the same user, or the insert fails with a foreign key error (23503). It is a database rule, so it also holds inside `submit_workout` and for any client.
+
+**Every foreign key cascades**
+
+**Decision:** all foreign keys, to `auth.users` and between the gym tables, are `on delete cascade`; none restricts.
+
+**Why:** deleting a user must delete all their data. With a restricting key, the delete would stop at the first table that still had rows pointing at it. The app never deletes exercises, routines or workouts (they are archived, or kept as history), so in practice the cascades only run when an account is deleted.
+
 ### Privileges and RLS
 **Decision:** every table starts from no privileges and grants only what the app needs. For `weight_entries`:
 - `revoke all on table … from anon, authenticated`: in this project, new tables give both roles `TRUNCATE`, `TRIGGER` and `MAINTAIN` by default, and `TRUNCATE` ignores RLS.
@@ -453,17 +482,53 @@ The daily body weight log, created by `supabase/migrations/20261030165634_create
 
 **Upsert:** omitted columns take their defaults without needing a privilege, so `insert (entry_date, weight_kg) … on conflict (user_id, entry_date) do update set weight_kg = excluded.weight_kg` works without `user_id`. From the app: send only `{ entry_date, weight_kg }` with `onConflict: 'user_id,entry_date'`; sending `id` or `user_id` fails with a permission error.
 
+**Gym tables:** the same approach, with `revoke all` first and nothing for `anon`.
+- `SELECT` on all six tables for `authenticated`.
+- `INSERT` and `UPDATE` only on the columns the app writes:
+  - `exercises`: insert `name`; update `name` and `archived_at`;
+  - `routines`: insert `name` and `position`; update those and `archived_at`;
+  - `routine_exercises`: insert the routine, exercise, position and targets; update only `position`, `target_sets`, `rep_min` and `rep_max`, so an entry's routine and exercise cannot change;
+  - `workouts` (including `id`), `workout_exercises` and `workout_sets`: insert only.
+- `DELETE` only on `routine_exercises`, to remove an exercise from a routine. Exercises and routines are archived, and workouts are history.
+- One policy per granted operation, for `authenticated` only, with `(select auth.uid()) = user_id`.
+
+### submit_workout
+**Decision:** a finished workout is saved through `public.submit_workout(workout jsonb)`, created by `supabase/migrations/20261102170833_create_submit_workout.sql` and called as `supabase.rpc('submit_workout', { workout })`.
+
+**Why:** a workout is three kinds of rows: the workout, its exercises and their sets. Through the Data API they would be separate inserts, each with its own request and transaction, so a dropped connection could leave half a workout. A function runs in a single transaction: all or nothing.
+
+- **Payload:** `id`, `routine_id`, `started_at`, `finished_at` and `exercises`, each with `exercise_id` and `sets` (`weight_kg`, `reps`). Positions come from the order of the arrays.
+- **`security invoker` with an empty `search_path`:** it runs as the signed-in user, so RLS, the column grants and the composite foreign keys all apply inside it, and it needs no ownership checks of its own. The empty `search_path` stops names from resolving through other schemas.
+- **Checked by the function (22023):** the payload is an object, with an `exercises` array of 1 to 30 exercises, each with a `sets` array of 1 to 20 sets.
+- **Checked by the tables:**
+  - limits: 23514;
+  - the same exercise twice: 23505;
+  - another user's routine or exercise: 23503;
+  - a missing value: 23502;
+  - a malformed uuid or number: 22P02, and a malformed timestamp: 22007.
+
+  Any error rolls back the whole workout.
+- **Idempotent:** the workout is inserted with `on conflict (id) do nothing`.
+  - Sending the same `id` again inserts nothing and returns the `id`. Since the first send was all or nothing, an existing workout means its exercises and sets exist too.
+  - If the `id` belongs to another user, RLS hides that row, and the function raises 23505 instead of reporting success.
+- **`EXECUTE`** only for `authenticated`; revoked from `public` and `anon`.
+
 ### Generated types
 - `src/lib/database.types.ts` comes from `npm run db:types` (`supabase gen types typescript --linked --schema public`), and is never edited by hand. It is regenerated after each migration. The client is created with `createClient<Database>`.
 - **The generated `Insert` and `Update` types are wider than the database allows:** they show `id`, `user_id` and the timestamps as optional, because the generator does not know about column-level privileges. The Weight module's data layer must accept only `{ entry_date, weight_kg }`, with its own narrower type.
 - **`weight_kg` arrives as a `number`:** the Data API returns `numeric` as a JSON number. For weights with two decimals this loses no precision, and they are not used in money calculations, so the rule "money is never floating point" does not apply.
+- **Gym tables and `submit_workout`:** the types now include the six gym tables and `submit_workout` (`Args: { workout: Json }`, `Returns: string`). The note on wider `Insert` and `Update` types applies to them too: the gym data layer uses its own types for what each table, and the `submit_workout` payload, accept.
 
 ### Accepted advisor warnings
 Supabase's Security Advisor reports three warnings that are not about the app's tables, accepted as they are:
 - **`rls_auto_enable()` is `SECURITY DEFINER` and executable by `anon` and `authenticated`** (reported for each role): it is Supabase's own function behind "Enable automatic RLS", run by an event trigger. Event trigger functions cannot be called directly, and it is not ours to change.
 - **Leaked password protection is disabled:** the app has no passwords, only Google sign-in.
 
-Neither advisor reports anything about `weight_entries` or `set_updated_at`.
+The Security Advisor reports nothing about `weight_entries`, `set_updated_at`, the gym tables or `submit_workout`.
+
+**Performance Advisor** (2026-11-02), accepted for now and to be reviewed once there is real data:
+- **8 "Unindexed foreign keys"** on the gym tables: they only cost time when the referenced row is deleted, which only happens when an account is deleted.
+- **5 "Unused Index":** the tables are still empty, so no query has used them yet.
 
 ---
 
@@ -517,6 +582,26 @@ Deny rules in `.claude/settings.json` block these three for Claude Code, and als
 - the other user's entry is untouched by all of the above.
 
 **Result on 2026-10-30:** all checks passed, and no fake users or entries were left behind. A manual test in the app with two Google accounts follows when the Weight screen exists (Phase 6).
+
+**`supabase/tests/gym_rls.sql` covers:**
+- `anon` cannot select, insert, update, delete or truncate any of the six tables, or execute `submit_workout`;
+- names are unique per user ignoring case (the same name for another user is fine); names with whitespace at either end, empty names and names over 80 characters are refused;
+- `user_id` and `id` cannot be written;
+- routine limits: target sets, the rep range (including `rep_min` without `rep_max`), and the same exercise twice in a routine;
+- links to another user's rows are refused by the composite foreign keys (23503): an own exercise in their routine, their exercise in an own routine, a workout from their routine, an exercise in their workout, and a set in their workout exercise;
+- columns and operations outside the grants fail on privileges: changing a routine entry's routine or exercise, changing any `user_id`, deleting exercises or routines, updating or deleting workout rows, and `TRUNCATE`;
+- another user's rows are not visible, even by `id`, and updates or deletes of them affect 0 rows;
+- an exercise can be archived and reactivated, and an archived name stays taken;
+- `submit_workout`:
+  - a valid workout is stored in the order sent;
+  - sending the same `id` again stores nothing;
+  - all or nothing when the second exercise belongs to another user;
+  - the payload shape (22023);
+  - the limits on weight, reps, times and repeated exercises;
+  - another user's workout `id` is refused (23505);
+- deleting a user removes all their rows from the six tables, and none of the other user's.
+
+**Result on 2026-11-02:** all checks passed.
 
 ### Testing strategy
 - **Unit tests (Vitest):** in use. Pure logic now (see *Unit tests*); later money calculations, budgets, subscription totals and date grouping.
