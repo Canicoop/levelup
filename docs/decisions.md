@@ -2,7 +2,7 @@
 
 This document records the main technical and product decisions for LevelUP, and the reasons behind them. New decisions are added as the project evolves.
 
-_Last updated: 2026-10-30_
+_Last updated: 2026-11-02_
 
 ---
 
@@ -13,16 +13,47 @@ _Last updated: 2026-10-30_
 
 **Why:** These are the features that will be used daily. A smaller, working MVP is more valuable than a large, unfinished one.
 
-**Out of scope for the MVP:** habits, sleep and water tracking, body measurements and progress photos, personal records, rest timer, advanced statistics, CSV export, goals and projects, unified calendar, reports, AI assistant, Apple Health and notifications. Some may be reconsidered after the MVP, based on real usage.
+**Out of scope for the MVP:** habits, sleep and water tracking, body measurements and progress photos, personal records, rest timer, cardio (such as the treadmill), workout notes, advanced statistics, CSV export, goals and projects, unified calendar, reports, AI assistant, Apple Health and notifications. Some may be reconsidered after the MVP, based on real usage.
 
 ### Gym module
-- **No pre-built exercise library.** Exercises are created automatically the first time the user types a new name, with autocomplete afterwards.
-- **Each exercise has a load type:** *weighted* (weight required) or *bodyweight* (weight optional, counted as extra load).
-- **Routines store target sets and an optional rep range.** Starting a workout from a routine pre-fills the sets, which reduces taps at the gym.
-- **Workouts can deviate from the routine.** Exercises can be added or skipped without changing the routine.
-- **The previous session's values are shown next to each exercise** during a workout.
-- **Activity heatmap** (GitHub-style) shows training days.
-- **Development order:** the gym module is built first because it will be used the most.
+**Routines and exercises**
+- **No pre-built exercise library.** Users create their own exercises and reuse them across routines. Adding an exercise searches the existing ones and offers "Criar …" when the name does not exist yet; nothing is created implicitly.
+- **Exercise names are unique per user, ignoring case and leading or trailing spaces** ("Supino " and "supino" are the same name). Creating a name that matches an archived exercise reactivates it, with its history.
+- **Weight is always required.** Every set is weight × reps; there are no bodyweight-only exercises.
+- **Routines have a name and an order.** Each routine lists its exercises in order, with target sets and an optional rep range (for example 3 × 8–12). A single number is stored as the same minimum and maximum.
+- **Editing a routine:** rename it, reorder its exercises with ▲▼ arrows (no dragging), remove them with ×, add exercises, and archive the routine.
+- **Archive instead of delete:** exercises and routines with history are archived, never deleted. Changing a routine never changes past workouts. Renaming an exercise also renames it in the history, since it is the same exercise.
+
+**Starting a workout**
+- **Always from a routine** in the MVP.
+- **"Iniciar treino" suggests the next routine:** the one after the last workout's routine, in order, wrapping around to the first and skipping archived routines. Another routine can be chosen instead.
+
+**Workout in progress**
+- **Full screen**, outside the app shell (see *Navigation*).
+- **All the exercises in one list**, with only the current one open.
+- **"Última vez" (last time) is per exercise:** that exercise's sets in the most recent finished workout, from any routine.
+- **Each set:** the weight is pre-filled with the same set from last time; the reps are empty, with last time's reps as a placeholder; ✓ logs the set.
+- **Actions:**
+  - "+ Série" adds a set;
+  - "Trocar" swaps the exercise for another, in this workout only;
+  - "Saltar" skips the exercise, which is then not saved;
+  - "+ Adicionar exercício";
+  - "Terminar treino".
+- **No notes and no timer.** The duration is not shown during the workout. The start and finish times are stored, and the duration appears in the summary and in the history.
+- **One workout in progress at a time,** saved on the device at every ✓. Reopening the app offers "Continuar treino" or "Descartar".
+
+**Finishing**
+- **One operation, all or nothing:** the whole workout is sent at once.
+- **Without network**, it waits on the device and is sent again when the network is back, without duplicates: the workout gets an ID on the device when it starts, and the database ignores a workout it has already received. The exact schema and operation are defined with the tables (step 4.2).
+- **No logged sets:** "Terminar treino" asks "Não registaste nenhuma série. Descartar treino?", and nothing is sent.
+
+**Workout tab ("Treino")**
+- The next workout, with "Iniciar".
+- A 12-week activity heatmap of training days.
+- The routines, with "+ Nova".
+- The history.
+
+**Development order:** the gym module is built first because it will be used the most.
 
 ### Finance module
 - **Manual entry only.** No bank integrations.
@@ -72,7 +103,7 @@ _Last updated: 2026-10-30_
 - **Mobile:** a bottom tab bar with four tabs: Home ("Início"), Workout ("Treino"), Weight ("Peso") and Finance ("Finanças"). They cover the MVP modules.
 - **Desktop:** the same four items in a sidebar.
 - **Settings and account** are reached through the avatar on Home, not through a tab. They are rarely used and do not justify a tab.
-- **The active workout is full screen**, without the tab bar. The workout duration and the "Finish" ("Terminar") button are always visible. This keeps the focus on the workout, allows larger buttons and prevents switching tabs by accident in the middle of a set.
+- **The active workout is full screen**, without the tab bar, with "Terminar treino" always visible. The duration is not shown during the workout (see *Gym module*). This keeps the focus on the workout, allows larger buttons and prevents switching tabs by accident in the middle of a set.
 - **No central "+" button** in the tab bar. Quick actions (start workout, log weight, add expense) live on Home, and each tab has its own add button. This keeps the bar cleaner and consistent with the restrained style, and Home is the first screen when the app opens. This may be revisited after the MVP.
 - **Breakpoint:** the bottom tab bar is shown below 1024px (`lg`) and the sidebar from 1024px. Both render the same list, `src/components/layout/nav-items.ts`, so they cannot drift apart.
 - **Icons:** Lucide (`lucide-react`).
@@ -279,8 +310,9 @@ Google's account chooser shows the Supabase project's domain (`<project>.supabas
 **Why:** Data mode enables features the app will need:
 - **`lazy` per route**, to split each module into its own chunk.
 - **`<ScrollRestoration />`**: new pages open at the top, and back and forward restore the previous position.
-- **`useBlocker`**, to warn before leaving the active workout (Phase 4).
 - **An `ErrorBoundary` per route**, so an error shows an error screen instead of a blank page.
+
+**No `useBlocker`:** the workout in progress is saved on the device at every logged set, so leaving its screen loses nothing, and a warning would only get in the way.
 
 **Lazy loading:** pages are imported eagerly for now. Each one moves to `lazy` once its module has real code; splitting empty pages would only add requests. The exception is the development-only page (see *Development-only page*).
 
@@ -366,11 +398,11 @@ Loading, empty and error states are shared components, so every module handles t
 Icons, manifest and iOS details: see *App icon*.
 
 ### Offline handling
-**Decision:** The in-progress workout is persisted on the device and synced when finished. Full offline support is out of scope.
+**Decision:** The workout in progress is saved on the device at every logged set. The finished workout is sent in one operation; without network it waits on the device and is sent when the network is back (see *Gym module*). Using the rest of the app without network is out of scope.
 
 **Why:** Gyms often have poor connectivity, and losing logged sets is unacceptable. Full offline sync is significantly more complex.
 
-**Current state:** there is no service worker yet, so without network the app does not open at all. The wait of up to 30 seconds (see *Route protection*) only happens with a weak network or with Supabase unreachable. Offline support is planned for Phase 4.
+**Current state:** there is no service worker yet, so without network the app does not open at all. The wait of up to 30 seconds (see *Route protection*) only happens with a weak network or with Supabase unreachable. Phase 4 adds a service worker (step 4.4b), so the app opens without network and a workout can be resumed at the gym.
 
 ---
 
@@ -385,7 +417,13 @@ Icons, manifest and iOS details: see *App icon*.
 
 ### Main tables
 - **Account:** `profiles`
-- **Gym:** `exercises`, `routines`, `routine_exercises`, `workouts`, `workout_exercises`, `workout_sets`
+- **Gym:**
+  - `exercises`: the user's exercises, with names unique per user ignoring case and leading or trailing spaces; archived, never deleted, once they have history.
+  - `routines`: the user's routines, with a name and an order; archived, never deleted.
+  - `routine_exercises`: a routine's exercises, in order, with target sets and an optional rep range.
+  - `workouts`: finished workouts, with the routine they started from, the start and finish times, and an ID created on the device.
+  - `workout_exercises`: the exercises done in a workout, in order. A record of what was done, so it does not change when the routine changes.
+  - `workout_sets`: the logged sets of each exercise in a workout (weight × reps).
 - **Body weight:** `weight_entries`
 - **Finance:** `categories`, `transactions`, `budgets`, `subscriptions`
 
@@ -597,7 +635,7 @@ The MVP runs on free tiers: GitHub, Supabase Free and Vercel Hobby (personal, no
 
 | Question | When |
 |---|---|
-| Offline mode and service worker (today the app does not open without network, and opening it with an expired token on a weak network waits up to 30 s) | Phase 4 |
+| Service worker, so the app opens without network (today it does not, and opening it with an expired token on a weak network waits up to 30 s) | Phase 4 (step 4.4b) |
 | Backup strategy | Before Phase 5 |
 | Publish the Google OAuth app and complete its Branding (optional: only to show the app's name and logo on Google's sign-in screen) | Phase 5 |
 | Create the production Supabase project (`levelup-prod`) | Phase 5 |
