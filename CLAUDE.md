@@ -38,6 +38,7 @@ LevelUP is a mobile-first personal life dashboard (gym, body weight, finance, da
 - **TypeScript is pinned to `~6.0.3`.** Do not upgrade to 7 until typescript-eslint supports it.
 - In use: Tailwind CSS v4 (CSS-first configuration, no `tailwind.config.js`), shadcn/ui, React Router, TanStack Query, Supabase, Vitest. Planned: React Hook Form + Zod, Recharts, React Testing Library, Playwright.
 - Unit tests sit next to the code as `*.test.ts` and run in a fixed time zone (`Europe/Lisbon`, set in `vite.config.ts`).
+- Tailwind classes go only in `.tsx` files: `src/index.css` excludes every `.ts` file from Tailwind's scan.
 - Feature-based structure: `src/features/<feature>/` (components, pages, api, hooks, schemas). Shared code goes in `src/lib/` and `src/components/`.
 - Money is never stored or calculated as a floating point number.
 
