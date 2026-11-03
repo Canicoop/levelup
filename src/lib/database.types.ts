@@ -272,6 +272,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      last_exercise_sets: {
+        Args: { exercise_ids: string[] }
+        Returns: {
+          exercise_id: string
+          finished_at: string
+          reps: number
+          set_position: number
+          weight_kg: number
+        }[]
+      }
       submit_workout: { Args: { workout: Json }; Returns: string }
     }
     Enums: {

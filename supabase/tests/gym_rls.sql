@@ -1,5 +1,6 @@
--- Security tests for the gym tables and submit_workout: privileges, RLS,
--- composite foreign keys, constraints, idempotent sending and cascades.
+-- Security tests for the gym tables, submit_workout and last_exercise_sets:
+-- privileges, RLS, composite foreign keys, constraints, idempotent sending and
+-- cascades.
 --
 -- How to run: paste the whole file into the SQL Editor of levelup-dev and run it.
 -- Everything happens inside one transaction that is never committed, so nothing
@@ -32,7 +33,7 @@ values
   ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'authenticated', 'authenticated', 'gym-test-b@example.invalid');
 
 -- ---------------------------------------------------------------------------
--- 1. Without a session (anon): no access to any table or to submit_workout.
+-- 1. Without a session (anon): no access to any table or function.
 -- ---------------------------------------------------------------------------
 select set_config('request.jwt.claims', '{"role":"anon"}', true);
 set local role anon;
@@ -63,6 +64,13 @@ do $$
 begin
   perform public.submit_workout('{}'::jsonb);
   raise exception 'FAIL 1.2: anon could execute submit_workout';
+exception when insufficient_privilege then null;
+end $$;
+
+do $$
+begin
+  perform public.last_exercise_sets('{}'::uuid[]);
+  raise exception 'FAIL 1.3: anon could execute last_exercise_sets';
 exception when insufficient_privilege then null;
 end $$;
 
@@ -442,6 +450,95 @@ begin
   end if;
 end $$;
 
+-- 3.18 last_exercise_sets. A already has a workout from 3.12 (bench 80 × 8 and
+--      82.5 × 6, squat 100 × 5, finished 2026-11-02 10:05). Two more, from
+--      another routine: a later one with bench only, and one sent afterwards
+--      but finished earlier, so "latest" must come from the date, not the order
+--      of sending.
+do $$
+declare
+  other_routine uuid;
+  bench uuid := current_setting('test.a_bench')::uuid;
+  squat uuid := current_setting('test.a_squat')::uuid;
+  bench_sets text;
+  squat_sets text;
+  found_rows bigint;
+begin
+  insert into public.routines (name, position) values ('Outra rotina', 5) returning id into other_routine;
+
+  perform public.submit_workout(jsonb_build_object(
+    'id', 'aaaaaaaa-0000-4000-8000-000000000003',
+    'routine_id', other_routine,
+    'started_at', '2026-11-03T09:00:00Z',
+    'finished_at', '2026-11-03T10:00:00Z',
+    'exercises', jsonb_build_array(jsonb_build_object('exercise_id', bench, 'sets', jsonb_build_array(
+      jsonb_build_object('weight_kg', 90, 'reps', 5),
+      jsonb_build_object('weight_kg', 92.5, 'reps', 3)
+    )))
+  ));
+  perform public.submit_workout(jsonb_build_object(
+    'id', 'aaaaaaaa-0000-4000-8000-000000000004',
+    'routine_id', other_routine,
+    'started_at', '2026-11-01T09:00:00Z',
+    'finished_at', '2026-11-01T10:00:00Z',
+    'exercises', jsonb_build_array(
+      jsonb_build_object('exercise_id', bench, 'sets', '[{"weight_kg": 70, "reps": 10}]'::jsonb),
+      jsonb_build_object('exercise_id', squat, 'sets', '[{"weight_kg": 60, "reps": 10}]'::jsonb)
+    )
+  ));
+
+  -- The latest workout of each exercise, from any routine, sets in order.
+  select string_agg(l.set_position || ':' || l.weight_kg::numeric(6, 1) || 'x' || l.reps, ' ' order by l.set_position)
+  into bench_sets
+  from public.last_exercise_sets(array[bench, squat]) l
+  where l.exercise_id = bench;
+  if bench_sets is distinct from '0:90.0x5 1:92.5x3' then
+    raise exception 'FAIL 3.18: bench returned %', bench_sets;
+  end if;
+
+  -- Each exercise has its own latest workout: squat is not in the newest one.
+  select string_agg(l.weight_kg::numeric(6, 1) || 'x' || l.reps, ' ')
+  into squat_sets
+  from public.last_exercise_sets(array[bench, squat]) l
+  where l.exercise_id = squat;
+  if squat_sets is distinct from '100.0x5' then
+    raise exception 'FAIL 3.18: squat returned %', squat_sets;
+  end if;
+
+  if not exists (
+    select 1 from public.last_exercise_sets(array[bench]) l
+    where l.finished_at = '2026-11-03T10:00:00Z'
+  ) then
+    raise exception 'FAIL 3.18: finished_at is not the latest workout''s';
+  end if;
+
+  -- No history, and no exercises at all: no rows.
+  select count(*) into found_rows from public.last_exercise_sets(array[current_setting('test.a_row')::uuid]);
+  if found_rows <> 0 then
+    raise exception 'FAIL 3.18: an exercise with no history returned % rows', found_rows;
+  end if;
+  select count(*) into found_rows from public.last_exercise_sets('{}'::uuid[]);
+  if found_rows <> 0 then
+    raise exception 'FAIL 3.18: no exercises returned % rows', found_rows;
+  end if;
+
+  -- 3.19 B's exercise, asked for by A: RLS hides it, so no rows.
+  select count(*) into found_rows from public.last_exercise_sets(array[current_setting('test.b_exercise')::uuid]);
+  if found_rows <> 0 then
+    raise exception 'FAIL 3.19: A read % of B''s sets', found_rows;
+  end if;
+
+  -- 3.20 It runs as the caller, with an empty search_path.
+  if not exists (
+    select 1 from pg_catalog.pg_proc p
+    where p.oid = 'public.last_exercise_sets(uuid[])'::regprocedure
+      and not p.prosecdef
+      and p.proconfig = array['search_path=""']
+  ) then
+    raise exception 'FAIL 3.20: last_exercise_sets is not security invoker with an empty search_path';
+  end if;
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- 4. User B: everything is as B left it, and none of A's rows is visible.
 -- ---------------------------------------------------------------------------
@@ -468,6 +565,17 @@ begin
     or (select count(*) from public.workouts) <> 1
     or not exists (select 1 from public.workout_sets where workout_exercise_id = current_setting('test.b_workout_exercise')::uuid and weight_kg = 60 and reps = 10) then
     raise exception 'FAIL 4.2: B''s data changed';
+  end if;
+
+  -- 4.3 last_exercise_sets gives B their own sets, and nothing for A's exercise.
+  if not exists (
+    select 1 from public.last_exercise_sets(array[current_setting('test.b_exercise')::uuid]) l
+    where l.weight_kg = 60 and l.reps = 10
+  ) then
+    raise exception 'FAIL 4.3: B did not get their own sets';
+  end if;
+  if exists (select 1 from public.last_exercise_sets(array[current_setting('test.a_bench')::uuid])) then
+    raise exception 'FAIL 4.3: B read A''s sets';
   end if;
 end $$;
 
