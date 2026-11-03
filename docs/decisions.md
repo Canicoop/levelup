@@ -18,15 +18,18 @@ _Last updated: 2026-11-03_
 ### Gym module
 **Routines and exercises**
 - **No pre-built exercise library.** Users create their own exercises and reuse them across routines. Adding an exercise searches the existing ones and offers "Criar “…”" when the name does not exist yet; nothing is created implicitly.
-- **Searching ignores case and accents** ("elevacao" finds "Elevação lateral") and matches anywhere in the name. "Criar “…”" is offered only when no exercise has the same name by that key.
-- **Adding exercises:** the sheet stays open after each addition, so several can be added in a row. Tapping a row does not take the focus from the search field (the pointer's default is prevented), so the iPhone keyboard stays open: iOS does not reopen it with a `focus()` after the save. Exercises already in the routine show "✓ Na rotina"; archived ones show "Arquivado", and tapping one reactivates and adds it.
+- **Searching ignores case and accents** ("elevacao" finds "Elevação lateral") and matches anywhere in the name. "Criar “…”" is offered only when no exercise has the same name.
+- **Adding exercises:** the sheet stays open after each addition, so several can be added in a row. Exercises already in the routine show "✓ Na rotina"; archived ones show "Arquivado", and tapping one reactivates and adds it.
 - **At most 30 exercises per routine**, the same limit as a workout in `submit_workout`, so any routine can be started. The database has no such check on `routine_exercises`; the app enforces it (`src/features/workout/lib/routine-limits.ts`).
-- **The Exercises screen** (`/treino/exercicios`, reached from the Workout tab) lists every exercise to create, rename, archive or reactivate. "+ Novo" with the name of an archived exercise reactivates it, silently.
+- **The Exercises screen** (`/treino/exercicios`, reached from the Workout tab) lists every exercise to create, rename, archive or reactivate.
 - **Archiving an exercise takes it out of every routine first**, active or archived, after a confirmation that names them. It is two steps, not a transaction: if the archive step fails, the exercise is out of its routines but still active, which is a valid state. The other order could leave an archived exercise inside routines.
-- **Exercise names are unique per user, ignoring case, accents and leading or trailing spaces** ("Supino ", "supino" and "Supinó" are the same name). Creating a name that matches an archived exercise reactivates it, with its history. The app compares names with one key, `searchKey` (`src/features/workout/lib/exercise-search.ts`), in the search, in "Criar “…”", in "+ Novo", when reactivating and when renaming (a name that differs from another exercise's only in accents is refused, with the duplicate message). The database index stays on `lower(name)`, which counts accents: it is the safety net, and the app is stricter.
+- **Exercise names are unique per user, ignoring case, accents and leading or trailing spaces** ("Supino ", "supino" and "Supinó" are the same name). One key, `searchKey` (`src/features/workout/lib/exercise-search.ts`), decides this everywhere: searching, "Criar “…”", "+ Novo", reactivating and renaming. A new name that matches an archived exercise reactivates it silently, with its history; renaming to another exercise's name is refused with the duplicate message. The database index stays on `lower(name)`, which counts accents: it is the safety net, and the app is stricter.
 - **Weight is always required.** Every set is weight × reps; there are no bodyweight-only exercises.
 - **Routines have a name and an order.** Each routine lists its exercises in order, with target sets and an optional rep range (for example 3 × 8–12). A single number is stored as the same minimum and maximum.
-- **Editing a routine:** rename it, reorder its exercises with ▲▼ arrows (no dragging), change an exercise's sets and reps or remove it from its panel, add exercises, and archive the routine.
+- **Every change saves at once:** there is no save step for the routine as a whole. On success a change waits for the refetch, so the screen never shows the old state as saved; on failure the error shows at once and the refetch runs in the background. A failed refetch keeps the list on screen.
+- **Reordering:** "Ordenar" swaps the rows for ▲▼ arrows (no dragging) and becomes "Concluído". Rows stop opening, the arrows at the ends are disabled, and all of them wait while a move saves. It is hidden with fewer than two items. Routines and a routine's exercises work the same way.
+- **Editing a routine** (`/treino/rotinas/:id`): tapping an exercise opens a panel with the sets (− 3 +) and the optional reps (minimum and maximum), saved with "Guardar", and "Retirar da rotina", without confirmation. At the bottom of the page, "Mudar nome" and "Arquivar rotina"; archiving asks for confirmation and returns to the Workout tab.
+- **Archived routines and exercises** are collapsed under "Arquivadas (n)" and "Arquivados (n)", with "Reativar"; a reactivated routine goes to the end of the active list. An archived routine opened by its address shows "Esta rotina está arquivada" with "Reativar", and hides "Mudar nome" and "Arquivar rotina".
 - **Archive instead of delete:** exercises and routines with history are archived, never deleted. Changing a routine never changes past workouts. Renaming an exercise also renames it in the history, since it is the same exercise.
 
 **Starting a workout**
@@ -55,7 +58,8 @@ _Last updated: 2026-11-03_
 **Workout tab ("Treino")**
 - The next workout, with "Iniciar".
 - A 12-week activity heatmap of training days.
-- The routines, with "+ Nova".
+- The routines, with "+ Nova", and the archived ones.
+- An "Exercícios" row with the number of active exercises, leading to the Exercises screen.
 - The history.
 
 **Development order:** the gym module is built first because it will be used the most.
@@ -322,10 +326,10 @@ Google's account chooser shows the Supabase project's domain (`<project>.supabas
 **No `useBlocker`:** the workout in progress is saved on the device at every logged set, so leaving its screen loses nothing, and a warning would only get in the way.
 
 **Lazy loading:** a module's pages move to `lazy` once the module has real code; splitting empty pages would only add requests. Lazy so far: Workout (`/treino`, `/treino/rotinas/:id` and `/treino/exercicios`), plus the development-only page (see *Development-only page*). Home, Weight, Finance and Settings are still imported eagerly.
-- **One chunk per module, one import function.** `loadWorkoutPages()` (`src/features/workout/load-pages.ts`) imports `src/features/workout/pages/index.ts`, which re-exports the module's pages. Both routes use it with the object form of `lazy` (`lazy: { Component: async () => (await loadWorkoutPages()).WorkoutPage }`), as React Router's data mode guide shows. Components used only by the module (the drawer, the input) end up in its chunk.
+- **One chunk per module, one import function.** `loadWorkoutPages()` (`src/features/workout/load-pages.ts`) imports `src/features/workout/pages/index.ts`, which re-exports the module's pages. The routes use it with the object form of `lazy` (`lazy: { Component: async () => (await loadWorkoutPages()).WorkoutPage }`), as React Router's data mode guide shows. Components used only by the module (the drawer, the input) end up in its chunk.
 - **Preloaded when idle.** Once the app is open and signed in, `AppShell` fetches the Workout chunk with `requestIdleCallback` (a timeout where it is missing). **Why:** if the connection drops after the app opens, tapping Treino still works. A failed preload is caught silently: the app may have opened offline, and tapping the tab tries again.
 - **The promise is not cached.** The browser already reuses a loaded module; a cached rejected promise would make a failed preload fail again on tap instead of retrying.
-- **Measured** (gzip, `npm run build`): the main chunk went from 221.53 kB to 185.87 kB; the Workout chunk is 37.94 kB.
+- **Measured** (gzip, `npm run build`): moving Workout to `lazy` took the main chunk from 221.53 kB to 185.87 kB. At the end of step 4.3 the main chunk is 185.89 kB and the Workout chunk 42.80 kB.
 - **No `HydrateFallback` warning.** React Router warns only when no route on the opened path has a `HydrateFallback`. The root route has one (`AppLoading`, see *Loading screen*), so opening a lazy route directly shows it while the chunk loads, without a warning.
 
 **Package:** React Router 8 has no `react-router-dom` package. Everything is imported from `react-router`, except `RouterProvider`, which comes from `react-router/dom`.
@@ -334,6 +338,7 @@ Google's account chooser shows the Supabase project's domain (`<project>.supabas
 Defined in `src/router.tsx`:
 - **A root route with the `ErrorBoundary`** (`RouteError`) and no component of its own. The error screen therefore renders outside the app shell, without navigation, which still works if the shell itself fails.
 - **`AppShell`** (sidebar, tab bar, `<ScrollRestoration />`) wraps every page with navigation.
+- **Screens below a tab** (a routine's editor, Exercises) are children of `AppShell` too, so the navigation stays visible; `PageHeader`'s `back` prop adds the ← to the tab.
 - **The 404 page** (`path: '*'`) is inside the shell, so the navigation stays available to leave it.
 - **Full-screen screens** (the active workout, Phase 4) are added as siblings of `AppShell`, so they render without the tab bar.
 
@@ -375,11 +380,14 @@ Loading, empty and error states are shared components, so every module handles t
 - **Loading pattern:** the container has `aria-busy="true"` and a visually hidden "A carregar…" label; the skeletons are hidden from assistive technology (`aria-hidden`).
 
 ### Bottom sheets
-**Decision:** panels that slide up from the bottom (`BottomSheet`, on shadcn/ui's Base UI `Drawer`) are used for short forms: a routine's name, an exercise's sets and reps, confirming an archive.
+**Decision:** panels that slide up from the bottom (`BottomSheet`, on shadcn/ui's Base UI `Drawer`) are used for short tasks: a name, an exercise's sets and reps, adding exercises, an exercise's panel, confirming an archive.
 - **The content owns its mutations** and unmounts when the sheet closes, so each opening starts clean, without an old error or a pending state.
 - **No closing while saving.** The content reports a save with `useSheetBusy(isPending)` (`src/components/sheet-busy.ts`). Until it finishes, Escape and a swipe are cancelled (`eventDetails.cancel()`) and a tap outside is ignored (`disablePointerDismissal`). **Why:** otherwise the content would unmount mid-save and an error would be lost unseen. After a successful save, the content closes the sheet itself.
 - **One action at a time:** a sheet with two actions (save and remove) disables both while either saves.
-- **Focus:** a form with a name opens on its field. The sets and reps panel opens on "−", so the iPhone keyboard does not open by itself.
+- **Focus:** a sheet opens on its field when typing comes next (a new name, "Mudar nome", the search). The sets and reps panel opens on "−" and an exercise's panel on the sheet itself, so the iPhone keyboard does not open by itself.
+- **The keyboard stays open while adding:** tapping a row does not take the focus from the search field (the pointer's default is prevented), because iOS does not reopen the keyboard with a `focus()` after a save.
+
+**Tested on an iPhone (2026-11-03, over the Cloudflare tunnel, see *Tested*):** the sheet rises above the keyboard, with the field and the button visible; it does not close with a swipe while saving; the keyboard stays open when adding several exercises in a row.
 
 ### Development-only page
 **Decision:** `/dev/componentes` previews the shared states. The route is registered only when `import.meta.env.DEV` is true, with a dynamic `import()`, so the production build contains neither the page nor a chunk for it.
@@ -437,7 +445,7 @@ Icons, manifest and iOS details: see *App icon*.
 ### Main tables
 - **Account:** `profiles`
 - **Gym:**
-  - `exercises`: the user's exercises, with names unique per user ignoring case and leading or trailing spaces; archived, never deleted, once they have history.
+  - `exercises`: the user's exercises, with names unique per user ignoring case and leading or trailing spaces (the app also ignores accents; see *Gym module*); archived, never deleted, once they have history.
   - `routines`: the user's routines, with a name and an order; archived, never deleted.
   - `routine_exercises`: a routine's exercises, in order, with target sets and an optional rep range.
   - `workouts`: finished workouts, with the routine they started from, the start and finish times, and an ID created on the device.
@@ -637,7 +645,7 @@ Deny rules in `.claude/settings.json` block these three for Claude Code, and als
 - **Fixed time zone:** `test.env.TZ = 'Europe/Lisbon'`, so date tests give the same result on any machine and in CI. Lisbon rather than UTC because its summer offset (UTC+1) is exactly what makes `toISODate` differ from `toISOString`. A test checks that the zone took effect; it was also run with the process set to `America/New_York`, and still ran in Lisbon.
 - **Tailwind reads only `.tsx` files (`@source not "./**/*.ts"` in `src/index.css`):** Tailwind scans `src` for class names in any text, comments included. Words in test descriptions ("absolute", "relative") had added `.absolute` and `.relative` to the production CSS, and later the word "table" in a comment of a data-layer file added `.table`. Excluding only the tests would not have caught the second case, so every `.ts` file is excluded: logic and tests live in `.ts`, and Tailwind classes only in `.tsx`. With the exclusion, the CSS is byte-for-byte the same as without those files.
 
-**What the 57 tests cover:**
+**What the 152 tests cover:**
 
 | File | Tests | Covers |
 |---|---|---|
@@ -647,6 +655,13 @@ Deny rules in `.claude/settings.json` block these three for Claude Code, and als
 | `src/lib/supabase-config.test.ts` | 7 | `getSupabaseConfig`: missing or empty variables named exactly, both set, and the error message never containing the values |
 | `src/features/home/lib/greeting.test.ts` | 8 | `getGreeting`: 00:00, 05:59, 06:00, 11:59, 12:00, 19:59, 20:00 and 23:59 |
 | `src/lib/format.test.ts` | 4 | the time zone check, `toISODate` (including 1 July 00:30, where `toISOString` gives 30 June) and `formatLongDate` in European Portuguese |
+| `src/features/workout/lib/errors.test.ts` | 21 | `requireRows`, and `getErrorMessage`: specific messages, network failures per browser, database error codes |
+| `src/features/workout/lib/exercise-search.test.ts` | 26 | the same-name key (case, accents, spaces), `resolveNewExercise`, `isExerciseNameTaken`, `filterExercises`, `canCreateExercise` |
+| `src/features/workout/lib/targets.test.ts` | 19 | `validateTargets`: limits of sets and reps, a single number as min = max, whole numbers only; `formatTargets` |
+| `src/features/workout/lib/names.test.ts` | 11 | `cleanName`, and the 80 and 60 character limits, with an emoji counted as one character |
+| `src/features/workout/lib/positions.test.ts` | 8 | `moveItem`: only changed rows are sent, the ends, shared positions and gaps; `nextPosition` |
+| `src/features/workout/lib/routine-limits.test.ts` | 6 | `isRoutineFull` and the 30-exercise limit |
+| `src/features/workout/lib/labels.test.ts` | 4 | `formatExerciseCount`: "Sem exercícios", singular and plural |
 
 **Tests fail when a rule breaks:** removing the final `//` check from `getSafeReturnPath` made exactly the two expected tests fail (`/..//evil.com` and `/.//evil.com`); the function was then restored unchanged.
 
