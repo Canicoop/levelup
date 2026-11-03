@@ -1,6 +1,8 @@
+import { useEffect } from 'react'
 import { Outlet, ScrollRestoration } from 'react-router'
 import { BottomNav } from '@/components/layout/bottom-nav'
 import { SidebarNav } from '@/components/layout/sidebar-nav'
+import { preloadWorkoutPages } from '@/features/workout/load-pages'
 
 // Content is padded away from the notch and, in landscape, the rounded corners.
 // On mobile the bottom padding also clears the fixed tab bar (3.5rem) and the
@@ -8,6 +10,10 @@ import { SidebarNav } from '@/components/layout/sidebar-nav'
 // capped at 56rem including padding (52rem of content), wide enough for three
 // cards in a row.
 export function AppShell() {
+  // Lazy modules are fetched in the background once the app is open and
+  // signed in (see load-pages.ts).
+  useEffect(preloadWorkoutPages, [])
+
   return (
     <div className="min-h-dvh lg:pl-60">
       <SidebarNav />

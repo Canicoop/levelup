@@ -9,11 +9,12 @@ import { FinancePage } from '@/features/finance/pages/finance-page'
 import { HomePage } from '@/features/home/pages/home-page'
 import { SettingsPage } from '@/features/settings/pages/settings-page'
 import { WeightPage } from '@/features/weight/pages/weight-page'
-import { RoutineEditorPage } from '@/features/workout/pages/routine-editor-page'
-import { WorkoutPage } from '@/features/workout/pages/workout-page'
+import { loadWorkoutPages } from '@/features/workout/load-pages'
 
-// Pages are imported eagerly for now. Each one moves to `lazy` once its
-// module has real code.
+// A module's pages move to `lazy` once the module has real code; until then
+// they are imported eagerly, since splitting empty pages only adds requests.
+// Lazy so far: Workout. Its routes share one import function, which AppShell
+// also uses to preload the chunk (see load-pages.ts).
 export const router = createBrowserRouter([
   {
     ErrorBoundary: RouteError,
@@ -31,8 +32,11 @@ export const router = createBrowserRouter([
         Component: AppShell,
         children: [
           { index: true, Component: HomePage },
-          { path: 'treino', Component: WorkoutPage },
-          { path: 'treino/rotinas/:id', Component: RoutineEditorPage },
+          { path: 'treino', lazy: { Component: async () => (await loadWorkoutPages()).WorkoutPage } },
+          {
+            path: 'treino/rotinas/:id',
+            lazy: { Component: async () => (await loadWorkoutPages()).RoutineEditorPage },
+          },
           { path: 'peso', Component: WeightPage },
           { path: 'financas', Component: FinancePage },
           { path: 'definicoes', Component: SettingsPage },

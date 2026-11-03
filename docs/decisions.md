@@ -2,7 +2,7 @@
 
 This document records the main technical and product decisions for LevelUP, and the reasons behind them. New decisions are added as the project evolves.
 
-_Last updated: 2026-11-02_
+_Last updated: 2026-11-03_
 
 ---
 
@@ -314,7 +314,12 @@ Google's account chooser shows the Supabase project's domain (`<project>.supabas
 
 **No `useBlocker`:** the workout in progress is saved on the device at every logged set, so leaving its screen loses nothing, and a warning would only get in the way.
 
-**Lazy loading:** pages are imported eagerly for now. Each one moves to `lazy` once its module has real code; splitting empty pages would only add requests. The exception is the development-only page (see *Development-only page*).
+**Lazy loading:** a module's pages move to `lazy` once the module has real code; splitting empty pages would only add requests. Lazy so far: Workout (`/treino` and `/treino/rotinas/:id`), plus the development-only page (see *Development-only page*). Home, Weight, Finance and Settings are still imported eagerly.
+- **One chunk per module, one import function.** `loadWorkoutPages()` (`src/features/workout/load-pages.ts`) imports `src/features/workout/pages/index.ts`, which re-exports the module's pages. Both routes use it with the object form of `lazy` (`lazy: { Component: async () => (await loadWorkoutPages()).WorkoutPage }`), as React Router's data mode guide shows. Components used only by the module (the drawer, the input) end up in its chunk.
+- **Preloaded when idle.** Once the app is open and signed in, `AppShell` fetches the Workout chunk with `requestIdleCallback` (a timeout where it is missing). **Why:** if the connection drops after the app opens, tapping Treino still works. A failed preload is caught silently: the app may have opened offline, and tapping the tab tries again.
+- **The promise is not cached.** The browser already reuses a loaded module; a cached rejected promise would make a failed preload fail again on tap instead of retrying.
+- **Measured** (gzip, `npm run build`): the main chunk went from 221.53 kB to 185.87 kB; the Workout chunk is 37.94 kB.
+- **No `HydrateFallback` warning.** React Router warns only when no route on the opened path has a `HydrateFallback`. The root route has one (`AppLoading`, see *Loading screen*), so opening a lazy route directly shows it while the chunk loads, without a warning.
 
 **Package:** React Router 8 has no `react-router-dom` package. Everything is imported from `react-router`, except `RouterProvider`, which comes from `react-router/dom`.
 
@@ -367,9 +372,7 @@ Loading, empty and error states are shared components, so every module handles t
 
 **Verified:** after `npm run build`, none of the page's text appears in `dist/`, and `npm run preview` shows the 404 page at that address.
 
-**Known side effects:**
-- Tailwind scans all of `src/`, so the page's utility classes still end up in the production CSS: a small amount of CSS, with no content and no JavaScript.
-- In development, opening the page directly logs a React Router warning about a missing `HydrateFallback`, because it is the only lazy route. The warning does not appear in production.
+**Known side effect:** Tailwind scans all of `src/`, so the page's utility classes still end up in the production CSS: a small amount of CSS, with no content and no JavaScript. (Opening the page directly no longer logs a `HydrateFallback` warning: the root route's `HydrateFallback` covers it; see *React Router 8 in data mode*.)
 
 ### shadcn/ui on Base UI
 **Decision:** shadcn/ui components are built on Base UI (`shadcn init -b base`, `base-nova` style, `neutral` base colour), not Radix.
