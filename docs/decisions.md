@@ -39,16 +39,22 @@ _Last updated: 2026-11-03_
 **Workout in progress**
 - **Full screen**, outside the app shell (see *Navigation*).
 - **All the exercises in one list**, with only the current one open.
-- **"Última vez" (last time) is per exercise:** that exercise's sets in the most recent finished workout, from any routine.
-- **Each set:** the weight is pre-filled with the same set from last time; the reps are empty, with last time's reps as a placeholder; ✓ logs the set.
+- **"Última vez" (last time) is per exercise:** that exercise's sets in the most recent finished workout, from any routine, read with `last_exercise_sets` (see *last_exercise_sets*). They are kept inside the workout when it starts, so they still show when it is resumed without network.
+- **Each exercise starts with the routine's sets** (`target_sets`). "+ Série" adds more.
+- **Each set:** the weight comes from the same set last time; without one, from the previous set of this workout, and ✓ fills the next set's weight only if it is empty. The reps start empty, with last time's as a placeholder. The weight accepts a comma ("22,5", `inputMode="decimal"`), above 0, up to 1000, with two decimals at most; the reps are whole numbers from 1 to 100 (`inputMode="numeric"`).
+- **✓ logs the set,** and needs a valid weight and reps: the placeholder does not count as a value. Tapping ✓ again removes it. Only sets with ✓ are sent.
+- **A set with ✓ stays editable, and is always valid in the stored workout.** While typing, the text lives in a draft in the field, because it passes through invalid values on the way ("40" to "45" empties the field; "22," waits for the "5"). An invalid draft shows the error and the ✓ stays; if the field loses focus with an invalid value, it goes back to the last valid one. `editSet` refuses an invalid value for a logged set.
+- **After the last ✓ of an exercise,** it closes and the next one that is neither done nor skipped opens, wrapping around to earlier exercises.
 - **Actions:**
   - "+ Série" adds a set;
-  - "Trocar" swaps the exercise for another, in this workout only;
-  - "Saltar" skips the exercise, which is then not saved;
+  - "Trocar" swaps the exercise for another, in this workout only: it keeps the place and the number of sets, and the sets start over, since logged ones belonged to the other exercise;
+  - "Saltar" skips the exercise, which is then not saved; undoing it brings back its logged sets;
   - "+ Adicionar exercício";
   - "Terminar treino".
 - **No notes and no timer.** The duration is not shown during the workout. The start and finish times are stored, and the duration appears in the summary and in the history.
-- **One workout in progress at a time,** saved on the device at every ✓. Reopening the app offers "Continuar treino" or "Descartar".
+- **One workout in progress at a time,** saved on the device at every change, in `localStorage` with one key per account (`levelup:active-workout:<userId>`). Signing out does not delete it: it stays with that account. The stored value has a format version, and a damaged value or one from another version is ignored.
+- **Resuming:** a workout in progress shows in a card at the top of the Workout tab and Home, with "Continuar" and "Descartar".
+- **Its account survives being offline:** with an expired token and no network the auth state is signed-out while the session is still stored, so the account is read from Supabase's stored session (`readStoredUserId`, the only code that knows that format). Otherwise the workout would vanish at the gym.
 
 **Finishing**
 - **One operation, all or nothing:** the whole workout is sent at once.
@@ -323,7 +329,7 @@ Google's account chooser shows the Supabase project's domain (`<project>.supabas
 - **`<ScrollRestoration />`**: new pages open at the top, and back and forward restore the previous position.
 - **An `ErrorBoundary` per route**, so an error shows an error screen instead of a blank page.
 
-**No `useBlocker`:** the workout in progress is saved on the device at every logged set, so leaving its screen loses nothing, and a warning would only get in the way.
+**No `useBlocker`:** the workout in progress is saved on the device at every change, so leaving its screen loses nothing, and a warning would only get in the way.
 
 **Lazy loading:** a module's pages move to `lazy` once the module has real code; splitting empty pages would only add requests. Lazy so far: Workout (`/treino`, `/treino/rotinas/:id` and `/treino/exercicios`), plus the development-only page (see *Development-only page*). Home, Weight, Finance and Settings are still imported eagerly.
 - **One chunk per module, one import function.** `loadWorkoutPages()` (`src/features/workout/load-pages.ts`) imports `src/features/workout/pages/index.ts`, which re-exports the module's pages. The routes use it with the object form of `lazy` (`lazy: { Component: async () => (await loadWorkoutPages()).WorkoutPage }`), as React Router's data mode guide shows. Components used only by the module (the drawer, the input) end up in its chunk.
@@ -425,7 +431,7 @@ Loading, empty and error states are shared components, so every module handles t
 Icons, manifest and iOS details: see *App icon*.
 
 ### Offline handling
-**Decision:** The workout in progress is saved on the device at every logged set. The finished workout is sent in one operation; without network it waits on the device and is sent when the network is back (see *Gym module*). Using the rest of the app without network is out of scope.
+**Decision:** The workout in progress is saved on the device at every change. The finished workout is sent in one operation; without network it waits on the device and is sent when the network is back (see *Gym module*). Using the rest of the app without network is out of scope.
 
 **Why:** Gyms often have poor connectivity, and losing logged sets is unacceptable. Full offline sync is significantly more complex.
 
@@ -540,11 +546,20 @@ Created by `supabase/migrations/20261102165341_create_gym_tables.sql`. Every tab
   - If the `id` belongs to another user, RLS hides that row, and the function raises 23505 instead of reporting success.
 - **`EXECUTE`** only for `authenticated`; revoked from `public` and `anon`.
 
+### last_exercise_sets
+**Decision:** "Última vez" is read through `public.last_exercise_sets(exercise_ids uuid[])`, created by `supabase/migrations/20261103232850_create_last_exercise_sets.sql`. It returns, for each exercise, the sets of the most recent finished workout that has it, from any routine, with `distinct on`.
+
+**Why:** a workout can have 30 exercises. One Data API query would return each exercise's whole history and could be cut by the API's row limit, dropping the less frequent exercises without an error. One query per exercise would be correct, but 30 requests when starting a workout, on a gym's weak network.
+
+- **`security invoker` with an empty `search_path`,** like `submit_workout`: RLS applies inside it, so another user's exercise id returns nothing.
+- **An exercise with no history** returns no rows.
+- **`EXECUTE`** only for `authenticated`; revoked from `public` and `anon`.
+
 ### Generated types
 - `src/lib/database.types.ts` comes from `npm run db:types` (`supabase gen types typescript --linked --schema public`), and is never edited by hand. It is regenerated after each migration. The client is created with `createClient<Database>`.
 - **The generated `Insert` and `Update` types are wider than the database allows:** they show `id`, `user_id` and the timestamps as optional, because the generator does not know about column-level privileges. The Weight module's data layer must accept only `{ entry_date, weight_kg }`, with its own narrower type.
 - **`weight_kg` arrives as a `number`:** the Data API returns `numeric` as a JSON number. For weights with two decimals this loses no precision, and they are not used in money calculations, so the rule "money is never floating point" does not apply.
-- **Gym tables and `submit_workout`:** the types now include the six gym tables and `submit_workout` (`Args: { workout: Json }`, `Returns: string`). The note on wider `Insert` and `Update` types applies to them too: the gym data layer uses its own types for what each table, and the `submit_workout` payload, accept.
+- **Gym tables and `submit_workout`:** the types now include the six gym tables and `submit_workout` (`Args: { workout: Json }`, `Returns: string`). The note on wider `Insert` and `Update` types applies to them too: the gym data layer uses its own types for what each table, and the `submit_workout` payload, accept. `last_exercise_sets` is typed too (`Args: { exercise_ids: string[] }`, with one row per set).
 
 ### Accepted advisor warnings
 Supabase's Security Advisor reports three warnings that are not about the app's tables, accepted as they are:
@@ -611,7 +626,7 @@ Deny rules in `.claude/settings.json` block these three for Claude Code, and als
 **Result on 2026-10-30:** all checks passed, and no fake users or entries were left behind. A manual test in the app with two Google accounts follows when the Weight screen exists (Phase 6).
 
 **`supabase/tests/gym_rls.sql` covers:**
-- `anon` cannot select, insert, update, delete or truncate any of the six tables, or execute `submit_workout`;
+- `anon` cannot select, insert, update, delete or truncate any of the six tables, or execute `submit_workout` or `last_exercise_sets`;
 - names are unique per user ignoring case (the same name for another user is fine); names with whitespace at either end, empty names and names over 80 characters are refused;
 - `user_id` and `id` cannot be written;
 - routine limits: target sets, the rep range (including `rep_min` without `rep_max`), and the same exercise twice in a routine;
@@ -626,9 +641,15 @@ Deny rules in `.claude/settings.json` block these three for Claude Code, and als
   - the payload shape (22023);
   - the limits on weight, reps, times and repeated exercises;
   - another user's workout `id` is refused (23505);
+- `last_exercise_sets`:
+  - the latest workout by date, not by order of sending, from any routine, with the sets in order;
+  - each exercise has its own latest workout;
+  - no rows for an exercise with no history or an empty list;
+  - no rows for another user's exercise, in both directions;
+  - it is `security invoker` with an empty `search_path`;
 - deleting a user removes all their rows from the six tables, and none of the other user's.
 
-**Result on 2026-11-02:** all checks passed.
+**Result on 2026-11-02:** all checks passed. **On 2026-11-03,** with the `last_exercise_sets` checks added: all checks passed.
 
 ### Testing strategy
 - **Unit tests (Vitest):** in use. Pure logic now (see *Unit tests*); later money calculations, budgets, subscription totals and date grouping.
