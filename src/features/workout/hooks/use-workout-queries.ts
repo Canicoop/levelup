@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { fetchExercises } from '@/features/workout/api/exercises'
 import { workoutKeys } from '@/features/workout/api/query-keys'
+import { fetchExerciseRoutines } from '@/features/workout/api/routine-exercises'
 import { fetchRoutine, fetchRoutines } from '@/features/workout/api/routines'
 import { RoutineNotFoundError } from '@/features/workout/lib/errors'
 
@@ -19,4 +20,14 @@ export function useRoutine(id: string) {
 
 export function useExercises() {
   return useQuery({ queryKey: workoutKeys.exercises(), queryFn: fetchExercises })
+}
+
+// Read fresh each time the archive confirmation opens, so the names it lists
+// are current.
+export function useExerciseRoutines(exerciseId: string) {
+  return useQuery({
+    queryKey: workoutKeys.exerciseRoutines(exerciseId),
+    queryFn: () => fetchExerciseRoutines(exerciseId),
+    staleTime: 0,
+  })
 }

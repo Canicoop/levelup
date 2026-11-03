@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { createExercise, setExerciseArchived } from '@/features/workout/api/exercises'
 import { workoutKeys } from '@/features/workout/api/query-keys'
 import {
   addRoutineExercise,
@@ -12,9 +13,11 @@ import {
   setRoutineArchived,
   updateRoutinePositions,
 } from '@/features/workout/api/routines'
+import { ValidationError } from '@/features/workout/lib/errors'
 import { moveItem, nextPosition } from '@/features/workout/lib/positions'
+import { ROUTINE_FULL_MESSAGE, isRoutineFull } from '@/features/workout/lib/routine-limits'
 import { DEFAULT_TARGETS } from '@/features/workout/lib/targets'
-import type { Routine, RoutineExercise, Targets } from '@/features/workout/lib/types'
+import type { Exercise, Routine, RoutineExercise, Targets } from '@/features/workout/lib/types'
 
 type Direction = 'up' | 'down'
 
@@ -86,17 +89,53 @@ function useRefetchRoutine(routineId: string) {
   }
 }
 
-// Added at the end, with 3 sets and no rep range.
+// What was tapped in "Adicionar exercício": an exercise from the list (active
+// or archived), or "Criar “…”" with a new name.
+export type ExerciseChoice = { kind: 'existing'; exercise: Exercise } | { kind: 'new'; name: string }
+
+// Adding can also create or reactivate an exercise, which changes the exercise
+// list too, so the whole module is refetched (not only the routine).
+function useRefetchWorkout() {
+  const queryClient = useQueryClient()
+  return (_data: unknown, error: Error | null) => {
+    const refetch = queryClient.invalidateQueries({ queryKey: workoutKeys.all })
+    return error ? undefined : refetch
+  }
+}
+
+// Added at the end, with 3 sets and no rep range. A new name is created first
+// (or an archived exercise with that name reactivated, see createExercise); an
+// archived exercise is reactivated first. If adding then fails, the exercise
+// stays created or active but in no routine: a valid state, and tapping it
+// again adds it. `exercises` is the full list, for createExercise.
 export function useAddRoutineExercise(routineId: string) {
-  const refetch = useRefetchRoutine(routineId)
+  const refetch = useRefetchWorkout()
   return useMutation({
-    mutationFn: ({ exerciseId, entries }: { exerciseId: string; entries: RoutineExercise[] }) =>
-      addRoutineExercise({
+    mutationFn: async ({
+      choice,
+      entries,
+      exercises,
+    }: {
+      choice: ExerciseChoice
+      entries: RoutineExercise[]
+      exercises: Exercise[]
+    }) => {
+      if (isRoutineFull(entries.length)) throw new ValidationError(ROUTINE_FULL_MESSAGE)
+      let exercise: Exercise
+      if (choice.kind === 'new') {
+        exercise = (await createExercise(choice.name, exercises)).exercise
+      } else {
+        exercise = choice.exercise
+        if (exercise.archived_at) await setExerciseArchived(exercise.id, false)
+      }
+      await addRoutineExercise({
         routine_id: routineId,
-        exercise_id: exerciseId,
+        exercise_id: exercise.id,
         position: nextPosition(entries),
         ...DEFAULT_TARGETS,
-      }),
+      })
+      return exercise
+    },
     onSettled: refetch,
   })
 }

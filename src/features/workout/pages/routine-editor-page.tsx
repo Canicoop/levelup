@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { cn } from 'cn'
+import { Plus } from 'lucide-react'
 import { Link, useParams } from 'react-router'
 import { ErrorState } from '@/components/error-state'
 import { PageHeader } from '@/components/layout/page-header'
@@ -8,6 +9,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { workoutKeys } from '@/features/workout/api/query-keys'
+import { AddExerciseSheet } from '@/features/workout/components/add-exercise-sheet'
 import { ArchiveRoutineSheet } from '@/features/workout/components/archive-routine-sheet'
 import { RenameRoutineSheet } from '@/features/workout/components/rename-routine-sheet'
 import { RoutineExerciseList } from '@/features/workout/components/routine-exercise-list'
@@ -19,7 +21,7 @@ import type { Routine, RoutineSummary, RoutineWithExercises } from '@/features/w
 const BACK = { to: '/treino', label: 'Voltar ao Treino' }
 
 // One routine: its exercises (sets, reps, order), its name, and archiving.
-// Adding exercises comes in the next step.
+// Exercises are added through "Adicionar exercício".
 export function RoutineEditorPage() {
   const { id = '' } = useParams()
   const routine = useRoutine(id)
@@ -62,6 +64,7 @@ export function RoutineEditorPage() {
 }
 
 function RoutineEditor({ routine }: { routine: RoutineWithExercises }) {
+  const [adding, setAdding] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [archiving, setArchiving] = useState(false)
   const archived = routine.archived_at !== null
@@ -69,7 +72,19 @@ function RoutineEditor({ routine }: { routine: RoutineWithExercises }) {
   return (
     <>
       {archived && <ArchivedNotice routine={routine} />}
-      <RoutineExerciseList routineId={routine.id} entries={routine.exercises} />
+      <div className="flex flex-col gap-3">
+        <RoutineExerciseList routineId={routine.id} entries={routine.exercises} />
+        <Button variant="outline" size="lg" className="w-full" onClick={() => setAdding(true)}>
+          <Plus aria-hidden data-icon="inline-start" />
+          Adicionar exercício
+        </Button>
+        <AddExerciseSheet
+          open={adding}
+          onOpenChange={setAdding}
+          routineId={routine.id}
+          entries={routine.exercises}
+        />
+      </div>
       {/* An archived routine is reactivated first; renaming and archiving wait. */}
       {!archived && (
         <div className="-mx-2.5 flex flex-wrap gap-2">

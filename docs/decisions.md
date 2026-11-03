@@ -17,11 +17,16 @@ _Last updated: 2026-11-03_
 
 ### Gym module
 **Routines and exercises**
-- **No pre-built exercise library.** Users create their own exercises and reuse them across routines. Adding an exercise searches the existing ones and offers "Criar …" when the name does not exist yet; nothing is created implicitly.
-- **Exercise names are unique per user, ignoring case and leading or trailing spaces** ("Supino " and "supino" are the same name). Creating a name that matches an archived exercise reactivates it, with its history.
+- **No pre-built exercise library.** Users create their own exercises and reuse them across routines. Adding an exercise searches the existing ones and offers "Criar “…”" when the name does not exist yet; nothing is created implicitly.
+- **Searching ignores case and accents** ("elevacao" finds "Elevação lateral") and matches anywhere in the name. "Criar “…”" is offered only when no exercise has the same name by that key.
+- **Adding exercises:** the sheet stays open after each addition, so several can be added in a row. Tapping a row does not take the focus from the search field (the pointer's default is prevented), so the iPhone keyboard stays open: iOS does not reopen it with a `focus()` after the save. Exercises already in the routine show "✓ Na rotina"; archived ones show "Arquivado", and tapping one reactivates and adds it.
+- **At most 30 exercises per routine**, the same limit as a workout in `submit_workout`, so any routine can be started. The database has no such check on `routine_exercises`; the app enforces it (`src/features/workout/lib/routine-limits.ts`).
+- **The Exercises screen** (`/treino/exercicios`, reached from the Workout tab) lists every exercise to create, rename, archive or reactivate. "+ Novo" with the name of an archived exercise reactivates it, silently.
+- **Archiving an exercise takes it out of every routine first**, active or archived, after a confirmation that names them. It is two steps, not a transaction: if the archive step fails, the exercise is out of its routines but still active, which is a valid state. The other order could leave an archived exercise inside routines.
+- **Exercise names are unique per user, ignoring case, accents and leading or trailing spaces** ("Supino ", "supino" and "Supinó" are the same name). Creating a name that matches an archived exercise reactivates it, with its history. The app compares names with one key, `searchKey` (`src/features/workout/lib/exercise-search.ts`), in the search, in "Criar “…”", in "+ Novo", when reactivating and when renaming (a name that differs from another exercise's only in accents is refused, with the duplicate message). The database index stays on `lower(name)`, which counts accents: it is the safety net, and the app is stricter.
 - **Weight is always required.** Every set is weight × reps; there are no bodyweight-only exercises.
 - **Routines have a name and an order.** Each routine lists its exercises in order, with target sets and an optional rep range (for example 3 × 8–12). A single number is stored as the same minimum and maximum.
-- **Editing a routine:** rename it, reorder its exercises with ▲▼ arrows (no dragging), remove them with ×, add exercises, and archive the routine.
+- **Editing a routine:** rename it, reorder its exercises with ▲▼ arrows (no dragging), change an exercise's sets and reps or remove it from its panel, add exercises, and archive the routine.
 - **Archive instead of delete:** exercises and routines with history are archived, never deleted. Changing a routine never changes past workouts. Renaming an exercise also renames it in the history, since it is the same exercise.
 
 **Starting a workout**
@@ -316,7 +321,7 @@ Google's account chooser shows the Supabase project's domain (`<project>.supabas
 
 **No `useBlocker`:** the workout in progress is saved on the device at every logged set, so leaving its screen loses nothing, and a warning would only get in the way.
 
-**Lazy loading:** a module's pages move to `lazy` once the module has real code; splitting empty pages would only add requests. Lazy so far: Workout (`/treino` and `/treino/rotinas/:id`), plus the development-only page (see *Development-only page*). Home, Weight, Finance and Settings are still imported eagerly.
+**Lazy loading:** a module's pages move to `lazy` once the module has real code; splitting empty pages would only add requests. Lazy so far: Workout (`/treino`, `/treino/rotinas/:id` and `/treino/exercicios`), plus the development-only page (see *Development-only page*). Home, Weight, Finance and Settings are still imported eagerly.
 - **One chunk per module, one import function.** `loadWorkoutPages()` (`src/features/workout/load-pages.ts`) imports `src/features/workout/pages/index.ts`, which re-exports the module's pages. Both routes use it with the object form of `lazy` (`lazy: { Component: async () => (await loadWorkoutPages()).WorkoutPage }`), as React Router's data mode guide shows. Components used only by the module (the drawer, the input) end up in its chunk.
 - **Preloaded when idle.** Once the app is open and signed in, `AppShell` fetches the Workout chunk with `requestIdleCallback` (a timeout where it is missing). **Why:** if the connection drops after the app opens, tapping Treino still works. A failed preload is caught silently: the app may have opened offline, and tapping the tab tries again.
 - **The promise is not cached.** The browser already reuses a loaded module; a cached rejected promise would make a failed preload fail again on tap instead of retrying.
@@ -338,6 +343,8 @@ Defined in `src/router.tsx`:
 |---|---|
 | `/` | Home ("Início") |
 | `/treino` | Workout ("Treino") |
+| `/treino/rotinas/:id` | A routine's editor |
+| `/treino/exercicios` | Exercises ("Exercícios") |
 | `/peso` | Weight ("Peso") |
 | `/financas` | Finance ("Finanças") |
 | `/definicoes` | Settings ("Definições"), reached through the avatar on Home |

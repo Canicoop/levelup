@@ -25,6 +25,15 @@ export class DuplicateExerciseError extends Error {
   }
 }
 
+// Adding an exercise that the routine already has (the unique key on
+// routine_exercises (routine_id, exercise_id), 23505).
+export class AlreadyInRoutineError extends Error {
+  constructor() {
+    super('The exercise is already in the routine')
+    this.name = 'AlreadyInRoutineError'
+  }
+}
+
 // Input refused before it reaches the database. The message is already in
 // European Portuguese and is shown as it is.
 export class ValidationError extends Error {
@@ -73,9 +82,10 @@ export function getErrorMessage(error: unknown, messages: { duplicate?: string }
   if (error instanceof NotFoundError) return 'Este item já não existe.'
   if (error instanceof DuplicateExerciseError) {
     return error.when === 'rename'
-      ? 'Já existe um exercício com esse nome. Se estiver arquivado, reativa-o em Arquivadas.'
+      ? 'Já existe um exercício com esse nome. Se estiver arquivado, reativa-o em Arquivados.'
       : 'Já existe um exercício com esse nome.'
   }
+  if (error instanceof AlreadyInRoutineError) return 'Este exercício já está na rotina.'
   if (isNetworkError(error)) return NETWORK_MESSAGE
 
   switch (codeOf(error)) {

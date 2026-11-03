@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  AlreadyInRoutineError,
   DuplicateExerciseError,
   NotFoundError,
   RoutineNotFoundError,
@@ -43,8 +44,12 @@ describe('getErrorMessage', () => {
   it('reports a duplicate exercise when creating and when renaming', () => {
     expect(getErrorMessage(new DuplicateExerciseError('create'))).toBe('Já existe um exercício com esse nome.')
     expect(getErrorMessage(new DuplicateExerciseError('rename'))).toBe(
-      'Já existe um exercício com esse nome. Se estiver arquivado, reativa-o em Arquivadas.',
+      'Já existe um exercício com esse nome. Se estiver arquivado, reativa-o em Arquivados.',
     )
+  })
+
+  it('reports an exercise that is already in the routine', () => {
+    expect(getErrorMessage(new AlreadyInRoutineError())).toBe('Este exercício já está na rotina.')
   })
 
   it.each([

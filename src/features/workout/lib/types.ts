@@ -8,6 +8,9 @@ export type Exercise = Pick<Tables['exercises']['Row'], 'id' | 'name' | 'archive
 
 export type Routine = Pick<Tables['routines']['Row'], 'id' | 'name' | 'position' | 'archived_at' | 'created_at'>
 
+// A routine that contains a given exercise, active or archived.
+export type ExerciseRoutine = Pick<Routine, 'id' | 'name' | 'archived_at'>
+
 // A routine in the list, with how many exercises it has.
 export type RoutineSummary = Routine & { exercise_count: number }
 

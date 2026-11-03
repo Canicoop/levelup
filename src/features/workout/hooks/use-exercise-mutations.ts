@@ -1,5 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { createExercise, renameExercise, setExerciseArchived } from '@/features/workout/api/exercises'
+import {
+  archiveExercise,
+  createExercise,
+  renameExercise,
+  setExerciseArchived,
+} from '@/features/workout/api/exercises'
 import { workoutKeys } from '@/features/workout/api/query-keys'
 import type { Exercise } from '@/features/workout/lib/types'
 
@@ -26,14 +31,26 @@ export function useCreateExercise() {
   })
 }
 
+// `exercises` is the full list, to refuse a name another exercise has.
 export function useRenameExercise() {
   const refetch = useRefetchWorkout()
   return useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => renameExercise(id, name),
+    mutationFn: ({ id, name, exercises }: { id: string; name: string; exercises: Exercise[] }) =>
+      renameExercise(id, name, exercises),
     onSettled: refetch,
   })
 }
 
+// Takes the exercise out of every routine, then archives it (see archiveExercise).
+export function useArchiveExercise() {
+  const refetch = useRefetchWorkout()
+  return useMutation({
+    mutationFn: (id: string) => archiveExercise(id),
+    onSettled: refetch,
+  })
+}
+
+// Used to reactivate; archiving goes through useArchiveExercise.
 export function useSetExerciseArchived() {
   const refetch = useRefetchWorkout()
   return useMutation({

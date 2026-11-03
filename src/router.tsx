@@ -37,6 +37,10 @@ export const router = createBrowserRouter([
             path: 'treino/rotinas/:id',
             lazy: { Component: async () => (await loadWorkoutPages()).RoutineEditorPage },
           },
+          {
+            path: 'treino/exercicios',
+            lazy: { Component: async () => (await loadWorkoutPages()).ExercisesPage },
+          },
           { path: 'peso', Component: WeightPage },
           { path: 'financas', Component: FinancePage },
           { path: 'definicoes', Component: SettingsPage },

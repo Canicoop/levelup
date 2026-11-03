@@ -1,8 +1,9 @@
 import { useRef, type RefObject } from 'react'
 import { useNavigate } from 'react-router'
 import { BottomSheet } from '@/components/bottom-sheet'
-import { RoutineNameForm } from '@/features/workout/components/routine-name-form'
+import { NameForm } from '@/features/workout/components/name-form'
 import { useCreateRoutine } from '@/features/workout/hooks/use-routine-mutations'
+import { validateRoutineName } from '@/features/workout/lib/names'
 import type { Routine } from '@/features/workout/lib/types'
 
 type CreateRoutineSheetProps = {
@@ -35,8 +36,9 @@ function CreateRoutineForm({
   const createRoutine = useCreateRoutine()
 
   return (
-    <RoutineNameForm
+    <NameForm
       inputRef={inputRef}
+      validate={validateRoutineName}
       submitLabel="Criar"
       pendingLabel="A criar…"
       isPending={createRoutine.isPending}

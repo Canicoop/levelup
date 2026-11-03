@@ -1,7 +1,8 @@
 import { useRef, type RefObject } from 'react'
 import { BottomSheet } from '@/components/bottom-sheet'
-import { RoutineNameForm } from '@/features/workout/components/routine-name-form'
+import { NameForm } from '@/features/workout/components/name-form'
 import { useRenameRoutine } from '@/features/workout/hooks/use-routine-mutations'
+import { validateRoutineName } from '@/features/workout/lib/names'
 import type { Routine } from '@/features/workout/lib/types'
 
 type RenameRoutineSheetProps = {
@@ -33,8 +34,9 @@ function RenameRoutineForm({
   const renameRoutine = useRenameRoutine()
 
   return (
-    <RoutineNameForm
+    <NameForm
       inputRef={inputRef}
+      validate={validateRoutineName}
       initialName={routine.name}
       submitLabel="Guardar"
       pendingLabel="A guardar…"

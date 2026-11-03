@@ -3,10 +3,12 @@ import { useSheetBusy } from '@/components/sheet-busy'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { getErrorMessage } from '@/features/workout/lib/errors'
-import { cleanName, validateRoutineName } from '@/features/workout/lib/names'
+import { cleanName } from '@/features/workout/lib/names'
 
-type RoutineNameFormProps = {
+type NameFormProps = {
   inputRef: RefObject<HTMLInputElement | null>
+  // validateRoutineName (up to 60 characters) or validateExerciseName (up to 80).
+  validate: (name: string) => string | null
   initialName?: string
   submitLabel: string
   pendingLabel: string
@@ -19,9 +21,11 @@ type RoutineNameFormProps = {
   onEdit: () => void
 }
 
-// The routine name field, shared by "Nova rotina" and "Mudar nome".
-export function RoutineNameForm({
+// The name field of a routine or an exercise, in every sheet that creates or
+// renames one.
+export function NameForm({
   inputRef,
+  validate,
   initialName = '',
   submitLabel,
   pendingLabel,
@@ -29,7 +33,7 @@ export function RoutineNameForm({
   error: saveError,
   onSave,
   onEdit,
-}: RoutineNameFormProps) {
+}: NameFormProps) {
   const [name, setName] = useState(initialName)
   const [invalid, setInvalid] = useState<string | null>(null)
   const inputId = useId()
@@ -41,7 +45,7 @@ export function RoutineNameForm({
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (isPending) return
-    const problem = validateRoutineName(cleanName(name))
+    const problem = validate(cleanName(name))
     if (problem) {
       setInvalid(problem)
       inputRef.current?.focus()
