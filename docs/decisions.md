@@ -64,6 +64,8 @@ _Last updated: 2026-11-03_
 ### Interface language
 **Decision:** The app interface is in European Portuguese (pt-PT). Code, comments and documentation are written in English.
 
+**Quotation marks:** interface text quotes names with curved double quotes, “ ” (for example, Arquivar “Push”?), never straight quotes.
+
 ---
 
 ## Design
@@ -364,6 +366,13 @@ Loading, empty and error states are shared components, so every module handles t
 - **`EmptyState`** (`src/components/empty-state.tsx`): optional icon, title, description and action. Left-aligned and without a border or background of its own, so it sits inside a card without becoming a card within a card. shadcn/ui's `Empty` component is not used: its centred, dashed style reads as a generic template.
 - **`ErrorState`** (`src/components/error-state.tsx`): a message and a "Tentar outra vez" button, announced with `role="alert"`. The muted red marks only the icon.
 - **Loading pattern:** the container has `aria-busy="true"` and a visually hidden "A carregar…" label; the skeletons are hidden from assistive technology (`aria-hidden`).
+
+### Bottom sheets
+**Decision:** panels that slide up from the bottom (`BottomSheet`, on shadcn/ui's Base UI `Drawer`) are used for short forms: a routine's name, an exercise's sets and reps, confirming an archive.
+- **The content owns its mutations** and unmounts when the sheet closes, so each opening starts clean, without an old error or a pending state.
+- **No closing while saving.** The content reports a save with `useSheetBusy(isPending)` (`src/components/sheet-busy.ts`). Until it finishes, Escape and a swipe are cancelled (`eventDetails.cancel()`) and a tap outside is ignored (`disablePointerDismissal`). **Why:** otherwise the content would unmount mid-save and an error would be lost unseen. After a successful save, the content closes the sheet itself.
+- **One action at a time:** a sheet with two actions (save and remove) disables both while either saves.
+- **Focus:** a form with a name opens on its field. The sets and reps panel opens on "−", so the iPhone keyboard does not open by itself.
 
 ### Development-only page
 **Decision:** `/dev/componentes` previews the shared states. The route is registered only when `import.meta.env.DEV` is true, with a dynamic `import()`, so the production build contains neither the page nor a chunk for it.

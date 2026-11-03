@@ -1,5 +1,5 @@
 import { useId, useState } from 'react'
-import { ArrowDown, ArrowUp, ChevronRight, ListChecks, Plus } from 'lucide-react'
+import { ChevronRight, ListChecks, Plus } from 'lucide-react'
 import { Link } from 'react-router'
 import { EmptyState } from '@/components/empty-state'
 import { ErrorState } from '@/components/error-state'
@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ArchivedRoutines } from '@/features/workout/components/archived-routines'
 import { CreateRoutineSheet } from '@/features/workout/components/create-routine-sheet'
+import { ReorderButtons } from '@/features/workout/components/reorder-buttons'
 import { useMoveRoutine } from '@/features/workout/hooks/use-routine-mutations'
 import { useRoutines } from '@/features/workout/hooks/use-workout-queries'
 import { getErrorMessage } from '@/features/workout/lib/errors'
@@ -80,8 +81,7 @@ export function RoutineList() {
 }
 
 function ActiveRoutines({ routines, ordering }: { routines: RoutineSummary[]; ordering: boolean }) {
-  // One mutation for every arrow: while a move saves, all arrows wait, so two
-  // moves never compute their positions from the same stale list.
+  // One mutation for every arrow (see ReorderButtons).
   const move = useMoveRoutine()
 
   return (
@@ -93,24 +93,13 @@ function ActiveRoutines({ routines, ordering }: { routines: RoutineSummary[]; or
               {ordering ? (
                 <div className="flex min-h-14 items-center gap-2 py-1 pr-2 pl-4">
                   <RoutineText routine={routine} />
-                  <Button
-                    variant="ghost"
-                    size="icon-lg"
-                    aria-label={`Mover para cima: ${routine.name}`}
-                    disabled={index === 0 || move.isPending}
-                    onClick={() => move.mutate({ routines, id: routine.id, direction: 'up' })}
-                  >
-                    <ArrowUp aria-hidden className="size-5" strokeWidth={1.75} />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-lg"
-                    aria-label={`Mover para baixo: ${routine.name}`}
-                    disabled={index === routines.length - 1 || move.isPending}
-                    onClick={() => move.mutate({ routines, id: routine.id, direction: 'down' })}
-                  >
-                    <ArrowDown aria-hidden className="size-5" strokeWidth={1.75} />
-                  </Button>
+                  <ReorderButtons
+                    name={routine.name}
+                    isFirst={index === 0}
+                    isLast={index === routines.length - 1}
+                    disabled={move.isPending}
+                    onMove={(direction) => move.mutate({ routines, id: routine.id, direction })}
+                  />
                 </div>
               ) : (
                 // The ring is inset: the card clips anything outside it.

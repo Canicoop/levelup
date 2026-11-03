@@ -1,20 +1,25 @@
+import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { cn } from 'cn'
 import { Link, useParams } from 'react-router'
 import { ErrorState } from '@/components/error-state'
 import { PageHeader } from '@/components/layout/page-header'
-import { buttonVariants } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { workoutKeys } from '@/features/workout/api/query-keys'
-import { useRoutine } from '@/features/workout/hooks/use-workout-queries'
-import { RoutineNotFoundError } from '@/features/workout/lib/errors'
-import { formatTargets } from '@/features/workout/lib/targets'
-import type { RoutineSummary } from '@/features/workout/lib/types'
+import { ArchiveRoutineSheet } from '@/features/workout/components/archive-routine-sheet'
+import { RenameRoutineSheet } from '@/features/workout/components/rename-routine-sheet'
+import { RoutineExerciseList } from '@/features/workout/components/routine-exercise-list'
+import { useSetRoutineArchived } from '@/features/workout/hooks/use-routine-mutations'
+import { useRoutine, useRoutines } from '@/features/workout/hooks/use-workout-queries'
+import { RoutineNotFoundError, getErrorMessage } from '@/features/workout/lib/errors'
+import type { Routine, RoutineSummary, RoutineWithExercises } from '@/features/workout/lib/types'
 
 const BACK = { to: '/treino', label: 'Voltar ao Treino' }
 
-// One routine and its exercises. Editing comes in the next step.
+// One routine: its exercises (sets, reps, order), its name, and archiving.
+// Adding exercises comes in the next step.
 export function RoutineEditorPage() {
   const { id = '' } = useParams()
   const routine = useRoutine(id)
@@ -51,22 +56,65 @@ export function RoutineEditorPage() {
       <PageHeader title={title} back={BACK} />
       {routine.isPending && <ExercisesSkeleton />}
       {!routine.data && routine.isError && <ErrorState onRetry={() => void routine.refetch()} />}
-      {routine.data &&
-        (routine.data.exercises.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Ainda não tem exercícios.</p>
-        ) : (
-          <Card className="gap-0 py-0">
-            <ul className="divide-y divide-border">
-              {routine.data.exercises.map((entry) => (
-                <li key={entry.id} className="flex min-h-14 flex-col justify-center px-4 py-2">
-                  <span className="text-base font-medium wrap-break-word">{entry.exercise.name}</span>
-                  <span className="text-sm text-muted-foreground tabular-nums">{formatTargets(entry)}</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        ))}
+      {routine.data && <RoutineEditor routine={routine.data} />}
     </div>
+  )
+}
+
+function RoutineEditor({ routine }: { routine: RoutineWithExercises }) {
+  const [renaming, setRenaming] = useState(false)
+  const [archiving, setArchiving] = useState(false)
+  const archived = routine.archived_at !== null
+
+  return (
+    <>
+      {archived && <ArchivedNotice routine={routine} />}
+      <RoutineExerciseList routineId={routine.id} entries={routine.exercises} />
+      {/* An archived routine is reactivated first; renaming and archiving wait. */}
+      {!archived && (
+        <div className="-mx-2.5 flex flex-wrap gap-2">
+          <Button variant="ghost" onClick={() => setRenaming(true)}>
+            Mudar nome
+          </Button>
+          <Button variant="ghost" onClick={() => setArchiving(true)}>
+            Arquivar rotina
+          </Button>
+          <RenameRoutineSheet open={renaming} onOpenChange={setRenaming} routine={routine} />
+          <ArchiveRoutineSheet open={archiving} onOpenChange={setArchiving} routine={routine} />
+        </div>
+      )}
+    </>
+  )
+}
+
+// Reactivating needs the routine list, to put the routine at the end of the
+// active ones; the button waits until the list has loaded.
+function ArchivedNotice({ routine }: { routine: Routine }) {
+  const routines = useRoutines()
+  const reactivate = useSetRoutineArchived()
+
+  return (
+    <Card size="sm">
+      <div className="flex flex-col gap-2 px-3">
+        <div className="flex min-h-11 items-center justify-between gap-3">
+          <p className="text-sm font-medium">Esta rotina está arquivada</p>
+          <Button
+            variant="outline"
+            disabled={!routines.data || reactivate.isPending}
+            onClick={() =>
+              routines.data && reactivate.mutate({ id: routine.id, archived: false, routines: routines.data })
+            }
+          >
+            {reactivate.isPending ? 'A reativar…' : 'Reativar'}
+          </Button>
+        </div>
+        {reactivate.error && (
+          <p role="alert" className="text-sm text-destructive">
+            {getErrorMessage(reactivate.error)}
+          </p>
+        )}
+      </div>
+    </Card>
   )
 }
 
