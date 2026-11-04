@@ -3,6 +3,7 @@ import { ChevronRight, Dumbbell, Plus } from 'lucide-react'
 import { EmptyState } from '@/components/empty-state'
 import { ErrorState } from '@/components/error-state'
 import { PageHeader } from '@/components/layout/page-header'
+import { OfflineState } from '@/components/offline-state'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -11,6 +12,7 @@ import { CreateExerciseSheet } from '@/features/workout/components/create-exerci
 import { ExerciseSheet } from '@/features/workout/components/exercise-sheet'
 import { useExercises } from '@/features/workout/hooks/use-workout-queries'
 import type { Exercise } from '@/features/workout/lib/types'
+import { isWaitingForNetwork } from '@/lib/query-state'
 
 const BACK = { to: '/treino', label: 'Voltar ao Treino' }
 
@@ -39,7 +41,7 @@ export function ExercisesPage() {
         )}
       </PageHeader>
 
-      {exercises.isPending && <ExercisesSkeleton />}
+      {isWaitingForNetwork(exercises) ? <OfflineState /> : exercises.isPending && <ExercisesSkeleton />}
       {!exercises.data && exercises.isError && <ErrorState onRetry={() => void exercises.refetch()} />}
       {exercises.data &&
         (active.length === 0 ? (

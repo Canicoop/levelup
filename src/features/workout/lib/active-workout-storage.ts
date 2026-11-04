@@ -38,6 +38,7 @@ function isExercise(value: unknown): value is ActiveExercise {
     isObject(value) &&
     typeof value.exerciseId === 'string' &&
     typeof value.name === 'string' &&
+    typeof value.targetSets === 'number' &&
     isNumberOrNull(value.repMin) &&
     isNumberOrNull(value.repMax) &&
     typeof value.skipped === 'boolean' &&
@@ -55,6 +56,7 @@ function isWorkout(value: unknown): value is ActiveWorkout {
     typeof value.routineId === 'string' &&
     typeof value.routineName === 'string' &&
     typeof value.startedAt === 'string' &&
+    typeof value.lastSetsUnavailable === 'boolean' &&
     (value.openExerciseId === null || typeof value.openExerciseId === 'string') &&
     Array.isArray(value.exercises) &&
     value.exercises.every(isExercise)

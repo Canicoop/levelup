@@ -4,8 +4,10 @@ import {
   DuplicateExerciseError,
   NotFoundError,
   RoutineNotFoundError,
+  TimeoutError,
   ValidationError,
   getErrorMessage,
+  isNetworkError,
   requireRows,
 } from '@/features/workout/lib/errors'
 
@@ -46,6 +48,15 @@ describe('getErrorMessage', () => {
     expect(getErrorMessage(new DuplicateExerciseError('rename'))).toBe(
       'Já existe um exercício com esse nome. Se estiver arquivado, reativa-o em Arquivados.',
     )
+  })
+
+  it('treats a request that took too long as no connection', () => {
+    expect(isNetworkError(new TimeoutError())).toBe(true)
+    expect(getErrorMessage(new TimeoutError())).toBe('Sem ligação. Tenta outra vez quando voltares a estar online.')
+  })
+
+  it('does not treat a database error as a network failure', () => {
+    expect(isNetworkError({ message: 'permission denied', code: '42501' })).toBe(false)
   })
 
   it('reports an exercise that is already in the routine', () => {

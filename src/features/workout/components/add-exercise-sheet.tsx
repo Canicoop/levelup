@@ -2,6 +2,7 @@ import { useRef, useState, type PointerEvent, type RefObject } from 'react'
 import { Check, Plus } from 'lucide-react'
 import { BottomSheet } from '@/components/bottom-sheet'
 import { ErrorState } from '@/components/error-state'
+import { OfflineState } from '@/components/offline-state'
 import { useSheetBusy } from '@/components/sheet-busy'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,6 +14,7 @@ import { canCreateExercise, filterExercises } from '@/features/workout/lib/exerc
 import { cleanName } from '@/features/workout/lib/names'
 import { ROUTINE_FULL_MESSAGE, isRoutineFull } from '@/features/workout/lib/routine-limits'
 import type { Exercise, RoutineExercise } from '@/features/workout/lib/types'
+import { isWaitingForNetwork } from '@/lib/query-state'
 
 type AddExerciseSheetProps = {
   open: boolean
@@ -121,12 +123,16 @@ function ExercisePicker({
         </p>
       )}
 
-      {exercises.isPending && (
-        <div aria-busy="true" className="flex flex-col gap-3 py-2">
-          <span className="sr-only">A carregar…</span>
-          <Skeleton aria-hidden className="h-4 w-40" />
-          <Skeleton aria-hidden className="h-4 w-32" />
-        </div>
+      {isWaitingForNetwork(exercises) ? (
+        <OfflineState />
+      ) : (
+        exercises.isPending && (
+          <div aria-busy="true" className="flex flex-col gap-3 py-2">
+            <span className="sr-only">A carregar…</span>
+            <Skeleton aria-hidden className="h-4 w-40" />
+            <Skeleton aria-hidden className="h-4 w-32" />
+          </div>
+        )
       )}
       {!exercises.data && exercises.isError && <ErrorState onRetry={() => void exercises.refetch()} />}
 

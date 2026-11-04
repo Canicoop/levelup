@@ -2,7 +2,7 @@
 
 This document records the main technical and product decisions for LevelUP, and the reasons behind them. New decisions are added as the project evolves.
 
-_Last updated: 2026-11-03_
+_Last updated: 2026-11-04_
 
 ---
 
@@ -34,7 +34,10 @@ _Last updated: 2026-11-03_
 
 **Starting a workout**
 - **Always from a routine** in the MVP.
-- **"Iniciar treino" suggests the next routine:** the one after the last workout's routine, in order, wrapping around to the first and skipping archived routines. Another routine can be chosen instead.
+- **"Iniciar treino" suggests the next routine:** the one after the last workout's routine, in order, wrapping around to the first and skipping archived routines. Another routine can be chosen instead, in a sheet with the active routines; tapping one starts the workout. The "Próximo treino" card does not show without active routines, or while a workout is in progress.
+- **A routine without exercises cannot be started:** "Iniciar treino" is disabled, with "Esta rotina não tem exercícios." and a link to the editor; in the sheet it is disabled with the same text.
+- **Starting without network:** the routine comes from the cache when it is there; "Última vez" is a help, not a requirement, so if it fails for lack of network the workout starts without it, and the screen shows "Sem ligação: a última vez não está disponível." instead of each exercise's line ("Primeira vez" would be false). Without network and without the routine in the cache, the error shows.
+- **8-second limit** on both reads when starting, because a weak gym connection can hang instead of failing. It counts as no network.
 
 **Workout in progress**
 - **Full screen**, outside the app shell (see *Navigation*).
@@ -53,7 +56,8 @@ _Last updated: 2026-11-03_
   - "Terminar treino".
 - **No notes and no timer.** The duration is not shown during the workout. The start and finish times are stored, and the duration appears in the summary and in the history.
 - **One workout in progress at a time,** saved on the device at every change, in `localStorage` with one key per account (`levelup:active-workout:<userId>`). Signing out does not delete it: it stays with that account. The stored value has a format version, and a damaged value or one from another version is ignored.
-- **Resuming:** a workout in progress shows in a card at the top of the Workout tab and Home, with "Continuar" and "Descartar".
+- **Resuming:** a workout in progress shows in a card at the top of the Workout tab and Home, with the routine, the logged sets, "Continuar" and "Descartar". On Home the "Iniciar treino" shortcut becomes "Continuar treino" and opens it directly. The screen's ← goes back to the Workout tab and leaves the workout running.
+- **Discarding** asks for confirmation only with logged sets to lose ("As 7 séries registadas perdem-se."), counting those of skipped exercises. The card is in the main chunk so it does not show late on Home, and only its confirmation sheet is lazy, which keeps the drawer out of the main chunk.
 - **Its account survives being offline:** with an expired token and no network the auth state is signed-out while the session is still stored, so the account is read from Supabase's stored session (`readStoredUserId`, the only code that knows that format). Otherwise the workout would vanish at the gym.
 
 **Finishing**
@@ -62,7 +66,7 @@ _Last updated: 2026-11-03_
 - **No logged sets:** "Terminar treino" asks "Não registaste nenhuma série. Descartar treino?", and nothing is sent.
 
 **Workout tab ("Treino")**
-- The next workout, with "Iniciar".
+- The next workout, with "Iniciar treino", or the workout in progress.
 - A 12-week activity heatmap of training days.
 - The routines, with "+ Nova", and the archived ones.
 - An "Exercícios" row with the number of active exercises, leading to the Exercises screen.
@@ -331,7 +335,7 @@ Google's account chooser shows the Supabase project's domain (`<project>.supabas
 
 **No `useBlocker`:** the workout in progress is saved on the device at every change, so leaving its screen loses nothing, and a warning would only get in the way.
 
-**Lazy loading:** a module's pages move to `lazy` once the module has real code; splitting empty pages would only add requests. Lazy so far: Workout (`/treino`, `/treino/rotinas/:id` and `/treino/exercicios`), plus the development-only page (see *Development-only page*). Home, Weight, Finance and Settings are still imported eagerly.
+**Lazy loading:** a module's pages move to `lazy` once the module has real code; splitting empty pages would only add requests. Lazy so far: Workout (`/treino`, `/treino/rotinas/:id`, `/treino/exercicios` and `/treino/em-curso`), plus the development-only page (see *Development-only page*). Home, Weight, Finance and Settings are still imported eagerly.
 - **One chunk per module, one import function.** `loadWorkoutPages()` (`src/features/workout/load-pages.ts`) imports `src/features/workout/pages/index.ts`, which re-exports the module's pages. The routes use it with the object form of `lazy` (`lazy: { Component: async () => (await loadWorkoutPages()).WorkoutPage }`), as React Router's data mode guide shows. Components used only by the module (the drawer, the input) end up in its chunk.
 - **Preloaded when idle.** Once the app is open and signed in, `AppShell` fetches the Workout chunk with `requestIdleCallback` (a timeout where it is missing). **Why:** if the connection drops after the app opens, tapping Treino still works. A failed preload is caught silently: the app may have opened offline, and tapping the tab tries again.
 - **The promise is not cached.** The browser already reuses a loaded module; a cached rejected promise would make a failed preload fail again on tap instead of retrying.
@@ -346,7 +350,7 @@ Defined in `src/router.tsx`:
 - **`AppShell`** (sidebar, tab bar, `<ScrollRestoration />`) wraps every page with navigation.
 - **Screens below a tab** (a routine's editor, Exercises) are children of `AppShell` too, so the navigation stays visible; `PageHeader`'s `back` prop adds the ← to the tab.
 - **The 404 page** (`path: '*'`) is inside the shell, so the navigation stays available to leave it.
-- **Full-screen screens** (the active workout, Phase 4) are added as siblings of `AppShell`, so they render without the tab bar.
+- **Full-screen screens** (the workout in progress, `/treino/em-curso`) are siblings of `AppShell`, so they render without the tab bar. Each has its own `requireSession`, safe-area padding and `<ScrollRestoration />`. Without a workout in progress, that screen redirects to `/treino` from the component, not a loader, so discarding there goes back by itself.
 
 **URLs are in Portuguese**, matching the interface language:
 
@@ -356,6 +360,7 @@ Defined in `src/router.tsx`:
 | `/treino` | Workout ("Treino") |
 | `/treino/rotinas/:id` | A routine's editor |
 | `/treino/exercicios` | Exercises ("Exercícios") |
+| `/treino/em-curso` | The workout in progress, full screen |
 | `/peso` | Weight ("Peso") |
 | `/financas` | Finance ("Finanças") |
 | `/definicoes` | Settings ("Definições"), reached through the avatar on Home |
@@ -436,6 +441,13 @@ Icons, manifest and iOS details: see *App icon*.
 **Why:** Gyms often have poor connectivity, and losing logged sets is unacceptable. Full offline sync is significantly more complex.
 
 **Current state:** there is no service worker yet, so without network the app does not open at all. The wait of up to 30 seconds (see *Route protection*) only happens with a weak network or with Supabase unreachable. Phase 4 adds a service worker (step 4.4b), so the app opens without network and a workout can be resumed at the gym.
+
+**TanStack Query without network** (reproduced on 2026-11-04 in Playwright, by simulating what the browser does: the `offline` event, `navigator.onLine` false and `fetch` failing):
+- **Mutations paused by default,** instead of failing: the button stayed on "A criar…" with no error, and the sheet could not close, since it stays open while saving. They now use `networkMode: 'always'` (`src/lib/query-client.ts`), so the write fails at once and "Sem ligação…" shows.
+- **Reads also pause** (`fetchStatus: 'paused'`): with data in the cache it keeps showing, but a page with no data stayed on its skeleton until the network was back. They keep the default mode, because `always` would only mean a longer skeleton and then an error. Instead, `isWaitingForNetwork` (`src/lib/query-state.ts`) swaps the skeleton for "Sem ligação. Os dados aparecem quando voltares a estar online." (`OfflineState`), with no button, since the read resumes by itself. It is used in the routine list, the routine editor, the Exercises screen, the "Adicionar exercício" sheet and the confirmation to archive an exercise, where "Arquivar" stays disabled: without the routines, it cannot say what the exercise leaves. The "Exercícios" row on the Workout tab just leaves out its count.
+- **`postgrest-js` retries `GET` requests by itself** on a network failure, with growing waits, so a read that fails offline takes several seconds. The 8-second limit when starting a workout covers this.
+
+**A rare case left for step 4.4b:** "Descartar" on Home's workout card loads its confirmation sheet from the Workout chunk. With logged sets, no network and that chunk not yet preloaded, the lazy import fails and the route's error screen shows. The service worker removes this by keeping the chunk on the device.
 
 ---
 
@@ -775,7 +787,7 @@ The MVP runs on free tiers: GitHub, Supabase Free and Vercel Hobby (personal, no
 
 | Question | When |
 |---|---|
-| Service worker, so the app opens without network (today it does not, and opening it with an expired token on a weak network waits up to 30 s) | Phase 4 (step 4.4b) |
+| Service worker, so the app opens without network (today it does not, and opening it with an expired token on a weak network waits up to 30 s), and so "Descartar" on Home works offline before the Workout chunk is preloaded (see *Offline handling*) | Phase 4 (step 4.4b) |
 | Backup strategy | Before Phase 5 |
 | Publish the Google OAuth app and complete its Branding (optional: only to show the app's name and logo on Google's sign-in screen) | Phase 5 |
 | Create the production Supabase project (`levelup-prod`) | Phase 5 |

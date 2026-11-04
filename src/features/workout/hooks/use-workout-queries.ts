@@ -3,6 +3,7 @@ import { fetchExercises } from '@/features/workout/api/exercises'
 import { workoutKeys } from '@/features/workout/api/query-keys'
 import { fetchExerciseRoutines } from '@/features/workout/api/routine-exercises'
 import { fetchRoutine, fetchRoutines } from '@/features/workout/api/routines'
+import { fetchLastRoutineId } from '@/features/workout/api/workouts'
 import { RoutineNotFoundError } from '@/features/workout/lib/errors'
 
 export function useRoutines() {
@@ -16,6 +17,10 @@ export function useRoutine(id: string) {
     // A routine that does not exist will not appear by retrying.
     retry: (failureCount, error) => !(error instanceof RoutineNotFoundError) && failureCount < 3,
   })
+}
+
+export function useLastRoutineId() {
+  return useQuery({ queryKey: workoutKeys.lastRoutineId(), queryFn: fetchLastRoutineId })
 }
 
 export function useExercises() {

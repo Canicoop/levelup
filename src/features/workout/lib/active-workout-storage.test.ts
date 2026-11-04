@@ -11,11 +11,13 @@ const workout: ActiveWorkout = {
   routineId: 'routine-1',
   routineName: 'Push',
   startedAt: '2026-11-03T18:00:00Z',
+  lastSetsUnavailable: false,
   openExerciseId: 'a',
   exercises: [
     {
       exerciseId: 'a',
       name: 'Supino',
+      targetSets: 2,
       repMin: 8,
       repMax: 12,
       skipped: false,
@@ -59,6 +61,8 @@ describe('parseStoredWorkout', () => {
     ['no workout', '{"version":1}'],
     ['a missing id', stored({ id: undefined })],
     ['a wrong started date', stored({ startedAt: 1 })],
+    ['a missing network flag', stored({ lastSetsUnavailable: undefined })],
+    ['an exercise without a goal', stored({ exercises: [{ ...workout.exercises[0], targetSets: undefined }] })],
     ['exercises that are not a list', stored({ exercises: {} })],
     ['an exercise without sets', stored({ exercises: [{ ...workout.exercises[0], sets: undefined }] })],
     ['a set with a wrong field', stored({ exercises: [{ ...workout.exercises[0], sets: [{ weight: 1, reps: '', done: false }] }] })],

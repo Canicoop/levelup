@@ -3,6 +3,7 @@ import { ChevronRight, ListChecks, Plus } from 'lucide-react'
 import { Link } from 'react-router'
 import { EmptyState } from '@/components/empty-state'
 import { ErrorState } from '@/components/error-state'
+import { OfflineState } from '@/components/offline-state'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -14,6 +15,7 @@ import { useRoutines } from '@/features/workout/hooks/use-workout-queries'
 import { getErrorMessage } from '@/features/workout/lib/errors'
 import { formatExerciseCount } from '@/features/workout/lib/labels'
 import type { RoutineSummary } from '@/features/workout/lib/types'
+import { isWaitingForNetwork } from '@/lib/query-state'
 
 // The "Rotinas" section of the Workout tab: active routines, a mode to reorder
 // them, and the archived ones below.
@@ -56,7 +58,7 @@ export function RoutineList() {
         )}
       </div>
 
-      {routines.isPending && <RoutineListSkeleton />}
+      {isWaitingForNetwork(routines) ? <OfflineState /> : routines.isPending && <RoutineListSkeleton />}
       {!loaded && routines.isError && <ErrorState onRetry={() => void routines.refetch()} />}
       {loaded &&
         (active.length === 0 ? (

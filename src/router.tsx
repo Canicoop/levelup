@@ -24,10 +24,16 @@ export const router = createBrowserRouter([
     children: [
       // Full screen, without navigation. With a session it goes into the app.
       { path: 'entrar', loader: redirectIfSignedIn, Component: SignInPage },
+      // Full screen, without navigation, but behind a session like the shell.
+      {
+        path: 'treino/em-curso',
+        loader: requireSession,
+        lazy: { Component: async () => (await loadWorkoutPages()).ActiveWorkoutPage },
+      },
       {
         // Screens with navigation, all behind a session. Full-screen screens
-        // (the active workout, Phase 4) are siblings of this route, so they
-        // render without it.
+        // (the workout in progress) are siblings of this route, so they render
+        // without it.
         loader: requireSession,
         Component: AppShell,
         children: [

@@ -6,7 +6,7 @@ const logged = (weight: string, reps: string): ActiveSet => ({ weight, reps, don
 const open: ActiveSet = { weight: '40', reps: '8', done: false }
 
 function exercise(exerciseId: string, sets: ActiveSet[], skipped = false): ActiveExercise {
-  return { exerciseId, name: exerciseId, repMin: null, repMax: null, skipped, sets, lastSets: [] }
+  return { exerciseId, name: exerciseId, targetSets: 3, repMin: null, repMax: null, skipped, sets, lastSets: [] }
 }
 
 function workout(exercises: ActiveExercise[]): ActiveWorkout {
@@ -15,6 +15,7 @@ function workout(exercises: ActiveExercise[]): ActiveWorkout {
     routineId: 'routine-1',
     routineName: 'Push',
     startedAt: '2026-11-03T18:00:00Z',
+    lastSetsUnavailable: false,
     openExerciseId: null,
     exercises,
   }

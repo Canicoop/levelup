@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 
-// Only staleTime differs from TanStack Query's defaults. The rest is kept on
-// purpose: three retries with backoff on queries (gym connections drop),
+// Only staleTime and the mutations' networkMode differ from TanStack Query's
+// defaults. The rest is kept on purpose: three retries with backoff on queries (gym connections drop),
 // refetch on focus and on reconnect, and errors shown in the page (ErrorState)
 // rather than thrown to the route's error boundary.
 export const queryClient = new QueryClient({
@@ -16,6 +16,10 @@ export const queryClient = new QueryClient({
       // (an expense, a set). This is the library default, written out so it is
       // not changed by accident.
       retry: 0,
+      // Try even when the browser reports no network, so the write fails at
+      // once and the error shows. By default it would pause until the network
+      // is back: the button stays on "A guardar…" and the sheet cannot close.
+      networkMode: 'always',
     },
   },
 })

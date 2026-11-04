@@ -33,6 +33,8 @@ export type ActiveSet = { weight: string; reps: string; done: boolean }
 export type ActiveExercise = {
   exerciseId: string
   name: string
+  // The goal, which stays as it was when "+ Série" adds sets.
+  targetSets: number
   repMin: number | null
   repMax: number | null
   skipped: boolean
@@ -46,6 +48,9 @@ export type ActiveWorkout = {
   routineId: string
   routineName: string
   startedAt: string
+  // The workout started without network, so no exercise has "Última vez". An
+  // empty lastSets then does not mean a first time.
+  lastSetsUnavailable: boolean
   // The one exercise shown open, if any.
   openExerciseId: string | null
   exercises: ActiveExercise[]
@@ -68,6 +73,14 @@ function newSets(count: number, lastSets: LastSet[]) {
 
 export function isExerciseDone(exercise: ActiveExercise) {
   return exercise.sets.every((set) => set.done)
+}
+
+// Every set with ✓, skipped exercises included: this is what discarding loses.
+export function countLoggedSets(workout: ActiveWorkout) {
+  return workout.exercises.reduce(
+    (total, exercise) => total + exercise.sets.filter((set) => set.done).length,
+    0,
+  )
 }
 
 // The first exercise after this one, wrapping around, that is neither done nor skipped.
@@ -106,17 +119,20 @@ export function startWorkout({
   startedAt,
   routine,
   lastSets,
+  lastSetsUnavailable = false,
 }: {
   id: string
   startedAt: string
   routine: Pick<RoutineWithExercises, 'id' | 'name' | 'exercises'>
   lastSets: LastSetsByExercise
+  lastSetsUnavailable?: boolean
 }): ActiveWorkout {
   const exercises = routine.exercises.map((entry): ActiveExercise => {
     const last = lastSets[entry.exercise_id] ?? []
     return {
       exerciseId: entry.exercise_id,
       name: entry.exercise.name,
+      targetSets: entry.target_sets,
       repMin: entry.rep_min,
       repMax: entry.rep_max,
       skipped: false,
@@ -129,6 +145,7 @@ export function startWorkout({
     routineId: routine.id,
     routineName: routine.name,
     startedAt,
+    lastSetsUnavailable,
     openExerciseId: exercises.at(0)?.exerciseId ?? null,
     exercises,
   }
@@ -270,6 +287,7 @@ export function addExercise(
       {
         exerciseId: exercise.id,
         name: exercise.name,
+        targetSets: DEFAULT_TARGETS.target_sets,
         repMin: DEFAULT_TARGETS.rep_min,
         repMax: DEFAULT_TARGETS.rep_max,
         skipped: false,

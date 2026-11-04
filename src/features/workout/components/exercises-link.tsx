@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useExercises } from '@/features/workout/hooks/use-workout-queries'
 import { formatExerciseCount } from '@/features/workout/lib/labels'
+import { isWaitingForNetwork } from '@/lib/query-state'
 
 // The way into the Exercises screen from the Workout tab, with how many active
 // exercises there are. Without data (loading or offline) the count is left out.
@@ -23,7 +24,8 @@ export function ExercisesLink() {
           {activeCount !== undefined ? (
             <span className="text-sm text-muted-foreground">{formatExerciseCount(activeCount)}</span>
           ) : (
-            exercises.isPending && <Skeleton aria-hidden className="mt-1.5 h-3.5 w-20" />
+            exercises.isPending &&
+            !isWaitingForNetwork(exercises) && <Skeleton aria-hidden className="mt-1.5 h-3.5 w-20" />
           )}
         </div>
         <ChevronRight aria-hidden className="size-5 shrink-0 text-muted-foreground" strokeWidth={1.75} />

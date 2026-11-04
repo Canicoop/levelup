@@ -1,5 +1,6 @@
 import { useRef, useState, type RefObject } from 'react'
 import { BottomSheet } from '@/components/bottom-sheet'
+import { OfflineState } from '@/components/offline-state'
 import { useSheetBusy } from '@/components/sheet-busy'
 import { Button } from '@/components/ui/button'
 import { NameForm } from '@/features/workout/components/name-form'
@@ -8,6 +9,7 @@ import { useExerciseRoutines, useExercises } from '@/features/workout/hooks/use-
 import { getErrorMessage } from '@/features/workout/lib/errors'
 import { validateExerciseName } from '@/features/workout/lib/names'
 import type { Exercise, ExerciseRoutine } from '@/features/workout/lib/types'
+import { isWaitingForNetwork } from '@/lib/query-state'
 
 type ExerciseSheetProps = {
   open: boolean
@@ -116,13 +118,19 @@ function ArchiveExercise({
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-center text-sm text-pretty text-muted-foreground">
-        {routines.data
-          ? archiveMessage(routines.data)
-          : routines.isError
-            ? getErrorMessage(routines.error)
-            : 'A verificar rotinas…'}
-      </p>
+      {isWaitingForNetwork(routines) ? (
+        <div className="text-center">
+          <OfflineState />
+        </div>
+      ) : (
+        <p className="text-center text-sm text-pretty text-muted-foreground">
+          {routines.data
+            ? archiveMessage(routines.data)
+            : routines.isError
+              ? getErrorMessage(routines.error)
+              : 'A verificar rotinas…'}
+        </p>
+      )}
       {archive.error && (
         <p role="alert" className="text-center text-sm text-destructive">
           {getErrorMessage(archive.error)}

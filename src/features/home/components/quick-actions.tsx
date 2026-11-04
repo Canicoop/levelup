@@ -2,6 +2,7 @@ import { useId } from 'react'
 import { Dumbbell, Scale, Wallet } from 'lucide-react'
 import { Link } from 'react-router'
 import type { NavItem } from '@/components/layout/nav-items'
+import { useActiveWorkout } from '@/features/workout/hooks/use-active-workout'
 
 // Same icons as the navigation, so each action is recognisable at a glance.
 // For now they open the module; they will open the action itself once the
@@ -12,10 +13,15 @@ const quickActions: NavItem[] = [
   { to: '/financas', label: 'Adicionar despesa', icon: Wallet },
 ]
 
+const continueWorkout: NavItem = { to: '/treino/em-curso', label: 'Continuar treino', icon: Dumbbell }
+
 // Three equal tiles: icon above the label on phones, beside it from 640px.
-// Neutral surface only; the accent colour is reserved for data.
+// Neutral surface only; the accent colour is reserved for data. With a workout
+// in progress, the first tile goes straight to it.
 export function QuickActions() {
   const titleId = useId()
+  const workout = useActiveWorkout()
+  const actions = workout ? [continueWorkout, ...quickActions.slice(1)] : quickActions
 
   return (
     <section aria-labelledby={titleId}>
@@ -23,7 +29,7 @@ export function QuickActions() {
         Atalhos
       </h2>
       <ul className="grid grid-cols-3 gap-3">
-        {quickActions.map(({ to, label, icon: Icon }) => (
+        {actions.map(({ to, label, icon: Icon }) => (
           <li key={to} className="flex">
             <Link
               to={to}

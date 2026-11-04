@@ -5,6 +5,7 @@ import {
   addExercise,
   addSet,
   canAddExercise,
+  countLoggedSets,
   editSet,
   groupLastSets,
   isExerciseDone,
@@ -81,7 +82,38 @@ describe('groupLastSets', () => {
   })
 })
 
+describe('countLoggedSets', () => {
+  it('counts the sets with ✓', () => {
+    const workout = start([entry('a', 2), entry('b', 2)])
+    expect(countLoggedSets(workout)).toBe(0)
+    expect(countLoggedSets(logSet(logSet(workout, 'a', 0), 'b', 1))).toBe(2)
+  })
+
+  it('counts the sets of skipped exercises too, since discarding loses them', () => {
+    const workout = skipExercise(logSet(start([entry('a', 2), entry('b', 1)]), 'a', 0), 'a')
+    expect(countLoggedSets(workout)).toBe(1)
+  })
+})
+
 describe('startWorkout', () => {
+  it('records that last time could not be read', () => {
+    expect(start([entry('a', 1)]).lastSetsUnavailable).toBe(false)
+    const offline = startWorkout({
+      id: 'workout-1',
+      startedAt: '2026-11-03T18:00:00Z',
+      routine: { id: 'routine-1', name: 'Push', exercises: [entry('a', 1)] },
+      lastSets: {},
+      lastSetsUnavailable: true,
+    })
+    expect(offline.lastSetsUnavailable).toBe(true)
+  })
+
+  it('keeps the goal when sets are added', () => {
+    const workout = addSet(start([entry('a', 3)]), 'a')
+    expect(exercise(workout, 'a').targetSets).toBe(3)
+    expect(exercise(workout, 'a').sets).toHaveLength(4)
+  })
+
   it('keeps the id, the time and the routine, and opens the first exercise', () => {
     const workout = start([entry('a', 3), entry('b', 2)])
     expect(workout).toMatchObject({

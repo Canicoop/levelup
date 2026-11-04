@@ -5,6 +5,7 @@ import { Plus } from 'lucide-react'
 import { Link, useParams } from 'react-router'
 import { ErrorState } from '@/components/error-state'
 import { PageHeader } from '@/components/layout/page-header'
+import { OfflineState } from '@/components/offline-state'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -17,6 +18,7 @@ import { useSetRoutineArchived } from '@/features/workout/hooks/use-routine-muta
 import { useRoutine, useRoutines } from '@/features/workout/hooks/use-workout-queries'
 import { RoutineNotFoundError, getErrorMessage } from '@/features/workout/lib/errors'
 import type { Routine, RoutineSummary, RoutineWithExercises } from '@/features/workout/lib/types'
+import { isWaitingForNetwork } from '@/lib/query-state'
 
 const BACK = { to: '/treino', label: 'Voltar ao Treino' }
 
@@ -56,7 +58,7 @@ export function RoutineEditorPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={title} back={BACK} />
-      {routine.isPending && <ExercisesSkeleton />}
+      {isWaitingForNetwork(routine) ? <OfflineState /> : routine.isPending && <ExercisesSkeleton />}
       {!routine.data && routine.isError && <ErrorState onRetry={() => void routine.refetch()} />}
       {routine.data && <RoutineEditor routine={routine.data} />}
     </div>

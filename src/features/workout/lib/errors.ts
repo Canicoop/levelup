@@ -34,6 +34,14 @@ export class AlreadyInRoutineError extends Error {
   }
 }
 
+// A request that took too long, on a connection too weak to fail by itself.
+export class TimeoutError extends Error {
+  constructor() {
+    super('The request took too long')
+    this.name = 'TimeoutError'
+  }
+}
+
 // Input refused before it reaches the database. The message is already in
 // European Portuguese and is shown as it is.
 export class ValidationError extends Error {
@@ -68,7 +76,8 @@ function codeOf(error: unknown) {
 
 // fetch failures read "Failed to fetch" (Chrome), "Load failed" (Safari) or
 // "NetworkError when attempting to fetch resource" (Firefox).
-function isNetworkError(error: unknown) {
+export function isNetworkError(error: unknown) {
+  if (error instanceof TimeoutError) return true
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return true
   if (error instanceof Error && error.name === 'AuthRetryableFetchError') return true
   return /Failed to fetch|Load failed|NetworkError/.test(messageOf(error))
