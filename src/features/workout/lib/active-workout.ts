@@ -75,6 +75,11 @@ export function isExerciseDone(exercise: ActiveExercise) {
   return exercise.sets.every((set) => set.done)
 }
 
+// Last time's reps for a set, as a suggestion. Sets beyond last time have none.
+export function repsPlaceholder(exercise: ActiveExercise, index: number) {
+  return exercise.lastSets.at(index)?.reps.toString() ?? ''
+}
+
 // Every set with ✓, skipped exercises included: this is what discarding loses.
 export function countLoggedSets(workout: ActiveWorkout) {
   return workout.exercises.reduce(
@@ -153,7 +158,7 @@ export function startWorkout({
 
 // A set without ✓ takes anything, since it is only sent once logged. A logged
 // set only takes a valid value: the same workout comes back otherwise, and the
-// field keeps the text in its draft (see settleSetField).
+// field keeps the text in its draft (see WorkoutSetRow).
 export function editSet(
   workout: ActiveWorkout,
   exerciseId: string,
@@ -175,8 +180,8 @@ export type ToggleResult = { ok: true; workout: ActiveWorkout } | { ok: false; e
 
 // ✓ needs a valid weight and reps; the suggested reps do not count. It also
 // fills the next set's weight if that is empty. After the last ✓ of an exercise,
-// the next one not done or skipped opens. Tapping ✓ on a logged set removes it,
-// and leaves everything else as it is.
+// the next one not done or skipped opens; with none left, they all stay closed.
+// Tapping ✓ on a logged set removes it, and leaves everything else as it is.
 export function toggleSet(workout: ActiveWorkout, exerciseId: string, index: number): ToggleResult {
   const set = findSet(workout, exerciseId, index)
   if (!set) return { ok: true, workout }

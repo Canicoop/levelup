@@ -14,6 +14,11 @@ export function formatLastSets(lastSets: LastSet[]) {
   return `Última vez: ${sets.join(' · ')}`
 }
 
+// "1/3": the sets with ✓ out of the exercise's current sets, "+ Série" included.
+export function formatSetProgress(sets: { done: boolean }[]) {
+  return `${sets.filter((set) => set.done).length}/${sets.length}`
+}
+
 // "Nenhuma série registada", "1 série registada", "7 séries registadas".
 export function formatLoggedSets(count: number) {
   if (count === 0) return 'Nenhuma série registada'

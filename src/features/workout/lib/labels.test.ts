@@ -4,6 +4,7 @@ import {
   formatExerciseCount,
   formatLastSets,
   formatLoggedSets,
+  formatSetProgress,
 } from '@/features/workout/lib/labels'
 
 describe('formatExerciseCount', () => {
@@ -34,6 +35,14 @@ describe('formatLastSets', () => {
 
   it('says "Primeira vez" with no history', () => {
     expect(formatLastSets([])).toBe('Primeira vez')
+  })
+})
+
+describe('formatSetProgress', () => {
+  it('counts the sets with ✓ out of the current sets', () => {
+    expect(formatSetProgress([{ done: true }, { done: false }, { done: false }])).toBe('1/3')
+    expect(formatSetProgress([{ done: false }])).toBe('0/1')
+    expect(formatSetProgress([{ done: true }, { done: true }])).toBe('2/2')
   })
 })
 

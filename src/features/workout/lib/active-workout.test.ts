@@ -10,6 +10,7 @@ import {
   groupLastSets,
   isExerciseDone,
   openExercise,
+  repsPlaceholder,
   skipExercise,
   startWorkout,
   swapExercise,
@@ -79,6 +80,23 @@ describe('groupLastSets', () => {
 
   it('is empty without rows', () => {
     expect(groupLastSets([])).toEqual({})
+  })
+})
+
+describe('repsPlaceholder', () => {
+  it('suggests the reps of the same set last time, and nothing beyond it', () => {
+    const workout = start([entry('a', 3)], {
+      a: [
+        { weightKg: 40, reps: 12 },
+        { weightKg: 40, reps: 10 },
+      ],
+    })
+    const current = exercise(workout, 'a')
+    expect([0, 1, 2].map((index) => repsPlaceholder(current, index))).toEqual(['12', '10', ''])
+  })
+
+  it('suggests nothing with no history', () => {
+    expect(repsPlaceholder(exercise(start([entry('a', 1)]), 'a'), 0)).toBe('')
   })
 })
 
@@ -262,6 +280,18 @@ describe('toggleSet', () => {
   it('wraps around to an earlier exercise that is not done', () => {
     const workout = openExercise(start([entry('a', 1), entry('b', 1)]), 'b')
     expect(logAll(workout, 'b').openExerciseId).toBe('a')
+  })
+
+  it('closes everything after the last set of the last exercise left', () => {
+    const workout = logAll(start([entry('a', 1), entry('b', 2)]), 'a')
+    expect(workout.openExerciseId).toBe('b')
+    const finished = logAll(workout, 'b')
+    expect(finished.openExerciseId).toBeNull()
+    expect(finished.exercises.every(isExerciseDone)).toBe(true)
+  })
+
+  it('closes a workout with a single exercise after its last set', () => {
+    expect(logAll(start([entry('a', 2)]), 'a').openExerciseId).toBeNull()
   })
 
   it('leaves nothing open when every exercise is done or skipped', () => {

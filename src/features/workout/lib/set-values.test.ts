@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  formatWeight,
-  parseReps,
-  parseWeight,
-  setFieldError,
-  settleSetField,
-} from '@/features/workout/lib/set-values'
+import { formatWeight, parseReps, parseWeight, setFieldError } from '@/features/workout/lib/set-values'
 
 describe('parseWeight', () => {
   it.each([
@@ -67,22 +61,6 @@ describe('setFieldError', () => {
     expect(setFieldError('weight', '22,')).toBe('Usa um número com até 2 casas decimais.')
     expect(setFieldError('reps', '8')).toBeNull()
     expect(setFieldError('reps', '')).toBe('Escreve as repetições.')
-  })
-})
-
-describe('settleSetField', () => {
-  it('keeps a valid draft', () => {
-    expect(settleSetField('weight', '45', '40')).toBe('45')
-    expect(settleSetField('reps', '10', '8')).toBe('10')
-  })
-
-  it.each([
-    ['weight', '', '40'],
-    ['weight', '22,', '22,5'],
-    ['reps', '', '8'],
-    ['reps', '101', '8'],
-  ] as const)('goes back to the saved value (%s, draft %j)', (field, draft, saved) => {
-    expect(settleSetField(field, draft, saved)).toBe(saved)
   })
 })
 

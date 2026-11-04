@@ -44,14 +44,6 @@ export function setFieldError(field: SetField, text: string) {
   return parsed.ok ? null : parsed.error
 }
 
-// What a field of a logged set shows when it loses focus: what was typed if it
-// is valid, otherwise the last saved value. While typing, the text lives in a
-// draft in the field, because it passes through invalid values on the way
-// ("40" to "45" empties the field; "22," waits for the "5").
-export function settleSetField(field: SetField, draft: string, saved: string) {
-  return setFieldError(field, draft) === null ? draft : saved
-}
-
 // A weight from the database, as the field shows it: 22.5 becomes "22,5".
 export function formatWeight(weightKg: number) {
   return String(weightKg).replace('.', ',')
