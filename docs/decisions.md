@@ -2,7 +2,7 @@
 
 This document records the main technical and product decisions for LevelUP, and the reasons behind them. New decisions are added as the project evolves.
 
-_Last updated: 2026-11-04_
+_Last updated: 2026-11-09_
 
 ---
 
@@ -43,12 +43,12 @@ _Last updated: 2026-11-04_
 - **Full screen**, outside the app shell (see *Navigation*).
 - **All the exercises in one list**, with only the current one open.
 - **"Última vez" (last time) is per exercise:** that exercise's sets in the most recent finished workout, from any routine, read with `last_exercise_sets` (see *last_exercise_sets*). They are kept inside the workout when it starts, so they still show when it is resumed without network.
-- **Each exercise starts with the routine's sets** (`target_sets`). "+ Série" adds more.
+- **Each exercise starts with the routine's sets** (`target_sets`).
 - **Each set:** the weight comes from the same set last time; without one, from the previous set of this workout, and ✓ fills the next set's weight only if it is empty. The reps start empty, with last time's as a placeholder. The weight accepts a comma ("22,5", `inputMode="decimal"`), above 0, up to 1000, with two decimals at most; the reps are whole numbers from 1 to 100 (`inputMode="numeric"`).
 - **✓ logs the set,** and needs a valid weight and reps: the placeholder does not count as a value. Tapping ✓ again removes it. Only sets with ✓ are sent.
 - **A set with ✓ stays editable, and is always valid in the stored workout.** While typing, the text lives in a draft in the field, because it passes through invalid values on the way ("40" to "45" empties the field; "22," waits for the "5"). An invalid draft shows the error and the ✓ stays; if the field loses focus with an invalid value, it goes back to the last valid one. `editSet` refuses an invalid value for a logged set.
 - **After the last ✓ of an exercise,** it closes and the next one that is neither done nor skipped opens, wrapping around to earlier exercises. With none left, every exercise stays closed and the screen does not move.
-- **The list:** a closed exercise shows its name, its progress ("1/3", out of its current sets, "+ Série" included) and a ✓ when every set is logged. The open one shows the goal, "Última vez", the sets and "+ Série". Tapping an exercise opens it and closes the one that was open; tapping the open one closes it.
+- **The list:** a closed exercise shows its name, its progress ("1/3", out of its current sets, "+ Série" included) and a ✓ when every set is logged. The open one shows the goal, "Última vez", the sets and "+ Série", "Trocar" and "Saltar" in one row. Tapping an exercise opens it and closes the one that was open; tapping the open one closes it.
 - **A logged set** has its ✓ filled with the confirmation colour (`bg-success`), and its numbers keep their normal look, because they stay editable. Tapping ✓ closes the keyboard: iOS does not do it by itself, so the field is blurred explicitly. A refused ✓ shows the error below the set.
 - **Sets beyond last time** have no suggested reps.
 - **No jumps when the list changes height:** opening and closing is instant, so the final height is known at once. The exercise's position is read before the change and corrected with `scrollBy` before the browser paints (`useExerciseAnchor`), so a tapped exercise stays under the finger. When the next one opens by itself it then slides to the top with `scrollIntoView`, or jumps there with reduced motion. **Limit:** near either end of the page there is not enough scroll to correct with, so the list can still shift when the exercise closing above is taller than the scroll available.
@@ -57,7 +57,7 @@ _Last updated: 2026-11-04_
   - "Trocar" swaps the exercise for another, in this workout only, without confirmation and without losing anything. With no logged sets, the new exercise takes the same place with the same number of sets. With logged sets, the exercise keeps only those and closes as complete (for example 2/2), and the new one comes right after it with the sets that were left (at least one) as its goal, and opens. This replaces the first rule, under which logged sets were lost. With logged sets in a workout of 30 exercises it is disabled, since it would add one;
   - "Saltar" skips the exercise, which is then not saved. It only shows for an exercise with no logged sets, so it never hides work done. A skipped exercise is faded, with "Saltado"; tapping it opens "Retomar exercício". After skipping, the next exercise opens and slides into view, as after the last ✓;
   - "+ Adicionar exercício", at the end of the list: the exercise joins at the end with 3 sets and opens. Disabled at 30 exercises ("Um treino pode ter até 30 exercícios.");
-  - "Terminar treino".
+  - "Terminar treino" (step 4.5).
 - **No notes and no timer.** The duration is not shown during the workout. The start and finish times are stored, and the duration appears in the summary and in the history.
 - **One workout in progress at a time,** saved on the device at every change, in `localStorage` with one key per account (`levelup:active-workout:<userId>`). Signing out does not delete it: it stays with that account. The stored value has a format version, and a damaged value or one from another version is ignored. Since ignoring it would lose the workout, fields added later are optional when read (an exercise's `lastSetsUnavailable` counts as false when missing), and the version only changes for a change older values cannot be read as.
 - **Choosing an exercise for "Trocar" or "+ Adicionar exercício"** uses the same search as the routine editor (no accents, "Criar “…”"), with exercises already in the workout shown as "✓ No treino". The sheet closes once one is chosen. Its "Última vez" is read with the 8-second limit; without network the exercise joins anyway, with "Sem ligação…" on that exercise only. "Criar “…”" writes the exercise, so it needs the network, and shows the error without it.
@@ -66,9 +66,11 @@ _Last updated: 2026-11-04_
 - **Discarding** asks for confirmation only with logged sets to lose ("As 7 séries registadas perdem-se."), counting those of skipped exercises. The card is in the main chunk so it does not show late on Home, and only its confirmation sheet is lazy, which keeps the drawer out of the main chunk.
 - **Its account survives being offline:** with an expired token and no network the auth state is signed-out while the session is still stored, so the account is read from Supabase's stored session (`readStoredUserId`, the only code that knows that format). Otherwise the workout would vanish at the gym.
 
+**Tested on an iPhone (2026-11-09, over the Cloudflare tunnel, see *Tested*):** the keyboards are the right ones (the weight with a comma, the reps numeric); tapping ✓ with the keyboard open works, and the slide to the next exercise works. In airplane mode, logging sets works and the workout survives closing the app. Without network, "Trocar" and "+ Adicionar exercício" show "Sem ligação…", because the exercise list is only in memory, and reopening the app fails, because there is no service worker yet (see *Offline handling*).
+
 **Finishing**
 - **One operation, all or nothing:** the whole workout is sent at once.
-- **Without network**, it waits on the device and is sent again when the network is back, without duplicates: the workout gets an ID on the device when it starts, and the database ignores a workout it has already received. The exact schema and operation are defined with the tables (step 4.2).
+- **Without network**, it waits on the device and is sent again when the network is back, without duplicates: the workout gets an ID on the device when it starts, and the database ignores a workout it has already received. See *submit_workout*.
 - **No logged sets:** "Terminar treino" asks "Não registaste nenhuma série. Descartar treino?", and nothing is sent.
 
 **Workout tab ("Treino")**
@@ -345,7 +347,7 @@ Google's account chooser shows the Supabase project's domain (`<project>.supabas
 - **One chunk per module, one import function.** `loadWorkoutPages()` (`src/features/workout/load-pages.ts`) imports `src/features/workout/pages/index.ts`, which re-exports the module's pages. The routes use it with the object form of `lazy` (`lazy: { Component: async () => (await loadWorkoutPages()).WorkoutPage }`), as React Router's data mode guide shows. Components used only by the module (the drawer, the input) end up in its chunk.
 - **Preloaded when idle.** Once the app is open and signed in, `AppShell` fetches the Workout chunk with `requestIdleCallback` (a timeout where it is missing). **Why:** if the connection drops after the app opens, tapping Treino still works. A failed preload is caught silently: the app may have opened offline, and tapping the tab tries again.
 - **The promise is not cached.** The browser already reuses a loaded module; a cached rejected promise would make a failed preload fail again on tap instead of retrying.
-- **Measured** (gzip, `npm run build`): moving Workout to `lazy` took the main chunk from 221.53 kB to 185.87 kB. At the end of step 4.3 the main chunk is 185.89 kB and the Workout chunk 42.80 kB.
+- **Measured** (gzip, `npm run build`): moving Workout to `lazy` took the main chunk from 221.53 kB to 185.87 kB. At the end of step 4.4 the main chunk is 189.48 kB and the Workout chunk 45.58 kB.
 - **No `HydrateFallback` warning.** React Router warns only when no route on the opened path has a `HydrateFallback`. The root route has one (`AppLoading`, see *Loading screen*), so opening a lazy route directly shows it while the chunk loads, without a warning.
 
 **Package:** React Router 8 has no `react-router-dom` package. Everything is imported from `react-router`, except `RouterProvider`, which comes from `react-router/dom`.
@@ -397,7 +399,7 @@ Loading, empty and error states are shared components, so every module handles t
 - **Loading pattern:** the container has `aria-busy="true"` and a visually hidden "A carregar…" label; the skeletons are hidden from assistive technology (`aria-hidden`).
 
 ### Bottom sheets
-**Decision:** panels that slide up from the bottom (`BottomSheet`, on shadcn/ui's Base UI `Drawer`) are used for short tasks: a name, an exercise's sets and reps, adding exercises, an exercise's panel, confirming an archive.
+**Decision:** panels that slide up from the bottom (`BottomSheet`, on shadcn/ui's Base UI `Drawer`) are used for short tasks: a name, an exercise's sets and reps, adding exercises, an exercise's panel, confirming an archive, choosing a routine to start, the workout's exercise search, the workout menu and confirming a discard.
 - **The content owns its mutations** and unmounts when the sheet closes, so each opening starts clean, without an old error or a pending state.
 - **No closing while saving.** The content reports a save with `useSheetBusy(isPending)` (`src/components/sheet-busy.ts`). Until it finishes, Escape and a swipe are cancelled (`eventDetails.cancel()`) and a tap outside is ignored (`disablePointerDismissal`). **Why:** otherwise the content would unmount mid-save and an error would be lost unseen. After a successful save, the content closes the sheet itself.
 - **One action at a time:** a sheet with two actions (save and remove) disables both while either saves.
@@ -446,14 +448,14 @@ Icons, manifest and iOS details: see *App icon*.
 
 **Why:** Gyms often have poor connectivity, and losing logged sets is unacceptable. Full offline sync is significantly more complex.
 
-**Current state:** there is no service worker yet, so without network the app does not open at all. The wait of up to 30 seconds (see *Route protection*) only happens with a weak network or with Supabase unreachable. Phase 4 adds a service worker (step 4.4b), so the app opens without network and a workout can be resumed at the gym.
+**Current state** (tested on an iPhone on 2026-11-09): a workout in progress keeps working without network, since it lives on the device: sets are logged and it survives closing the app. Everything that reads Supabase does not: the exercise list for "Trocar" and "+ Adicionar exercício" is only in memory, so they show "Sem ligação…", and reopening the app fails, since there is no service worker yet. With a weak network or Supabase unreachable, opening it with an expired token waits up to 30 seconds (see *Route protection*). Step 4.4b covers this (see *Open questions*).
 
 **TanStack Query without network** (reproduced on 2026-11-04 in Playwright, by simulating what the browser does: the `offline` event, `navigator.onLine` false and `fetch` failing):
 - **Mutations paused by default,** instead of failing: the button stayed on "A criar…" with no error, and the sheet could not close, since it stays open while saving. They now use `networkMode: 'always'` (`src/lib/query-client.ts`), so the write fails at once and "Sem ligação…" shows.
 - **Reads also pause** (`fetchStatus: 'paused'`): with data in the cache it keeps showing, but a page with no data stayed on its skeleton until the network was back. They keep the default mode, because `always` would only mean a longer skeleton and then an error. Instead, `isWaitingForNetwork` (`src/lib/query-state.ts`) swaps the skeleton for "Sem ligação. Os dados aparecem quando voltares a estar online." (`OfflineState`), with no button, since the read resumes by itself. It is used in the routine list, the routine editor, the Exercises screen, the "Adicionar exercício" sheet and the confirmation to archive an exercise, where "Arquivar" stays disabled: without the routines, it cannot say what the exercise leaves. The "Exercícios" row on the Workout tab just leaves out its count.
 - **`postgrest-js` retries `GET` requests by itself** on a network failure, with growing waits, so a read that fails offline takes several seconds. The 8-second limit when starting a workout covers this.
 
-**A rare case left for step 4.4b:** "Descartar" on Home's workout card loads its confirmation sheet from the Workout chunk. With logged sets, no network and that chunk not yet preloaded, the lazy import fails and the route's error screen shows. The service worker removes this by keeping the chunk on the device.
+**A rare case for step 4.4b:** "Descartar" on Home's workout card loads its confirmation sheet from the Workout chunk, so with logged sets, no network and that chunk not yet preloaded, the route's error screen shows.
 
 ---
 
@@ -684,7 +686,7 @@ Deny rules in `.claude/settings.json` block these three for Claude Code, and als
 - **Fixed time zone:** `test.env.TZ = 'Europe/Lisbon'`, so date tests give the same result on any machine and in CI. Lisbon rather than UTC because its summer offset (UTC+1) is exactly what makes `toISODate` differ from `toISOString`. A test checks that the zone took effect; it was also run with the process set to `America/New_York`, and still ran in Lisbon.
 - **Tailwind reads only `.tsx` files (`@source not "./**/*.ts"` in `src/index.css`):** Tailwind scans `src` for class names in any text, comments included. Words in test descriptions ("absolute", "relative") had added `.absolute` and `.relative` to the production CSS, and later the word "table" in a comment of a data-layer file added `.table`. Excluding only the tests would not have caught the second case, so every `.ts` file is excluded: logic and tests live in `.ts`, and Tailwind classes only in `.tsx`. With the exclusion, the CSS is byte-for-byte the same as without those files.
 
-**What the 152 tests cover:**
+**What the 327 tests cover:**
 
 | File | Tests | Covers |
 |---|---|---|
@@ -694,13 +696,21 @@ Deny rules in `.claude/settings.json` block these three for Claude Code, and als
 | `src/lib/supabase-config.test.ts` | 7 | `getSupabaseConfig`: missing or empty variables named exactly, both set, and the error message never containing the values |
 | `src/features/home/lib/greeting.test.ts` | 8 | `getGreeting`: 00:00, 05:59, 06:00, 11:59, 12:00, 19:59, 20:00 and 23:59 |
 | `src/lib/format.test.ts` | 4 | the time zone check, `toISODate` (including 1 July 00:30, where `toISOString` gives 30 June) and `formatLongDate` in European Portuguese |
-| `src/features/workout/lib/errors.test.ts` | 21 | `requireRows`, and `getErrorMessage`: specific messages, network failures per browser, database error codes |
+| `src/features/workout/lib/errors.test.ts` | 23 | `requireRows`, and `getErrorMessage`: specific messages, network failures per browser, a timeout counted as no network, database error codes |
 | `src/features/workout/lib/exercise-search.test.ts` | 26 | the same-name key (case, accents, spaces), `resolveNewExercise`, `isExerciseNameTaken`, `filterExercises`, `canCreateExercise` |
 | `src/features/workout/lib/targets.test.ts` | 19 | `validateTargets`: limits of sets and reps, a single number as min = max, whole numbers only; `formatTargets` |
 | `src/features/workout/lib/names.test.ts` | 11 | `cleanName`, and the 80 and 60 character limits, with an emoji counted as one character |
 | `src/features/workout/lib/positions.test.ts` | 8 | `moveItem`: only changed rows are sent, the ends, shared positions and gaps; `nextPosition` |
 | `src/features/workout/lib/routine-limits.test.ts` | 6 | `isRoutineFull` and the 30-exercise limit |
-| `src/features/workout/lib/labels.test.ts` | 4 | `formatExerciseCount`: "Sem exercícios", singular and plural |
+| `src/features/workout/lib/labels.test.ts` | 13 | `formatExerciseCount`, `formatLastSets` ("Última vez: 40 × 12 · 22,5 × 10", "Primeira vez"), `formatSetProgress`, `formatLoggedSets` and `formatDiscardWarning`, singular and plural |
+| `src/features/workout/lib/active-workout.test.ts` | 67 | starting from a routine (sets, weights from last time or the previous set), `editSet` (a logged set stays valid), `toggleSet` (✓ refused without valid values, filling the next weight, opening the next exercise, nothing open after the last), "+ Série" up to 20, skipping and resuming, swapping with and without logged sets, adding up to 30, `repsPlaceholder`, `countLoggedSets`, `groupLastSets` |
+| `src/features/workout/lib/set-values.test.ts` | 41 | `parseWeight` (comma or point, above 0, up to 1000, two decimals), `parseReps` (whole numbers 1 to 100), `setFieldError`, `formatWeight` |
+| `src/features/workout/lib/active-workout-storage.test.ts` | 23 | the key per account; reading back what was saved; ignoring damaged values, another version, a wrong shape or a logged set with an invalid value; reading an older workout without `lastSetsUnavailable` |
+| `src/features/workout/lib/next-routine.test.ts` | 11 | `nextRoutine`: the one after the last, wrapping around, skipping archived routines, a last routine that was archived, no workouts, no active routines |
+| `src/features/auth/lib/stored-session.test.ts` | 10 | `storedSessionKey` and `parseStoredUserId`, for every malformed stored value |
+| `src/features/workout/lib/workout-payload.test.ts` | 5 | `toSubmitPayload`: order, only sets with ✓, no skipped or empty exercises, null with nothing logged |
+| `src/lib/query-state.test.ts` | 4 | `isWaitingForNetwork`: paused without data, fetching, paused with data, finished |
+| `src/features/workout/lib/with-timeout.test.ts` | 3 | `withTimeout`: in time, passing on an error, `TimeoutError` after the limit |
 
 **Tests fail when a rule breaks:** removing the final `//` check from `getSafeReturnPath` made exactly the two expected tests fail (`/..//evil.com` and `/.//evil.com`); the function was then restored unchanged.
 
@@ -793,9 +803,9 @@ The MVP runs on free tiers: GitHub, Supabase Free and Vercel Hobby (personal, no
 
 | Question | When |
 |---|---|
-| Service worker, so the app opens without network (today it does not, and opening it with an expired token on a weak network waits up to 30 s), and so "Descartar" on Home works offline before the Workout chunk is preloaded (see *Offline handling*) | Phase 4 (step 4.4b) |
+| Step 4.4b, the app working without network: (1) a service worker, so the app opens without network (today it does not, and with an expired token on a weak network it waits up to 30 s); (2) a copy of the Supabase reads (routines and exercises) on the device, for example with TanStack Query's persister, per account and cleared on sign-out (without it, the app opened offline shows no routines, cannot start a workout, and "Trocar" and "+ Adicionar exercício" cannot list exercises); (3) "Descartar" on Home before the Workout chunk is preloaded (see *Offline handling*) | Phase 4 (step 4.4b) |
 | Backup strategy | Before Phase 5 |
 | Publish the Google OAuth app and complete its Branding (optional: only to show the app's name and logo on Google's sign-in screen) | Phase 5 |
 | Create the production Supabase project (`levelup-prod`) | Phase 5 |
 | Custom domain | Phase 5 (optional) |
-| Lazy loading per module, to address Vite's 500 kB chunk warning | When the modules have code |
+| Lazy loading for the other modules, to address Vite's 500 kB chunk warning (Workout is lazy already, see *React Router 8 in data mode*) | When each module has code |
