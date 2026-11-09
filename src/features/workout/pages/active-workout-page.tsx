@@ -1,19 +1,25 @@
 import { useState } from 'react'
-import { Ellipsis } from 'lucide-react'
+import { Ellipsis, Plus } from 'lucide-react'
 import { Navigate, ScrollRestoration } from 'react-router'
 import { PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { setActiveWorkout, updateActiveWorkout } from '@/features/workout/active-workout-store'
-import { WorkoutExercise } from '@/features/workout/components/workout-exercise'
+import { WORKOUT_LIMIT_MESSAGE, WorkoutExercise } from '@/features/workout/components/workout-exercise'
+import { WorkoutExerciseSheet } from '@/features/workout/components/workout-exercise-sheet'
 import { WorkoutMenuSheet } from '@/features/workout/components/workout-menu-sheet'
 import { useActiveWorkout } from '@/features/workout/hooks/use-active-workout'
 import { useExerciseAnchor } from '@/features/workout/hooks/use-exercise-anchor'
+import type { WorkoutPickMode } from '@/features/workout/hooks/use-workout-exercise-pick'
 import {
+  MAX_WORKOUT_EXERCISES,
   addSet,
+  canSwapExercise,
   countLoggedSets,
   openExercise,
+  skipExercise,
   toggleSet,
+  undoSkip,
   type ActiveWorkout,
 } from '@/features/workout/lib/active-workout'
 
@@ -23,9 +29,14 @@ export function ActiveWorkoutPage() {
   const workout = useActiveWorkout()
   const anchor = useExerciseAnchor(workout?.openExerciseId ?? null)
   const [menuOpen, setMenuOpen] = useState(false)
+  // The mode stays set while the sheet closes; `pickerOpen` alone controls it.
+  const [pickMode, setPickMode] = useState<WorkoutPickMode>({ kind: 'add' })
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   // Also after discarding here: the store changes and this goes back.
   if (!workout) return <Navigate to="/treino" replace />
+
+  const workoutFull = workout.exercises.length >= MAX_WORKOUT_EXERCISES
 
   // Tapping opens the exercise, closing the one that was open; tapping the open
   // one closes it. It stays under the finger.
@@ -34,16 +45,33 @@ export function ActiveWorkoutPage() {
     updateActiveWorkout((latest) => openExercise(latest, current.openExerciseId === exerciseId ? null : exerciseId))
   }
 
-  // Returns the error when ✓ is refused. When the next exercise opens by itself
-  // it slides into view; after the last one nothing is open, and nothing moves.
+  // When another exercise opens by itself it slides into view; with nothing
+  // left to open, nothing moves.
+  function apply(current: ActiveWorkout, next: ActiveWorkout) {
+    const opened = next.openExerciseId
+    if (opened && opened !== current.openExerciseId) anchor.hold(opened, { slide: true })
+    setActiveWorkout(next)
+  }
+
+  // Returns the error when ✓ is refused.
   function toggle(current: ActiveWorkout, exerciseId: string, index: number) {
     const result = toggleSet(current, exerciseId, index)
     if (!result.ok) return result.error
-
-    const next = result.workout.openExerciseId
-    if (next && next !== current.openExerciseId) anchor.hold(next, { slide: true })
-    setActiveWorkout(result.workout)
+    apply(current, result.workout)
     return null
+  }
+
+  function openPicker(mode: WorkoutPickMode) {
+    setPickMode(mode)
+    setPickerOpen(true)
+  }
+
+  // A swap without logged sets takes the same place and the screen stays still;
+  // otherwise the exercise that opens slides into view.
+  function onPicked(current: ActiveWorkout, exerciseId: string) {
+    const swapped = pickMode.kind === 'swap' ? current.exercises.find((e) => e.exerciseId === pickMode.exerciseId) : null
+    const inPlace = swapped !== null && swapped !== undefined && !swapped.sets.some((set) => set.done)
+    anchor.hold(exerciseId, { slide: !inPlace })
   }
 
   return (
@@ -76,15 +104,43 @@ export function ActiveWorkoutPage() {
               exercise={exercise}
               open={workout.openExerciseId === exercise.exerciseId}
               showLastSets={!workout.lastSetsUnavailable}
+              canSwap={canSwapExercise(workout, exercise.exerciseId)}
               rowRef={(row) => anchor.setRow(exercise.exerciseId, row)}
               onHeaderTap={() => tapExercise(workout, exercise.exerciseId)}
               onToggleSet={(index) => toggle(workout, exercise.exerciseId, index)}
               onAddSet={() => updateActiveWorkout((latest) => addSet(latest, exercise.exerciseId))}
+              onSwap={() => openPicker({ kind: 'swap', exerciseId: exercise.exerciseId })}
+              onSkip={() => apply(workout, skipExercise(workout, exercise.exerciseId))}
+              onResume={() => {
+                anchor.hold(exercise.exerciseId, { slide: false })
+                updateActiveWorkout((latest) => undoSkip(latest, exercise.exerciseId))
+              }}
             />
           ))}
         </ul>
       </Card>
 
+      <div className="flex flex-col gap-1">
+        <Button
+          variant="outline"
+          size="lg"
+          className="w-full"
+          disabled={workoutFull}
+          onClick={() => openPicker({ kind: 'add' })}
+        >
+          <Plus aria-hidden data-icon="inline-start" />
+          Adicionar exercício
+        </Button>
+        {workoutFull && <p className="text-sm text-muted-foreground">{WORKOUT_LIMIT_MESSAGE}</p>}
+      </div>
+
+      <WorkoutExerciseSheet
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        mode={pickMode}
+        workout={workout}
+        onPicked={(exerciseId) => onPicked(workout, exerciseId)}
+      />
       <WorkoutMenuSheet open={menuOpen} onOpenChange={setMenuOpen} loggedSets={countLoggedSets(workout)} />
       <ScrollRestoration />
     </div>

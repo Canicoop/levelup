@@ -17,7 +17,7 @@ import { ValidationError } from '@/features/workout/lib/errors'
 import { moveItem, nextPosition } from '@/features/workout/lib/positions'
 import { ROUTINE_FULL_MESSAGE, isRoutineFull } from '@/features/workout/lib/routine-limits'
 import { DEFAULT_TARGETS } from '@/features/workout/lib/targets'
-import type { Exercise, Routine, RoutineExercise, Targets } from '@/features/workout/lib/types'
+import type { Exercise, ExerciseChoice, Routine, RoutineExercise, Targets } from '@/features/workout/lib/types'
 
 type Direction = 'up' | 'down'
 
@@ -88,10 +88,6 @@ function useRefetchRoutine(routineId: string) {
     return error ? undefined : refetch
   }
 }
-
-// What was tapped in "Adicionar exercício": an exercise from the list (active
-// or archived), or "Criar “…”" with a new name.
-export type ExerciseChoice = { kind: 'existing'; exercise: Exercise } | { kind: 'new'; name: string }
 
 // Adding can also create or reactivate an exercise, which changes the exercise
 // list too, so the whole module is refetched (not only the routine).

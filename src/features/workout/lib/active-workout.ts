@@ -40,6 +40,8 @@ export type ActiveExercise = {
   skipped: boolean
   sets: ActiveSet[]
   lastSets: LastSet[]
+  // Swapped in or added without network: this exercise has no "Última vez".
+  lastSetsUnavailable: boolean
 }
 
 export type ActiveWorkout = {
@@ -71,8 +73,32 @@ function newSets(count: number, lastSets: LastSet[]) {
   return sets
 }
 
+// An exercise that joins the workout: from the routine, swapped in or added.
+function newExercise(
+  exercise: Pick<Exercise, 'id' | 'name'>,
+  goal: { targetSets: number; setCount: number; repMin: number | null; repMax: number | null },
+  lastSets: LastSet[],
+  lastSetsUnavailable: boolean,
+): ActiveExercise {
+  return {
+    exerciseId: exercise.id,
+    name: exercise.name,
+    targetSets: goal.targetSets,
+    repMin: goal.repMin,
+    repMax: goal.repMax,
+    skipped: false,
+    sets: newSets(goal.setCount, lastSets),
+    lastSets,
+    lastSetsUnavailable,
+  }
+}
+
 export function isExerciseDone(exercise: ActiveExercise) {
   return exercise.sets.every((set) => set.done)
+}
+
+function hasLoggedSets(exercise: ActiveExercise) {
+  return exercise.sets.some((set) => set.done)
 }
 
 // Last time's reps for a set, as a suggestion. Sets beyond last time have none.
@@ -132,19 +158,16 @@ export function startWorkout({
   lastSets: LastSetsByExercise
   lastSetsUnavailable?: boolean
 }): ActiveWorkout {
-  const exercises = routine.exercises.map((entry): ActiveExercise => {
-    const last = lastSets[entry.exercise_id] ?? []
-    return {
-      exerciseId: entry.exercise_id,
-      name: entry.exercise.name,
-      targetSets: entry.target_sets,
-      repMin: entry.rep_min,
-      repMax: entry.rep_max,
-      skipped: false,
-      sets: newSets(entry.target_sets, last),
-      lastSets: last,
-    }
-  })
+  // Without network the whole workout has no "Última vez" (lastSetsUnavailable on
+  // the workout), not each exercise.
+  const exercises = routine.exercises.map((entry) =>
+    newExercise(
+      entry.exercise,
+      { targetSets: entry.target_sets, setCount: entry.target_sets, repMin: entry.rep_min, repMax: entry.rep_max },
+      lastSets[entry.exercise_id] ?? [],
+      false,
+    ),
+  )
   return {
     id,
     routineId: routine.id,
@@ -232,10 +255,15 @@ export function addSet(workout: ActiveWorkout, exerciseId: string): ActiveWorkou
   )
 }
 
-// A skipped exercise is not sent, even with logged sets. They are kept, so
-// undoing the skip brings them back.
+// "Saltar" is only for an exercise with no logged sets, so skipping never hides
+// sets that were done. A skipped exercise is not sent.
+export function canSkipExercise(exercise: ActiveExercise) {
+  return !exercise.skipped && !hasLoggedSets(exercise)
+}
+
 export function skipExercise(workout: ActiveWorkout, exerciseId: string): ActiveWorkout {
-  if (!hasExercise(workout, exerciseId)) return workout
+  const exercise = workout.exercises.find((current) => current.exerciseId === exerciseId)
+  if (!exercise || !canSkipExercise(exercise)) return workout
   const skipped = updateExercise(workout, exerciseId, (exercise) => ({ ...exercise, skipped: true }))
   return workout.openExerciseId === exerciseId
     ? { ...skipped, openExerciseId: nextOpenExerciseId(skipped.exercises, exerciseId) }
@@ -250,26 +278,61 @@ export function undoSkip(workout: ActiveWorkout, exerciseId: string): ActiveWork
   }
 }
 
-// In this workout only. It keeps the place, the number of sets and the rep
-// range; the sets start over, since logged sets belonged to the other exercise.
-// The same workout comes back if the new exercise is already in the workout.
+// With logged sets, swapping adds an exercise, so it needs room for one more.
+export function canSwapExercise(workout: ActiveWorkout, exerciseId: string) {
+  const exercise = workout.exercises.find((current) => current.exerciseId === exerciseId)
+  if (!exercise) return false
+  return !hasLoggedSets(exercise) || workout.exercises.length < MAX_WORKOUT_EXERCISES
+}
+
+// "Trocar", in this workout only, and nothing logged is lost:
+// - with no logged sets, the new exercise takes the same place, with the same
+//   number of sets and rep range;
+// - with logged sets, the exercise keeps only those, and so is complete; the new
+//   one comes right after it with the sets that were left (at least one), as
+//   its goal, and opens.
+// The same workout comes back if the new exercise is already in the workout, or
+// there is no room for it (see canSwapExercise).
 export function swapExercise(
   workout: ActiveWorkout,
   exerciseId: string,
   replacement: Pick<Exercise, 'id' | 'name'>,
   lastSets: LastSet[],
+  lastSetsUnavailable = false,
 ): ActiveWorkout {
-  if (!hasExercise(workout, exerciseId) || hasExercise(workout, replacement.id)) return workout
+  const index = workout.exercises.findIndex((exercise) => exercise.exerciseId === exerciseId)
+  const current = workout.exercises[index]
+  if (!current || hasExercise(workout, replacement.id) || !canSwapExercise(workout, exerciseId)) return workout
 
-  const swapped = updateExercise(workout, exerciseId, (exercise) => ({
-    ...exercise,
-    exerciseId: replacement.id,
-    name: replacement.name,
-    skipped: false,
-    sets: newSets(exercise.sets.length, lastSets),
+  const { repMin, repMax } = current
+  if (!hasLoggedSets(current)) {
+    const swapped = newExercise(
+      replacement,
+      { targetSets: current.targetSets, setCount: current.sets.length, repMin, repMax },
+      lastSets,
+      lastSetsUnavailable,
+    )
+    return {
+      ...workout,
+      exercises: workout.exercises.map((exercise, position) => (position === index ? swapped : exercise)),
+      openExerciseId: workout.openExerciseId === exerciseId ? replacement.id : workout.openExerciseId,
+    }
+  }
+
+  const logged = current.sets.filter((set) => set.done)
+  const remaining = Math.max(1, current.sets.length - logged.length)
+  const kept: ActiveExercise = { ...current, skipped: false, sets: logged }
+  const added = newExercise(
+    replacement,
+    { targetSets: remaining, setCount: remaining, repMin, repMax },
     lastSets,
-  }))
-  return workout.openExerciseId === exerciseId ? { ...swapped, openExerciseId: replacement.id } : swapped
+    lastSetsUnavailable,
+  )
+  return {
+    ...workout,
+    exercises: [...workout.exercises.slice(0, index), kept, added, ...workout.exercises.slice(index + 1)],
+    openExerciseId: replacement.id,
+  }
 }
 
 export function canAddExercise(workout: ActiveWorkout, exerciseId: string) {
@@ -282,24 +345,19 @@ export function addExercise(
   workout: ActiveWorkout,
   exercise: Pick<Exercise, 'id' | 'name'>,
   lastSets: LastSet[],
+  lastSetsUnavailable = false,
 ): ActiveWorkout {
   if (!canAddExercise(workout, exercise.id)) return workout
+  const goal = {
+    targetSets: DEFAULT_TARGETS.target_sets,
+    setCount: DEFAULT_TARGETS.target_sets,
+    repMin: DEFAULT_TARGETS.rep_min,
+    repMax: DEFAULT_TARGETS.rep_max,
+  }
   return {
     ...workout,
     openExerciseId: exercise.id,
-    exercises: [
-      ...workout.exercises,
-      {
-        exerciseId: exercise.id,
-        name: exercise.name,
-        targetSets: DEFAULT_TARGETS.target_sets,
-        repMin: DEFAULT_TARGETS.rep_min,
-        repMax: DEFAULT_TARGETS.rep_max,
-        skipped: false,
-        sets: newSets(DEFAULT_TARGETS.target_sets, lastSets),
-        lastSets,
-      },
-    ],
+    exercises: [...workout.exercises, newExercise(exercise, goal, lastSets, lastSetsUnavailable)],
   }
 }
 

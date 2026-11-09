@@ -1,7 +1,9 @@
 import type { ActiveExercise, ActiveSet, ActiveWorkout, LastSet } from '@/features/workout/lib/active-workout'
 import { setFieldError } from '@/features/workout/lib/set-values'
 
-// Raised when the stored format changes. A value from another version is ignored.
+// Raised when the stored format changes in a way an older value cannot be read
+// as. A value from another version is ignored, so the workout in it is lost:
+// fields added later are optional instead.
 const FORMAT_VERSION = 1
 
 // One key per account: a workout in progress stays with the account that started it.
@@ -33,9 +35,15 @@ function isSet(value: unknown): value is ActiveSet {
   return !done || (setFieldError('weight', weight) === null && setFieldError('reps', reps) === null)
 }
 
-function isExercise(value: unknown): value is ActiveExercise {
+// lastSetsUnavailable came after the first workouts were stored; it may be
+// missing, and then counts as false (see parseStoredWorkout).
+type StoredExercise = Omit<ActiveExercise, 'lastSetsUnavailable'> & { lastSetsUnavailable?: boolean }
+type StoredWorkout = Omit<ActiveWorkout, 'exercises'> & { exercises: StoredExercise[] }
+
+function isExercise(value: unknown): value is StoredExercise {
   return (
     isObject(value) &&
+    (value.lastSetsUnavailable === undefined || typeof value.lastSetsUnavailable === 'boolean') &&
     typeof value.exerciseId === 'string' &&
     typeof value.name === 'string' &&
     typeof value.targetSets === 'number' &&
@@ -49,7 +57,7 @@ function isExercise(value: unknown): value is ActiveExercise {
   )
 }
 
-function isWorkout(value: unknown): value is ActiveWorkout {
+function isWorkout(value: unknown): value is StoredWorkout {
   return (
     isObject(value) &&
     typeof value.id === 'string' &&
@@ -75,5 +83,12 @@ export function parseStoredWorkout(raw: string | null): ActiveWorkout | null {
     return null
   }
   if (!isObject(stored) || stored.version !== FORMAT_VERSION || !isWorkout(stored.workout)) return null
-  return stored.workout
+  const { workout } = stored
+  return {
+    ...workout,
+    exercises: workout.exercises.map((exercise) => ({
+      ...exercise,
+      lastSetsUnavailable: exercise.lastSetsUnavailable ?? false,
+    })),
+  }
 }

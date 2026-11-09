@@ -8,6 +8,10 @@ export type Exercise = Pick<Tables['exercises']['Row'], 'id' | 'name' | 'archive
 
 export type Routine = Pick<Tables['routines']['Row'], 'id' | 'name' | 'position' | 'archived_at' | 'created_at'>
 
+// What was tapped in the exercise search: an exercise from the list (active or
+// archived), or "Criar “…”" with a new name.
+export type ExerciseChoice = { kind: 'existing'; exercise: Exercise } | { kind: 'new'; name: string }
+
 // A routine that contains a given exercise, active or archived.
 export type ExerciseRoutine = Pick<Routine, 'id' | 'name' | 'archived_at'>
 

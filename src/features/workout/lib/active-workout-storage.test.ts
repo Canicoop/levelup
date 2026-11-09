@@ -26,6 +26,7 @@ const workout: ActiveWorkout = {
         { weight: '22,', reps: '', done: false },
       ],
       lastSets: [{ weightKg: 22.5, reps: 10 }],
+      lastSetsUnavailable: false,
     },
   ],
 }
@@ -41,6 +42,17 @@ describe('activeWorkoutKey', () => {
 })
 
 describe('parseStoredWorkout', () => {
+  it('reads a workout stored before exercises had lastSetsUnavailable, as false', () => {
+    const older: Record<string, unknown> = { ...workout.exercises[0] }
+    delete older.lastSetsUnavailable
+    const parsed = parseStoredWorkout(stored({ exercises: [older] }))
+    expect(parsed?.exercises[0].lastSetsUnavailable).toBe(false)
+  })
+
+  it('ignores a wrong lastSetsUnavailable on an exercise', () => {
+    expect(parseStoredWorkout(stored({ exercises: [{ ...workout.exercises[0], lastSetsUnavailable: 'no' }] }))).toBeNull()
+  })
+
   it('reads back what was saved, unfinished values included', () => {
     expect(parseStoredWorkout(serializeWorkout(workout))).toEqual(workout)
   })

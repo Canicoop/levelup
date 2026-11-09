@@ -5,6 +5,8 @@ import {
   addExercise,
   addSet,
   canAddExercise,
+  canSkipExercise,
+  canSwapExercise,
   countLoggedSets,
   editSet,
   groupLastSets,
@@ -347,11 +349,22 @@ describe('skipExercise and undoSkip', () => {
     expect(skipExercise(start([entry('a', 1), entry('b', 1)]), 'b').openExerciseId).toBe('a')
   })
 
-  it('undoing brings back the exercise, open, with its logged sets', () => {
-    const skipped = skipExercise(logSet(start([entry('a', 2), entry('b', 1)]), 'a', 0), 'a')
+  it('refuses an exercise with logged sets, which never hides work done', () => {
+    const logged = logSet(start([entry('a', 2), entry('b', 1)]), 'a', 0)
+    expect(canSkipExercise(exercise(logged, 'a'))).toBe(false)
+    expect(skipExercise(logged, 'a')).toBe(logged)
+  })
+
+  it('refuses an exercise already skipped', () => {
+    const skipped = skipExercise(start([entry('a', 1), entry('b', 1)]), 'a')
+    expect(canSkipExercise(exercise(skipped, 'a'))).toBe(false)
+    expect(skipExercise(skipped, 'a')).toBe(skipped)
+  })
+
+  it('undoing brings the exercise back, open', () => {
+    const skipped = skipExercise(start([entry('a', 2), entry('b', 1)]), 'a')
     const undone = undoSkip(skipped, 'a')
     expect(exercise(undone, 'a').skipped).toBe(false)
-    expect(exercise(undone, 'a').sets[0].done).toBe(true)
     expect(undone.openExerciseId).toBe('a')
   })
 
@@ -365,22 +378,56 @@ describe('skipExercise and undoSkip', () => {
 describe('swapExercise', () => {
   const replacement = { id: 'z', name: 'Nome z' }
 
-  it('keeps the place, the number of sets and the rep range', () => {
-    const workout = swapExercise(start([entry('a', 3, 8, 12), entry('b', 1)]), 'a', replacement, [])
+  it('without logged sets, takes the same place, number of sets, goal and rep range', () => {
+    const typed = addSet(start([entry('a', 3, 8, 12), entry('b', 1)]), 'a')
+    const workout = swapExercise(typed, 'a', replacement, [])
     expect(workout.exercises.map((current) => current.exerciseId)).toEqual(['z', 'b'])
-    expect(exercise(workout, 'z')).toMatchObject({ name: 'Nome z', repMin: 8, repMax: 12 })
-    expect(exercise(workout, 'z').sets).toHaveLength(3)
+    expect(exercise(workout, 'z')).toMatchObject({ name: 'Nome z', targetSets: 3, repMin: 8, repMax: 12 })
+    expect(exercise(workout, 'z').sets).toHaveLength(4)
   })
 
-  it('starts the sets over, with the new exercise\'s last time', () => {
-    const logged = logSet(start([entry('a', 2)]), 'a', 0)
+  it('uses the new exercise\'s last time', () => {
     const lastSets = [{ weightKg: 15, reps: 12 }]
-    const swapped = exercise(swapExercise(logged, 'a', replacement, lastSets), 'z')
-    expect(swapped.sets).toEqual([
-      { weight: '15', reps: '', done: false },
-      { weight: '15', reps: '', done: false },
-    ])
+    const swapped = exercise(swapExercise(start([entry('a', 2)]), 'a', replacement, lastSets), 'z')
+    expect(swapped.sets.map((set) => set.weight)).toEqual(['15', '15'])
     expect(swapped.lastSets).toEqual(lastSets)
+  })
+
+  it('with logged sets, keeps them and adds the new exercise after it with the rest', () => {
+    const logged = logSet(logSet(start([entry('a', 4, 8, 12), entry('b', 1)]), 'a', 0), 'a', 2)
+    const workout = swapExercise(logged, 'a', replacement, [{ weightKg: 15, reps: 12 }])
+    expect(workout.exercises.map((current) => current.exerciseId)).toEqual(['a', 'z', 'b'])
+    expect(exercise(workout, 'a').sets).toEqual([
+      { weight: '40', reps: '8', done: true },
+      { weight: '40', reps: '8', done: true },
+    ])
+    expect(isExerciseDone(exercise(workout, 'a'))).toBe(true)
+    expect(exercise(workout, 'z')).toMatchObject({ targetSets: 2, repMin: 8, repMax: 12 })
+    expect(exercise(workout, 'z').sets).toHaveLength(2)
+    expect(workout.openExerciseId).toBe('z')
+  })
+
+  it('with every set logged, the new exercise still gets one set', () => {
+    const done = logAll(start([entry('a', 2), entry('b', 1)]), 'a')
+    const workout = swapExercise(done, 'a', replacement, [])
+    expect(exercise(workout, 'a').sets).toHaveLength(2)
+    expect(exercise(workout, 'z')).toMatchObject({ targetSets: 1 })
+    expect(exercise(workout, 'z').sets).toHaveLength(1)
+  })
+
+  it('marks "Última vez" as unavailable on the new exercise only', () => {
+    const workout = swapExercise(start([entry('a', 1), entry('b', 1)]), 'a', replacement, [], true)
+    expect(exercise(workout, 'z').lastSetsUnavailable).toBe(true)
+    expect(exercise(workout, 'b').lastSetsUnavailable).toBe(false)
+  })
+
+  it('with logged sets, needs room for one more exercise', () => {
+    const entries = Array.from({ length: MAX_WORKOUT_EXERCISES }, (_, index) => entry(`e${index}`, 2))
+    const full = start(entries)
+    expect(canSwapExercise(full, 'e0')).toBe(true)
+    const logged = logSet(full, 'e0', 0)
+    expect(canSwapExercise(logged, 'e0')).toBe(false)
+    expect(swapExercise(logged, 'e0', replacement, [])).toBe(logged)
   })
 
   it('moves the open exercise with it, and clears a skip', () => {
@@ -410,6 +457,11 @@ describe('addExercise', () => {
     expect(workout.openExerciseId).toBe('z')
     expect(exercise(workout, 'z')).toMatchObject({ repMin: null, repMax: null, skipped: false })
     expect(exercise(workout, 'z').sets.map((set) => set.weight)).toEqual(['15', '15', '15'])
+  })
+
+  it('marks "Última vez" as unavailable when added without network', () => {
+    expect(exercise(addExercise(start([entry('a', 1)]), extra, [], true), 'z').lastSetsUnavailable).toBe(true)
+    expect(exercise(addExercise(start([entry('a', 1)]), extra, []), 'z').lastSetsUnavailable).toBe(false)
   })
 
   it('refuses an exercise already in the workout', () => {
