@@ -30,6 +30,12 @@ export const router = createBrowserRouter([
         loader: requireSession,
         lazy: { Component: async () => (await loadWorkoutPages()).ActiveWorkoutPage },
       },
+      // The summary after "Terminar", full screen like the workout.
+      {
+        path: 'treino/terminado',
+        loader: requireSession,
+        lazy: { Component: async () => (await loadWorkoutPages()).FinishedWorkoutPage },
+      },
       {
         // Screens with navigation, all behind a session. Full-screen screens
         // (the workout in progress) are siblings of this route, so they render

@@ -5,6 +5,7 @@ import { RouterProvider } from 'react-router/dom'
 import { QueryProvider } from '@/components/query-provider'
 import { getAccountId, subscribeToAccount } from '@/features/auth/account'
 import { onSignedOut } from '@/features/auth/session'
+import { loadSender } from '@/features/workout/load-sender'
 import { startAppUpdates } from '@/lib/app-update'
 import { startOnlineFromNavigator } from '@/lib/online'
 import { queryClient } from '@/lib/query-client'
@@ -52,7 +53,7 @@ startAppUpdates()
 // network or the app comes back, and on sign-in (see send-pending-workouts.ts).
 // Here rather than in AppShell, so it also runs on the workout screen, and
 // imported on demand, so the Workout data layer stays out of the main chunk.
-void import('@/features/workout/send-pending-workouts')
+void loadSender()
   .then(({ startSendingPendingWorkouts }) => startSendingPendingWorkouts(queryClient))
   .catch(() => {})
 

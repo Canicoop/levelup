@@ -9,6 +9,7 @@ import { ModuleCard } from '@/features/home/components/module-card'
 import { QuickActions } from '@/features/home/components/quick-actions'
 import { getGreeting } from '@/features/home/lib/greeting'
 import { ActiveWorkoutCard } from '@/features/workout/components/active-workout-card'
+import { PendingWorkoutsLine } from '@/features/workout/components/pending-workouts-line'
 import { useActiveWorkout } from '@/features/workout/hooks/use-active-workout'
 import { useNow } from '@/hooks/use-now'
 import { formatLongDate, toISODate } from '@/lib/format'
@@ -38,7 +39,8 @@ export function HomePage() {
         </Link>
       </PageHeader>
       <UpdateBanner />
-      {workout && <ActiveWorkoutCard workout={workout} />}
+      <PendingWorkoutsLine />
+      {workout &&<ActiveWorkoutCard workout={workout} />}
       <QuickActions />
       {/* gap-3 matches the quick actions, so the columns line up on desktop. */}
       <div className="grid gap-3 lg:grid-cols-3">

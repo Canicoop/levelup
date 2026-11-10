@@ -68,7 +68,7 @@ function isRejected(value: unknown) {
   return value === undefined || (isObject(value) && typeof value.code === 'string' && isDate(value.at))
 }
 
-function isPendingWorkout(value: unknown): value is PendingWorkout {
+export function isPendingWorkout(value: unknown): value is PendingWorkout {
   return (
     isObject(value) &&
     isPayload(value.payload) &&

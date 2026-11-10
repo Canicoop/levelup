@@ -1,6 +1,8 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { getAccountId, subscribeToAccount } from '@/features/auth/account'
 import { workoutKeys } from '@/features/workout/api/query-keys'
+import { clearLastFinished } from '@/features/workout/last-finished-store'
+import { setSendingId } from '@/features/workout/sending-state'
 import { REQUEST_LIMIT_MS, submitWorkout } from '@/features/workout/api/workouts'
 import { sendablePendingWorkouts } from '@/features/workout/lib/pending-workouts'
 import { withTimeout } from '@/features/workout/lib/with-timeout'
@@ -65,7 +67,8 @@ async function sendAll(queryClient: QueryClient) {
   // already) and also holds what could not be stored. A workout another tab
   // sent a moment ago may still be in it: sending it again is harmless.
   for (const pending of sendablePendingWorkouts(getPendingWorkouts())) {
-    const outcome = await submitWorkout(pending.payload)
+    setSendingId(pending.payload.id)
+    const outcome = await submitWorkout(pending.payload).finally(() => setSendingId(null))
     if (outcome.kind === 'saved') {
       removeFromPendingWorkouts(accountId, pending.payload.id)
       saved = true
@@ -79,10 +82,24 @@ async function sendAll(queryClient: QueryClient) {
 
   // The database now has them, so the reads that were laid over with them are
   // asked for again: the routine of the last workout and "Última vez".
-  if (saved && getAccountId() === accountId) {
-    void queryClient.invalidateQueries({ queryKey: workoutKeys.lastRoutineId() })
-    void prepareWorkoutOffline(queryClient)
-  }
+  if (saved && getAccountId() === accountId) refreshWorkoutReads(queryClient)
+}
+
+function refreshWorkoutReads(queryClient: QueryClient) {
+  void queryClient.invalidateQueries({ queryKey: workoutKeys.lastRoutineId() })
+  void prepareWorkoutOffline(queryClient)
+}
+
+// "Descartar" on a workout the database refused: it leaves the queue and the
+// summary. Finishing had put its sets in the copy of "Última vez" and its
+// routine as the last one (rule AT), so both are asked for again; without
+// network they wait for the next read.
+export function discardPendingWorkout(queryClient: QueryClient, id: string) {
+  const accountId = getAccountId()
+  if (!accountId) return
+  removeFromPendingWorkouts(accountId, id)
+  clearLastFinished(accountId, id)
+  refreshWorkoutReads(queryClient)
 }
 
 // "Tentar outra vez" on a workout the database refused: it goes back to being

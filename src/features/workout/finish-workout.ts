@@ -5,6 +5,7 @@ import {
   setActiveWorkout,
 } from '@/features/workout/active-workout-store'
 import { workoutKeys } from '@/features/workout/api/query-keys'
+import { setLastFinished } from '@/features/workout/last-finished-store'
 import { saveLastSetsCopy } from '@/features/workout/api/workouts'
 import { finishTime, type FinishReason } from '@/features/workout/lib/finishing'
 import { lastSetsFromPayload } from '@/features/workout/lib/last-sets-copy'
@@ -53,6 +54,8 @@ export function finishActiveWorkout(queryClient: QueryClient, now = new Date().t
   }
 
   const queued = queuePendingWorkout(accountId, pending)
+  // For the summary screen, which outlives the workout's time in the queue.
+  setLastFinished(accountId, pending)
   setActiveWorkout(null, { keepStored: !queued })
 
   saveLastSetsCopy(queryClient, [...sent], lastSetsFromPayload(payload))

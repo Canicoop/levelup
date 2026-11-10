@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { Ellipsis, Plus } from 'lucide-react'
-import { Navigate, ScrollRestoration } from 'react-router'
+import { useQueryClient } from '@tanstack/react-query'
+import { Navigate, ScrollRestoration, useNavigate } from 'react-router'
 import { PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { setActiveWorkout, updateActiveWorkout } from '@/features/workout/active-workout-store'
 import { WORKOUT_LIMIT_MESSAGE, WorkoutExercise } from '@/features/workout/components/workout-exercise'
+import { FinishWorkoutSheet } from '@/features/workout/components/finish-workout-sheet'
 import { WorkoutExerciseSheet } from '@/features/workout/components/workout-exercise-sheet'
+import { finishActiveWorkout } from '@/features/workout/finish-workout'
 import { WorkoutMenuSheet } from '@/features/workout/components/workout-menu-sheet'
 import { useActiveWorkout } from '@/features/workout/hooks/use-active-workout'
 import { useExerciseAnchor } from '@/features/workout/hooks/use-exercise-anchor'
@@ -32,9 +35,17 @@ export function ActiveWorkoutPage() {
   // The mode stays set while the sheet closes; `pickerOpen` alone controls it.
   const [pickMode, setPickMode] = useState<WorkoutPickMode>({ kind: 'add' })
   const [pickerOpen, setPickerOpen] = useState(false)
+  // "Terminar"'s confirmation, and when it was tapped. The time stays after the
+  // sheet closes, so its text does not change on the way out.
+  const [finishOpen, setFinishOpen] = useState(false)
+  const [finishAt, setFinishAt] = useState(() => new Date().toISOString())
+  const [finishing, setFinishing] = useState(false)
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
 
-  // Also after discarding here: the store changes and this goes back.
-  if (!workout) return <Navigate to="/treino" replace />
+  // Also after discarding here: the store changes and this goes back. Not after
+  // finishing, which goes to the summary instead.
+  if (!workout) return finishing ? null : <Navigate to="/treino" replace />
 
   const workoutFull = workout.exercises.length >= MAX_WORKOUT_EXERCISES
 
@@ -61,6 +72,19 @@ export function ActiveWorkoutPage() {
     return null
   }
 
+  // Queues the workout and shows the summary (see finishActiveWorkout). The
+  // summary replaces this screen, so back does not return to a finished workout.
+  function finish(now: string) {
+    setFinishing(true)
+    const result = finishActiveWorkout(queryClient, now)
+    if (result.kind === 'finished') {
+      void navigate('/treino/terminado', { replace: true })
+    } else {
+      setFinishing(false)
+      setFinishOpen(false)
+    }
+  }
+
   function openPicker(mode: WorkoutPickMode) {
     setPickMode(mode)
     setPickerOpen(true)
@@ -81,15 +105,21 @@ export function ActiveWorkoutPage() {
         documentTitle="Treino em curso"
         back={{ to: '/treino', label: 'Voltar ao Treino' }}
       >
-        <Button
-          variant="ghost"
-          size="icon-lg"
-          aria-label="Mais opções"
-          className="shrink-0"
-          onClick={() => setMenuOpen(true)}
-        >
-          <Ellipsis aria-hidden className="size-5" strokeWidth={1.75} />
-        </Button>
+        <div className="flex shrink-0 items-center gap-1">
+          <Button
+            variant="ghost"
+            className="h-11 px-3 text-base font-semibold"
+            onClick={() => {
+              setFinishAt(new Date().toISOString())
+              setFinishOpen(true)
+            }}
+          >
+            Terminar
+          </Button>
+          <Button variant="ghost" size="icon-lg" aria-label="Mais opções" className="size-11" onClick={() => setMenuOpen(true)}>
+            <Ellipsis aria-hidden className="size-5" strokeWidth={1.75} />
+          </Button>
+        </div>
       </PageHeader>
 
       {workout.lastSetsUnavailable && (
@@ -142,6 +172,13 @@ export function ActiveWorkoutPage() {
         onPicked={(exerciseId) => onPicked(workout, exerciseId)}
       />
       <WorkoutMenuSheet open={menuOpen} onOpenChange={setMenuOpen} loggedSets={countLoggedSets(workout)} />
+      <FinishWorkoutSheet
+        open={finishOpen}
+        onOpenChange={setFinishOpen}
+        workout={workout}
+        now={finishAt}
+        onFinish={finish}
+      />
       <ScrollRestoration />
     </div>
   )
