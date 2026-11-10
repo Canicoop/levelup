@@ -2,7 +2,7 @@
 
 This document records the main technical and product decisions for LevelUP, and the reasons behind them. New decisions are added as the project evolves.
 
-_Last updated: 2026-11-09_
+_Last updated: 2026-11-10_
 
 ---
 
@@ -436,6 +436,7 @@ Loading, empty and error states are shared components, so every module handles t
   - the suggested fix downgrades major versions (typescript-eslint 8.14, `@eslint/js` 9, shadcn 1.0) with `--force`, which would break the setup.
 
   Update once ESLint and typescript-eslint depend on `minimatch` 11.0.1 or later.
+- **Known `npm audit` findings: `workbox-build`** (added with `vite-plugin-pwa` in step 4.4b), 4 of the findings (`npm audit` on 2026-11-10: 19 in total, 3 low and 16 moderate, none in production dependencies). `vite-plugin-pwa` 2.0.0 → `workbox-build` 7.4.1 brings `glob` 11.1.0 (moderate, GHSA-3g3m-2fjr-6pw4, and `minimatch` above) and `@rollup/plugin-node-resolve` 16.0.3 → `deepmerge` 4.3.1 (the same low finding as shadcn's). Accepted for the same reasons: `workbox-build` only runs inside `npm run build`, on the repository's own files, to write the service worker, and none of it reaches the bundle; the suggested fix downgrades `vite-plugin-pwa` to 1.1.0 with `--force`. Update once `workbox-build` depends on fixed versions.
 - **The `cn` package** (about 26 kB minified), which the generated components import, entered the bundle with the navigation bars. Lighter alternatives (such as `cn/lite`) will be evaluated later.
 
 ### Installable on iPhone (no App Store)
@@ -460,14 +461,22 @@ Icons, manifest and iOS details: see *App icon*.
 - **A new version waits** (`registerType: 'prompt'`): "Há uma versão nova" with "Atualizar" shows on Home and the Workout tab, never on the workout screen, and nothing reloads by itself. An installed app can stay open for days, so it also checks for a new version every hour and when it comes back to the foreground.
 - **Verified** (2026-11-09, Playwright on `vite preview`): the service worker is active and holds 17 files and nothing of Supabase; with the preview server stopped, the app still opened, served by the service worker.
 
-**A copy of the Workout reads on the device** (step 4.4b): TanStack Query's persist, `@tanstack/react-query-persist-client` and `@tanstack/query-sync-storage-persister`, both pinned to 5.105.0 like `@tanstack/react-query` (the latest, 5.107.1, needs a newer `react-query` and would add a second `query-core`).
+**A copy of the Workout reads on the device** (step 4.4b): TanStack Query's persist, `@tanstack/react-query-persist-client` and `@tanstack/query-sync-storage-persister`, pinned to exactly 5.105.0, like `@tanstack/react-query` (pinned too, on 2026-11-10, so the three move together; the latest persist packages, 5.107.1, need a newer `react-query` and would add a second `query-core`).
 - **What is kept:** only finished reads under `workoutKeys.all` (`shouldPersistQuery`): the routine list, every routine with its exercises, the exercise list, the routine of the last workout, and a copy of "Última vez".
 - **Where:** `localStorage`, one copy per account (`levelup:query-cache:<userId>`, `QueryProvider`), with a 30-day `maxAge` and a version (`buster`). While it is restored, queries wait instead of fetching.
-- **Removed on sign-out and on an account change.** The persister writes one second late, so its storage only writes while the account is still the current one (`accountStorage`): a late write cannot bring another account's data back.
+- **Removed on sign-out and on an account change.** The persister writes one second late, so its storage only writes while the account is still the current one (`copyStorage`): a late write cannot bring another account's data back.
+- **A copy is only replaced by a better one** (`copyStorage`): nothing is written before the copy has been restored, and an empty cache is never written over a copy with data.
+- **Saved at once when the app leaves the screen** (`visibilitychange` to hidden, and `pagehide`): iOS can freeze or close an installed app at that moment, and a write still waiting for the one-second throttle would be lost.
+- **Settings shows the copy's age** ("Dados no dispositivo: atualizados há 3 min", or "Nenhuma cópia guardada"), to check that the app is ready for the gym.
+- **Found on an iPhone (2026-11-10):** opened in airplane mode, the Workout tab stayed on its skeletons. On a PC (Chrome, Network offline) the same build showed the copy, so the cause is specific to the installed app on iOS and was not reproduced; the two rules above cover a copy lost or overwritten there. A second cause was confirmed: TanStack Query assumes it is online at start and only changes on the `online`/`offline` events, which an app opened already offline never gets, so its reads retried for a long time instead of pausing, and "Sem ligação…" never showed. It now starts from `navigator.onLine` (`startOnlineFromNavigator`, `src/lib/online.ts`).
 - **`gcTime: Infinity`** for the Workout queries, or one that no screen uses would leave the copy. Not 30 days: that is above `setTimeout`'s limit (about 24.8 days), and a longer timeout fires at once, which removed those queries a millisecond after they were set (found in testing).
 - **Prepared in the background** when the app opens (`prepareWorkoutOffline`, from `AppShell`): every active routine with its exercises in one request, and "Última vez" of all their exercises in one request to `last_exercise_sets`. So any routine can be started without network.
 - **"Última vez"** comes from the network when there is one, and otherwise from the copy; only with neither does "Sem ligação…" show. The copy records which exercises were asked for, so an exercise with no history counts as a first time and not as unknown. Every successful read updates it. **Step 4.5 must update it too when a workout is finished**, with the sets just sent, and the routine of the last workout, or the next workout started offline would show old values.
 - **Note:** `createSyncStoragePersister` is marked deprecated in favour of `createAsyncStoragePersister` (another package). It still works; moving to it is a small change for later.
+
+**Tested on an iPhone** (2026-11-10, the installed app, after the fixes above): in airplane mode, after closing and reopening the app, Settings showed the copy, and the Workout tab showed the 5 routines, "Próximo treino" and the 27 exercises. "Há uma versão nova" and "Atualizar" were not reported in this test.
+
+**Console errors seen while testing** ("Failed to fetch", "Unexpected end of JSON input") are not from the app: their initiator in the Network panel and the files in their stack (`requests.js`, `content.js`, `processor.js`, `200.js`) are scripts of a browser extension that intercepts `fetch`. Not investigated further.
 
 **TanStack Query without network** (reproduced on 2026-11-04 in Playwright, by simulating what the browser does: the `offline` event, `navigator.onLine` false and `fetch` failing):
 - **Mutations paused by default,** instead of failing: the button stayed on "A criar…" with no error, and the sheet could not close, since it stays open while saving. They now use `networkMode: 'always'` (`src/lib/query-client.ts`), so the write fails at once and "Sem ligação…" shows.
@@ -824,7 +833,6 @@ The MVP runs on free tiers: GitHub, Supabase Free and Vercel Hobby (personal, no
 
 | Question | When |
 |---|---|
-| Step 4.4b on an iPhone: the app opened without network (with an expired token too), the routines and starting a workout offline, "Última vez" from the copy, "Trocar" and "+ Adicionar exercício" offline, the copy removed on sign-out, and "Há uma versão nova" (see *Offline handling*) | Phase 4 (step 4.4b) |
 | On Vercel, serve `sw.js` without long caching, so new versions are found | Phase 5 |
 | Backup strategy | Before Phase 5 |
 | Publish the Google OAuth app and complete its Branding (optional: only to show the app's name and logo on Google's sign-in screen) | Phase 5 |
