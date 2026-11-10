@@ -1,4 +1,5 @@
 import { PageHeader } from '@/components/layout/page-header'
+import { UpdateBanner } from '@/components/update-banner'
 import { ActiveWorkoutCard } from '@/features/workout/components/active-workout-card'
 import { ExercisesLink } from '@/features/workout/components/exercises-link'
 import { NextWorkoutCard } from '@/features/workout/components/next-workout-card'
@@ -11,6 +12,7 @@ export function WorkoutPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title="Treino" />
+      <UpdateBanner />
       {workout ? <ActiveWorkoutCard workout={workout} /> : <NextWorkoutCard />}
       <RoutineList />
       <ExercisesLink />

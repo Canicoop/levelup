@@ -47,6 +47,24 @@ export async function fetchRoutine(id: string): Promise<RoutineWithExercises> {
   return { ...data, exercises }
 }
 
+// Every active routine with its exercises, in one request, to prepare them for
+// a workout started without network. Same shape and order as fetchRoutine.
+export async function fetchActiveRoutinesWithExercises(): Promise<RoutineWithExercises[]> {
+  const { data, error } = await supabase
+    .from('routines')
+    .select(
+      'id, name, position, archived_at, created_at, exercises:routine_exercises(id, exercise_id, position, target_sets, rep_min, rep_max, created_at, exercise:exercises!routine_exercises_exercise_fkey(id, name, archived_at))',
+    )
+    .is('archived_at', null)
+  if (error) throw error
+  return data.map((routine) => ({
+    ...routine,
+    exercises: [...routine.exercises].sort(
+      (a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at),
+    ),
+  }))
+}
+
 function cleanRoutineName(name: string) {
   const clean = cleanName(name)
   const invalid = validateRoutineName(clean)

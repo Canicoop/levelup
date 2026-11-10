@@ -249,6 +249,8 @@ The callback only stores the session and notifies: Supabase warns that awaiting 
 
 **Offline with an expired access token:** `getSession()` retries the refresh for up to 30 seconds and then returns no session, although the session is still stored. `requireSession` treats that network error as "stay in the app"; the token is refreshed once the network is back.
 
+**At most 3 seconds with a stored session** (step 4.4b): once the app opens without network, waiting 30 seconds at the gym is not acceptable, and `navigator.onLine` cannot tell, since it is often true on a network that does not answer. So when a session is stored on the device (`readStoredUserId`), `requireSession` waits at most 3 seconds for `getSession()` and then goes in anyway: the workout and the copy of the data are on the device, and the token is refreshed when the network is back. Without a stored session it behaves as before, since then the wait decides whether to go to `/entrar`.
+
 ### Returning to the requested page
 **Decision:** the requested page is kept in `sessionStorage` (`levelup:return-path`) while the browser goes to Google and back. The `redirectTo` sent to Supabase is always `/entrar`.
 
@@ -444,18 +446,37 @@ Loading, empty and error states are shared components, so every module handles t
 Icons, manifest and iOS details: see *App icon*.
 
 ### Offline handling
-**Decision:** The workout in progress is saved on the device at every change. The finished workout is sent in one operation; without network it waits on the device and is sent when the network is back (see *Gym module*). Using the rest of the app without network is out of scope.
+**Decision:** The workout in progress is saved on the device at every change. The finished workout is sent in one operation; without network it waits on the device and is sent when the network is back (see *Gym module*). The app opens without network, and the Workout reads are kept on the device, so a workout can be started, swapped and added to at the gym. Writing anything else without network is out of scope.
 
 **Why:** Gyms often have poor connectivity, and losing logged sets is unacceptable. Full offline sync is significantly more complex.
 
-**Current state** (tested on an iPhone on 2026-11-09): a workout in progress keeps working without network, since it lives on the device: sets are logged and it survives closing the app. Everything that reads Supabase does not: the exercise list for "Trocar" and "+ Adicionar exercício" is only in memory, so they show "Sem ligação…", and reopening the app fails, since there is no service worker yet. With a weak network or Supabase unreachable, opening it with an expired token waits up to 30 seconds (see *Route protection*). Step 4.4b covers this (see *Open questions*).
+**Before step 4.4b** (tested on an iPhone on 2026-11-09): a workout in progress kept working without network, but reopening the app failed (no service worker), and "Trocar" and "+ Adicionar exercício" showed "Sem ligação…", because the exercise list was only in memory.
+
+**Service worker** (step 4.4b): `vite-plugin-pwa` 2.0.0 (Workbox), a dev dependency, configured in `vite.config.ts`.
+- **It precaches the whole app:** `index.html`, the JS and CSS, the fonts, the icons and the manifest. Every navigation gets `index.html` (a single-page app), so any address opens without network.
+- **It never caches Supabase,** neither data nor auth: there is no runtime caching, and Supabase is another origin, so those requests always go to the network.
+- **The manifest stays ours** (`manifest: false`), with its link in `index.html`.
+- **Production builds only:** it is registered behind `import.meta.env.PROD` (`src/lib/app-update.ts`), and `npm run dev` has none.
+- **A new version waits** (`registerType: 'prompt'`): "Há uma versão nova" with "Atualizar" shows on Home and the Workout tab, never on the workout screen, and nothing reloads by itself. An installed app can stay open for days, so it also checks for a new version every hour and when it comes back to the foreground.
+- **Verified** (2026-11-09, Playwright on `vite preview`): the service worker is active and holds 17 files and nothing of Supabase; with the preview server stopped, the app still opened, served by the service worker.
+
+**A copy of the Workout reads on the device** (step 4.4b): TanStack Query's persist, `@tanstack/react-query-persist-client` and `@tanstack/query-sync-storage-persister`, both pinned to 5.105.0 like `@tanstack/react-query` (the latest, 5.107.1, needs a newer `react-query` and would add a second `query-core`).
+- **What is kept:** only finished reads under `workoutKeys.all` (`shouldPersistQuery`): the routine list, every routine with its exercises, the exercise list, the routine of the last workout, and a copy of "Última vez".
+- **Where:** `localStorage`, one copy per account (`levelup:query-cache:<userId>`, `QueryProvider`), with a 30-day `maxAge` and a version (`buster`). While it is restored, queries wait instead of fetching.
+- **Removed on sign-out and on an account change.** The persister writes one second late, so its storage only writes while the account is still the current one (`accountStorage`): a late write cannot bring another account's data back.
+- **`gcTime: Infinity`** for the Workout queries, or one that no screen uses would leave the copy. Not 30 days: that is above `setTimeout`'s limit (about 24.8 days), and a longer timeout fires at once, which removed those queries a millisecond after they were set (found in testing).
+- **Prepared in the background** when the app opens (`prepareWorkoutOffline`, from `AppShell`): every active routine with its exercises in one request, and "Última vez" of all their exercises in one request to `last_exercise_sets`. So any routine can be started without network.
+- **"Última vez"** comes from the network when there is one, and otherwise from the copy; only with neither does "Sem ligação…" show. The copy records which exercises were asked for, so an exercise with no history counts as a first time and not as unknown. Every successful read updates it. **Step 4.5 must update it too when a workout is finished**, with the sets just sent, and the routine of the last workout, or the next workout started offline would show old values.
+- **Note:** `createSyncStoragePersister` is marked deprecated in favour of `createAsyncStoragePersister` (another package). It still works; moving to it is a small change for later.
 
 **TanStack Query without network** (reproduced on 2026-11-04 in Playwright, by simulating what the browser does: the `offline` event, `navigator.onLine` false and `fetch` failing):
 - **Mutations paused by default,** instead of failing: the button stayed on "A criar…" with no error, and the sheet could not close, since it stays open while saving. They now use `networkMode: 'always'` (`src/lib/query-client.ts`), so the write fails at once and "Sem ligação…" shows.
 - **Reads also pause** (`fetchStatus: 'paused'`): with data in the cache it keeps showing, but a page with no data stayed on its skeleton until the network was back. They keep the default mode, because `always` would only mean a longer skeleton and then an error. Instead, `isWaitingForNetwork` (`src/lib/query-state.ts`) swaps the skeleton for "Sem ligação. Os dados aparecem quando voltares a estar online." (`OfflineState`), with no button, since the read resumes by itself. It is used in the routine list, the routine editor, the Exercises screen, the "Adicionar exercício" sheet and the confirmation to archive an exercise, where "Arquivar" stays disabled: without the routines, it cannot say what the exercise leaves. The "Exercícios" row on the Workout tab just leaves out its count.
 - **`postgrest-js` retries `GET` requests by itself** on a network failure, with growing waits, so a read that fails offline takes several seconds. The 8-second limit when starting a workout covers this.
 
-**A rare case for step 4.4b:** "Descartar" on Home's workout card loads its confirmation sheet from the Workout chunk, so with logged sets, no network and that chunk not yet preloaded, the route's error screen shows.
+**The rare "Descartar" case on Home is solved:** its confirmation sheet is loaded from the Workout chunk, which failed without network before the chunk was preloaded. The service worker now keeps that chunk on the device.
+
+**Testing on an iPhone** (the service worker needs HTTPS, which the tunnel gives): `npm run build`, then `$env:__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS = '.trycloudflare.com'; npm run preview -- --port 4173` in one terminal and `cloudflared tunnel --url http://localhost:4173` in another, and the tunnel's address in Supabase's Redirect URLs. The variable also works for `vite preview`, which uses the server's allowed hosts when it has none of its own (checked: a `trycloudflare.com` host gets 200, any other host 403), and it only lasts in that terminal. Each new tunnel is another address, so another install with its own storage: keep the same tunnel through a test.
 
 ---
 
@@ -803,7 +824,8 @@ The MVP runs on free tiers: GitHub, Supabase Free and Vercel Hobby (personal, no
 
 | Question | When |
 |---|---|
-| Step 4.4b, the app working without network: (1) a service worker, so the app opens without network (today it does not, and with an expired token on a weak network it waits up to 30 s); (2) a copy of the Supabase reads (routines and exercises) on the device, for example with TanStack Query's persister, per account and cleared on sign-out (without it, the app opened offline shows no routines, cannot start a workout, and "Trocar" and "+ Adicionar exercício" cannot list exercises); (3) "Descartar" on Home before the Workout chunk is preloaded (see *Offline handling*) | Phase 4 (step 4.4b) |
+| Step 4.4b on an iPhone: the app opened without network (with an expired token too), the routines and starting a workout offline, "Última vez" from the copy, "Trocar" and "+ Adicionar exercício" offline, the copy removed on sign-out, and "Há uma versão nova" (see *Offline handling*) | Phase 4 (step 4.4b) |
+| On Vercel, serve `sw.js` without long caching, so new versions are found | Phase 5 |
 | Backup strategy | Before Phase 5 |
 | Publish the Google OAuth app and complete its Branding (optional: only to show the app's name and logo on Google's sign-in screen) | Phase 5 |
 | Create the production Supabase project (`levelup-prod`) | Phase 5 |

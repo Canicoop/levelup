@@ -10,8 +10,9 @@ import type { RoutineWithExercises } from '@/features/workout/lib/types'
 import { withTimeout } from '@/features/workout/lib/with-timeout'
 
 // Prepares a workout from a routine and opens it. The routine comes from the
-// cache when it is there, whatever its age, so a routine already seen can be
-// started offline. It is read directly rather than with fetchQuery, which would
+// cache when it is there, whatever its age: every active routine is prepared
+// in the background and kept on the device (see prepareWorkoutOffline), so any
+// of them can be started offline. It is read directly rather than with fetchQuery, which would
 // pause without network instead of failing.
 export function useStartWorkout() {
   const queryClient = useQueryClient()
@@ -24,7 +25,10 @@ export function useStartWorkout() {
         (await withTimeout(fetchRoutine(routineId), REQUEST_LIMIT_MS))
       if (routine.exercises.length === 0) throw new ValidationError('Esta rotina não tem exercícios.')
 
-      const last = await fetchLastSetsIfOnline(routine.exercises.map((entry) => entry.exercise_id))
+      const last = await fetchLastSetsIfOnline(
+        queryClient,
+        routine.exercises.map((entry) => entry.exercise_id),
+      )
       return startWorkout({ id: crypto.randomUUID(), startedAt: new Date().toISOString(), routine, ...last })
     },
     onSuccess: (workout) => {

@@ -1,9 +1,9 @@
 import { QueryClient } from '@tanstack/react-query'
 
 // Only staleTime and the mutations' networkMode differ from TanStack Query's
-// defaults. The rest is kept on purpose: three retries with backoff on queries (gym connections drop),
-// refetch on focus and on reconnect, and errors shown in the page (ErrorState)
-// rather than thrown to the route's error boundary.
+// defaults. The rest is kept on purpose: three retries with backoff on queries
+// (gym connections drop), refetch on focus and on reconnect, and errors shown
+// in the page (ErrorState) rather than thrown to the route's error boundary.
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -23,3 +23,11 @@ export const queryClient = new QueryClient({
     },
   },
 })
+
+// The Workout reads are kept on the device (see QueryProvider), so they must
+// stay in memory as long as the copy lasts, even when no screen uses them, or
+// they would leave the copy. Infinity, not QUERY_CACHE_MAX_AGE_MS: 30 days is
+// above setTimeout's limit (about 24.8 days), and a longer timeout fires at
+// once, which removed these queries a millisecond after they were set. Their
+// age is still limited by the copy's maxAge.
+queryClient.setQueryDefaults(['workout'], { gcTime: Infinity })

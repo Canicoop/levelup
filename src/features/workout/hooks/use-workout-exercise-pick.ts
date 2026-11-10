@@ -17,8 +17,8 @@ type Picked = { exercise: Pick<Exercise, 'id' | 'name'>; lastSets: LastSet[]; la
 //   Exercises screen, not from a workout.
 // - "Criar “…”" writes the exercise, so it needs the network; without it the
 //   error shows. createExercise may reactivate an archived one with that name.
-// Its "Última vez" is read when it can have history; without network it joins
-// anyway, marked unavailable.
+// Its "Última vez" is read when it can have history: from the network, or the
+// copy kept on the device; with neither it joins anyway, marked unavailable.
 export function useWorkoutExercisePick(mode: WorkoutPickMode, onPicked: (exerciseId: string) => void) {
   const queryClient = useQueryClient()
 
@@ -36,7 +36,7 @@ export function useWorkoutExercisePick(mode: WorkoutPickMode, onPicked: (exercis
       }
       if (!mayHaveHistory) return { exercise, lastSets: [], lastSetsUnavailable: false }
 
-      const last = await fetchLastSetsIfOnline([exercise.id])
+      const last = await fetchLastSetsIfOnline(queryClient, [exercise.id])
       return { exercise, lastSets: last.lastSets[exercise.id] ?? [], lastSetsUnavailable: last.lastSetsUnavailable }
     },
     onSuccess: ({ exercise, lastSets, lastSetsUnavailable }) => {

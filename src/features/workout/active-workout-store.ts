@@ -1,5 +1,4 @@
-import { readStoredUserId } from '@/features/auth/lib/stored-session'
-import { getAuthState, onSignedOut, subscribeToAuth } from '@/features/auth/session'
+import { getAccountId, subscribeToAccount } from '@/features/auth/account'
 import type { ActiveWorkout } from '@/features/workout/lib/active-workout'
 import {
   activeWorkoutKey,
@@ -9,7 +8,6 @@ import {
 
 let userId: string | null = null
 let workout: ActiveWorkout | null = null
-let signedOut = false
 const listeners = new Set<() => void>()
 
 function notify() {
@@ -35,23 +33,11 @@ function save(id: string, next: ActiveWorkout | null) {
   }
 }
 
-// The account of the workout. Offline with an expired token the auth state is
-// signed-out although the session is still stored, so the stored account counts
-// until a real sign-out (see readStoredUserId).
-function currentUserId() {
-  const auth = getAuthState()
-  if (auth.status === 'signed-in') {
-    signedOut = false
-    return auth.session.user.id
-  }
-  return signedOut ? null : readStoredUserId()
-}
-
-// Runs on every auth change, but reads the storage only when the account
-// changes, not on each token refresh. Signing out does not delete the workout:
-// it stays under that account's key.
+// Reads the storage when the account changes (see getAccountId, which also
+// survives being offline with an expired token). Signing out does not delete
+// the workout: it stays under that account's key.
 function syncAccount() {
-  const next = currentUserId()
+  const next = getAccountId()
   if (next === userId) return
   userId = next
   workout = next ? load(next) : null
@@ -65,18 +51,13 @@ function onStorage(event: StorageEvent) {
   notify()
 }
 
-const unsubscribeFromAuth = subscribeToAuth(syncAccount)
-const unsubscribeFromSignOut = onSignedOut(() => {
-  signedOut = true
-  syncAccount()
-})
+const unsubscribeFromAccount = subscribeToAccount(syncAccount)
 window.addEventListener('storage', onStorage)
 syncAccount()
 
 // Avoid duplicate subscriptions when this module is hot-reloaded in development.
 import.meta.hot?.dispose(() => {
-  unsubscribeFromAuth()
-  unsubscribeFromSignOut()
+  unsubscribeFromAccount()
   window.removeEventListener('storage', onStorage)
 })
 

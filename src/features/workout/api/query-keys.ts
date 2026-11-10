@@ -8,6 +8,10 @@ export const workoutKeys = {
   exercises: () => [...workoutKeys.all, 'exercises'] as const,
   // The routine of the last finished workout, for the next routine.
   lastRoutineId: () => [...workoutKeys.all, 'last-routine-id'] as const,
+  // "Última vez" of the active routines' exercises, kept for when there is no
+  // network (see lastSetsFromCopy). Not a query of its own: written by the
+  // background preparation and by every successful read of last sets.
+  lastSetsCopy: () => [...workoutKeys.all, 'last-sets-copy'] as const,
   // The routines that contain an exercise, for the archive confirmation.
   exerciseRoutines: (exerciseId: string) => [...workoutKeys.all, 'exercises', exerciseId, 'routines'] as const,
 }

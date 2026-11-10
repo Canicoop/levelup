@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Outlet, ScrollRestoration } from 'react-router'
 import { BottomNav } from '@/components/layout/bottom-nav'
 import { SidebarNav } from '@/components/layout/sidebar-nav'
@@ -13,6 +14,15 @@ export function AppShell() {
   // Lazy modules are fetched in the background once the app is open and
   // signed in (see load-pages.ts).
   useEffect(preloadWorkoutPages, [])
+  // And the data a workout needs, kept on the device for when there is no
+  // network. Imported on demand, so the Workout data layer stays out of the
+  // main chunk; the service worker keeps it on the device anyway.
+  const queryClient = useQueryClient()
+  useEffect(() => {
+    void import('@/features/workout/prepare-offline')
+      .then(({ prepareWorkoutOffline }) => prepareWorkoutOffline(queryClient))
+      .catch(() => {})
+  }, [queryClient])
 
   return (
     <div className="min-h-dvh lg:pl-60">

@@ -2,6 +2,7 @@ import { Dumbbell, Scale, Wallet } from 'lucide-react'
 import { Link } from 'react-router'
 import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/layout/page-header'
+import { UpdateBanner } from '@/components/update-banner'
 import { UserAvatar } from '@/features/auth/components/user-avatar'
 import { useCurrentUser } from '@/features/auth/hooks/use-current-user'
 import { ModuleCard } from '@/features/home/components/module-card'
@@ -36,6 +37,7 @@ export function HomePage() {
           <UserAvatar avatarUrl={user.avatarUrl} initial={user.initial} className="size-full text-base" />
         </Link>
       </PageHeader>
+      <UpdateBanner />
       {workout && <ActiveWorkoutCard workout={workout} />}
       <QuickActions />
       {/* gap-3 matches the quick actions, so the columns line up on desktop. */}

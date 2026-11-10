@@ -1,9 +1,12 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from 'react-router/dom'
+import { QueryProvider } from '@/components/query-provider'
+import { getAccountId, subscribeToAccount } from '@/features/auth/account'
 import { onSignedOut } from '@/features/auth/session'
+import { startAppUpdates } from '@/lib/app-update'
 import { queryClient } from '@/lib/query-client'
+import { queryCacheKey } from '@/lib/query-persistence'
 import './index.css'
 import { router } from './router.tsx'
 
@@ -20,10 +23,30 @@ onSignedOut(() => {
   }, 0)
 })
 
+// The copy of the Workout reads on the device goes when its account does: on a
+// sign-out, or when another account signs in. A late write of the old copy is
+// refused (see accountStorage), so it does not come back.
+let account = getAccountId()
+subscribeToAccount(() => {
+  const next = getAccountId()
+  if (account && account !== next) {
+    try {
+      localStorage.removeItem(queryCacheKey(account))
+    } catch {
+      // Storage blocked: there is nothing stored to remove.
+    }
+    if (next) queryClient.clear()
+  }
+  account = next
+})
+
+// The service worker, in production builds only (see app-update.ts).
+startAppUpdates()
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
+    <QueryProvider>
       <RouterProvider router={router} />
-    </QueryClientProvider>
+    </QueryProvider>
   </StrictMode>,
 )
