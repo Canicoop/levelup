@@ -89,6 +89,18 @@ export function parseStoredWorkout(raw: string | null): ActiveWorkout | null {
     exercises: workout.exercises.map((exercise) => ({
       ...exercise,
       lastSetsUnavailable: exercise.lastSetsUnavailable ?? false,
+      sets: exercise.sets.map(readSet),
     })),
   }
+}
+
+// doneAt came after the first workouts were stored, so it may be missing. A
+// damaged one is dropped rather than losing the workout: the set then only
+// counts as "time unknown" for the finish time.
+function readSet(set: ActiveSet): ActiveSet {
+  const { weight, reps, done } = set
+  const doneAt: unknown = set.doneAt
+  return done && typeof doneAt === 'string' && !Number.isNaN(Date.parse(doneAt))
+    ? { weight, reps, done, doneAt }
+    : { weight, reps, done }
 }

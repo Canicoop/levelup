@@ -52,10 +52,13 @@ function exercise(workout: ActiveWorkout, exerciseId: string): ActiveExercise {
   return found
 }
 
+// When ✓ is tapped in these tests.
+const NOW = '2026-11-03T18:30:00.000Z'
+
 // Fills a set and logs it, failing the test if ✓ is refused.
 function logSet(workout: ActiveWorkout, exerciseId: string, index: number, weight = '40', reps = '8') {
   const filled = editSet(editSet(workout, exerciseId, index, 'weight', weight), exerciseId, index, 'reps', reps)
-  const result = toggleSet(filled, exerciseId, index)
+  const result = toggleSet(filled, exerciseId, index, NOW)
   if (!result.ok) throw new Error(result.error)
   return result.workout
 }
@@ -206,7 +209,7 @@ describe('editSet', () => {
   it('accepts a valid value on a set with ✓, which stays logged', () => {
     const logged = logSet(start([entry('a', 2)]), 'a', 0)
     const edited = editSet(editSet(logged, 'a', 0, 'weight', '45'), 'a', 0, 'reps', '6')
-    expect(exercise(edited, 'a').sets[0]).toEqual({ weight: '45', reps: '6', done: true })
+    expect(exercise(edited, 'a').sets[0]).toEqual({ weight: '45', reps: '6', done: true, doneAt: NOW })
   })
 
   it.each([
@@ -235,23 +238,39 @@ describe('toggleSet', () => {
 
   it('refuses ✓ without a weight', () => {
     const workout = editSet(start([entry('a', 1)]), 'a', 0, 'reps', '8')
-    expect(toggleSet(workout, 'a', 0)).toEqual({ ok: false, error: 'Escreve o peso.' })
+    expect(toggleSet(workout, 'a', 0, NOW)).toEqual({ ok: false, error: 'Escreve o peso.' })
   })
 
   it('refuses ✓ with empty reps, even with a suggestion from last time', () => {
     const workout = start([entry('a', 1)], { a: [{ weightKg: 40, reps: 8 }] })
-    expect(toggleSet(workout, 'a', 0)).toEqual({ ok: false, error: 'Escreve as repetições.' })
+    expect(toggleSet(workout, 'a', 0, NOW)).toEqual({ ok: false, error: 'Escreve as repetições.' })
   })
 
   it('refuses ✓ with invalid values', () => {
     const halfTyped = editSet(editSet(start([entry('a', 1)]), 'a', 0, 'weight', '22,'), 'a', 0, 'reps', '8')
-    expect(toggleSet(halfTyped, 'a', 0)).toEqual({ ok: false, error: 'Usa um número com até 2 casas decimais.' })
+    expect(toggleSet(halfTyped, 'a', 0, NOW)).toEqual({ ok: false, error: 'Usa um número com até 2 casas decimais.' })
   })
 
   it('removes ✓ on a second tap and keeps the values', () => {
     const logged = logSet(start([entry('a', 2)]), 'a', 0)
-    const result = toggleSet(logged, 'a', 0)
-    expect(result.ok && exercise(result.workout, 'a').sets[0]).toEqual({ weight: '40', reps: '8', done: false })
+    const result = toggleSet(logged, 'a', 0, NOW)
+    expect(result.ok && exercise(result.workout, 'a').sets[0]).toStrictEqual({ weight: '40', reps: '8', done: false })
+  })
+
+  it('keeps the time of ✓, and removing ✓ removes it', () => {
+    const logged = logSet(start([entry('a', 2)]), 'a', 0)
+    expect(exercise(logged, 'a').sets[0].doneAt).toBe(NOW)
+    expect(exercise(logged, 'a').sets[1].doneAt).toBeUndefined()
+    const result = toggleSet(logged, 'a', 0, '2026-11-03T18:40:00.000Z')
+    expect(result.ok && exercise(result.workout, 'a').sets[0].doneAt).toBeUndefined()
+  })
+
+  it('takes the new time when a set is logged again', () => {
+    const logged = logSet(start([entry('a', 1)]), 'a', 0)
+    const removed = toggleSet(logged, 'a', 0, NOW)
+    const later = '2026-11-03T18:45:00.000Z'
+    const again = removed.ok ? toggleSet(removed.workout, 'a', 0, later) : removed
+    expect(again.ok && exercise(again.workout, 'a').sets[0].doneAt).toBe(later)
   })
 
   it('fills the next set when it is empty', () => {
@@ -303,7 +322,7 @@ describe('toggleSet', () => {
 
   it('does not move on when removing ✓', () => {
     const done = openExercise(logAll(start([entry('a', 1), entry('b', 1)]), 'a'), 'a')
-    const result = toggleSet(done, 'a', 0)
+    const result = toggleSet(done, 'a', 0, NOW)
     expect(result.ok && result.workout.openExerciseId).toBe('a')
   })
 })
@@ -398,8 +417,8 @@ describe('swapExercise', () => {
     const workout = swapExercise(logged, 'a', replacement, [{ weightKg: 15, reps: 12 }])
     expect(workout.exercises.map((current) => current.exerciseId)).toEqual(['a', 'z', 'b'])
     expect(exercise(workout, 'a').sets).toEqual([
-      { weight: '40', reps: '8', done: true },
-      { weight: '40', reps: '8', done: true },
+      { weight: '40', reps: '8', done: true, doneAt: NOW },
+      { weight: '40', reps: '8', done: true, doneAt: NOW },
     ])
     expect(isExerciseDone(exercise(workout, 'a'))).toBe(true)
     expect(exercise(workout, 'z')).toMatchObject({ targetSets: 2, repMin: 8, repMax: 12 })
@@ -497,6 +516,6 @@ describe('a set with ✓', () => {
     for (const value of ['', '2', '22', '22,', '22,7', 'abc']) {
       workout = editSet(workout, 'a', 0, 'weight', value)
     }
-    expect(exercise(workout, 'a').sets[0]).toEqual({ weight: '22,7', reps: '8', done: true })
+    expect(exercise(workout, 'a').sets[0]).toEqual({ weight: '22,7', reps: '8', done: true, doneAt: NOW })
   })
 })

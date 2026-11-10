@@ -5,6 +5,7 @@ import {
   parseStoredWorkout,
   serializeWorkout,
 } from '@/features/workout/lib/active-workout-storage'
+import { readPendingWorkouts } from '@/features/workout/pending-workouts-store'
 
 let userId: string | null = null
 let workout: ActiveWorkout | null = null
@@ -15,9 +16,17 @@ function notify() {
 }
 
 // Storage can throw (private mode, blocked or full). Reading then finds nothing.
+// Finishing queues the workout first and removes it from here second (see
+// finishActiveWorkout); if the app closed between the two, the workout is
+// already in the queue, so it is removed here instead of showing as in progress.
 function load(id: string) {
   try {
-    return parseStoredWorkout(localStorage.getItem(activeWorkoutKey(id)))
+    const stored = parseStoredWorkout(localStorage.getItem(activeWorkoutKey(id)))
+    if (stored && readPendingWorkouts(id).some((pending) => pending.payload.id === stored.id)) {
+      localStorage.removeItem(activeWorkoutKey(id))
+      return null
+    }
+    return stored
   } catch {
     return null
   }
@@ -72,12 +81,19 @@ export function getActiveWorkout() {
   return workout
 }
 
-// Starts or discards the workout (null), and saves it at once.
-export function setActiveWorkout(next: ActiveWorkout | null) {
+// Starts or discards the workout (null), and saves it at once. keepStored
+// leaves the device as it is: finishing uses it when the queue could not be
+// written, so the workout is never removed from the device before it is in the
+// queue there (sending it again later cannot duplicate it).
+export function setActiveWorkout(next: ActiveWorkout | null, { keepStored = false } = {}) {
   if (!userId) return
   workout = next
-  save(userId, next)
+  if (!keepStored) save(userId, next)
   notify()
+}
+
+export function getActiveWorkoutAccountId() {
+  return userId
 }
 
 // Applies one of the pure functions of active-workout.ts. They return the same

@@ -55,7 +55,7 @@ export function ActiveWorkoutPage() {
 
   // Returns the error when ✓ is refused.
   function toggle(current: ActiveWorkout, exerciseId: string, index: number) {
-    const result = toggleSet(current, exerciseId, index)
+    const result = toggleSet(current, exerciseId, index, new Date().toISOString())
     if (!result.ok) return result.error
     apply(current, result.workout)
     return null

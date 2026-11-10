@@ -24,8 +24,10 @@ export function groupLastSets(rows: { exercise_id: string; weight_kg: number; re
 }
 
 // The values stay as typed (see set-values.ts). A set with done = true always
-// holds valid values: editSet refuses anything else for it.
-export type ActiveSet = { weight: string; reps: string; done: boolean }
+// holds valid values: editSet refuses anything else for it. doneAt is when ✓
+// was tapped (ISO), for the finish time (see finishTime). It is missing on a
+// set without ✓, and on sets logged before it existed.
+export type ActiveSet = { weight: string; reps: string; done: boolean; doneAt?: string }
 
 // Identified by exerciseId, since an exercise appears once in a workout, and its
 // sets by their index, since sets are only ever added at the end. lastSets is
@@ -205,7 +207,9 @@ export type ToggleResult = { ok: true; workout: ActiveWorkout } | { ok: false; e
 // fills the next set's weight if that is empty. After the last ✓ of an exercise,
 // the next one not done or skipped opens; with none left, they all stay closed.
 // Tapping ✓ on a logged set removes it, and leaves everything else as it is.
-export function toggleSet(workout: ActiveWorkout, exerciseId: string, index: number): ToggleResult {
+// `now` (ISO) is kept as the set's doneAt; it comes from the caller, so this
+// stays a pure function.
+export function toggleSet(workout: ActiveWorkout, exerciseId: string, index: number, now: string): ToggleResult {
   const set = findSet(workout, exerciseId, index)
   if (!set) return { ok: true, workout }
 
@@ -214,7 +218,9 @@ export function toggleSet(workout: ActiveWorkout, exerciseId: string, index: num
       ok: true,
       workout: updateExercise(workout, exerciseId, (exercise) => ({
         ...exercise,
-        sets: exercise.sets.map((current, position) => (position === index ? { ...current, done: false } : current)),
+        sets: exercise.sets.map((current, position) =>
+          position === index ? { weight: current.weight, reps: current.reps, done: false } : current,
+        ),
       })),
     }
   }
@@ -227,7 +233,7 @@ export function toggleSet(workout: ActiveWorkout, exerciseId: string, index: num
   const logged = updateExercise(workout, exerciseId, (exercise) => ({
     ...exercise,
     sets: exercise.sets.map((current, position) => {
-      if (position === index) return { ...current, done: true }
+      if (position === index) return { ...current, done: true, doneAt: now }
       if (position === index + 1 && current.weight === '') return { ...current, weight: set.weight }
       return current
     }),

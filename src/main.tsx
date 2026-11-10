@@ -48,6 +48,14 @@ startOnlineFromNavigator(onlineManager, typeof navigator === 'undefined' ? undef
 // The service worker, in production builds only (see app-update.ts).
 startAppUpdates()
 
+// Finished workouts waiting on the device are sent when the app opens, when the
+// network or the app comes back, and on sign-in (see send-pending-workouts.ts).
+// Here rather than in AppShell, so it also runs on the workout screen, and
+// imported on demand, so the Workout data layer stays out of the main chunk.
+void import('@/features/workout/send-pending-workouts')
+  .then(({ startSendingPendingWorkouts }) => startSendingPendingWorkouts(queryClient))
+  .catch(() => {})
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryProvider>

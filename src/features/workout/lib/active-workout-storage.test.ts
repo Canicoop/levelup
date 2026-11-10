@@ -22,7 +22,7 @@ const workout: ActiveWorkout = {
       repMax: 12,
       skipped: false,
       sets: [
-        { weight: '22,5', reps: '8', done: true },
+        { weight: '22,5', reps: '8', done: true, doneAt: '2026-11-03T18:10:00.000Z' },
         { weight: '22,', reps: '', done: false },
       ],
       lastSets: [{ weightKg: 22.5, reps: 10 }],
@@ -47,6 +47,27 @@ describe('parseStoredWorkout', () => {
     delete older.lastSetsUnavailable
     const parsed = parseStoredWorkout(stored({ exercises: [older] }))
     expect(parsed?.exercises[0].lastSetsUnavailable).toBe(false)
+  })
+
+  it('reads a workout stored before sets had doneAt, with the time unknown', () => {
+    const sets = [{ weight: '22,5', reps: '8', done: true }]
+    const parsed = parseStoredWorkout(stored({ exercises: [{ ...workout.exercises[0], sets }] }))
+    expect(parsed?.exercises[0].sets).toEqual([{ weight: '22,5', reps: '8', done: true }])
+  })
+
+  it.each([
+    ['not a string', 42],
+    ['not a date', 'yesterday'],
+  ])('keeps the workout and drops a doneAt that is %s', (_label, doneAt) => {
+    const sets = [{ weight: '22,5', reps: '8', done: true, doneAt }]
+    const parsed = parseStoredWorkout(stored({ exercises: [{ ...workout.exercises[0], sets }] }))
+    expect(parsed?.exercises[0].sets[0]).toEqual({ weight: '22,5', reps: '8', done: true })
+  })
+
+  it('drops a doneAt on a set without ✓', () => {
+    const sets = [{ weight: '22,5', reps: '8', done: false, doneAt: '2026-11-03T18:10:00.000Z' }]
+    const parsed = parseStoredWorkout(stored({ exercises: [{ ...workout.exercises[0], sets }] }))
+    expect(parsed?.exercises[0].sets[0]).toEqual({ weight: '22,5', reps: '8', done: false })
   })
 
   it('ignores a wrong lastSetsUnavailable on an exercise', () => {

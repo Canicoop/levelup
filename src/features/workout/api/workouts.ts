@@ -2,9 +2,24 @@ import type { QueryClient } from '@tanstack/react-query'
 import { workoutKeys } from '@/features/workout/api/query-keys'
 import { groupLastSets, type LastSetsByExercise } from '@/features/workout/lib/active-workout'
 import { isNetworkError } from '@/features/workout/lib/errors'
-import { lastSetsFromCopy, mergeLastSetsCopy, type LastSetsCopy } from '@/features/workout/lib/last-sets-copy'
+import {
+  lastSetsFromCopy,
+  mergeLastSetsCopy,
+  overlayPendingLastSets,
+  overlayPendingRoutineId,
+  type LastSetsCopy,
+} from '@/features/workout/lib/last-sets-copy'
+import { classifySubmitError, sendablePendingWorkouts, type SubmitOutcome } from '@/features/workout/lib/pending-workouts'
 import { withTimeout } from '@/features/workout/lib/with-timeout'
+import type { SubmitWorkoutPayload } from '@/features/workout/lib/workout-payload'
+import { getPendingWorkouts } from '@/features/workout/pending-workouts-store'
 import { supabase } from '@/lib/supabase'
+
+// The finished workouts not in the database yet, which every read below lays
+// over what the database returns (see overlayPendingLastSets).
+function pendingPayloads() {
+  return sendablePendingWorkouts(getPendingWorkouts()).map((pending) => pending.payload)
+}
 
 // "Última vez" for every exercise of a workout, in one request. An exercise
 // with no history has no entry.
@@ -12,7 +27,19 @@ export async function fetchLastSets(exerciseIds: string[]): Promise<LastSetsByEx
   if (exerciseIds.length === 0) return {}
   const { data, error } = await supabase.rpc('last_exercise_sets', { exercise_ids: exerciseIds })
   if (error) throw error
-  return groupLastSets(data)
+  return overlayPendingLastSets(groupLastSets(data), exerciseIds, pendingPayloads())
+}
+
+// Sends one finished workout. It is idempotent (see submit_workout), so sending
+// it again after a timeout, or from another tab, cannot create a second one.
+// Never throws: the outcome says whether it is saved, or what to do with it.
+export async function submitWorkout(payload: SubmitWorkoutPayload): Promise<{ kind: 'saved' } | SubmitOutcome> {
+  try {
+    const { error, status } = await withTimeout(supabase.rpc('submit_workout', { workout: payload }), REQUEST_LIMIT_MS)
+    return error ? classifySubmitError(error, status) : { kind: 'saved' }
+  } catch (error) {
+    return classifySubmitError(error, null)
+  }
 }
 
 // A weak gym connection can hang instead of failing.
@@ -46,7 +73,8 @@ export async function fetchLastSetsIfOnline(
 }
 
 // The routine of the last finished workout, or null before the first one. With
-// the routine list, it gives the next routine (see nextRoutine).
+// the routine list, it gives the next routine (see nextRoutine). A workout
+// still waiting to be sent counts as the last one.
 export async function fetchLastRoutineId() {
   const { data, error } = await supabase
     .from('workouts')
@@ -55,5 +83,5 @@ export async function fetchLastRoutineId() {
     .limit(1)
     .maybeSingle()
   if (error) throw error
-  return data?.routine_id ?? null
+  return overlayPendingRoutineId(data?.routine_id ?? null, pendingPayloads())
 }
