@@ -1,10 +1,12 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { onlineManager } from '@tanstack/react-query'
 import { RouterProvider } from 'react-router/dom'
 import { QueryProvider } from '@/components/query-provider'
 import { getAccountId, subscribeToAccount } from '@/features/auth/account'
 import { onSignedOut } from '@/features/auth/session'
 import { startAppUpdates } from '@/lib/app-update'
+import { startOnlineFromNavigator } from '@/lib/online'
 import { queryClient } from '@/lib/query-client'
 import { queryCacheKey } from '@/lib/query-persistence'
 import './index.css'
@@ -39,6 +41,9 @@ subscribeToAccount(() => {
   }
   account = next
 })
+
+// Start from the device's network state, not TanStack's "online" default (see online.ts).
+startOnlineFromNavigator(onlineManager, typeof navigator === 'undefined' ? undefined : navigator)
 
 // The service worker, in production builds only (see app-update.ts).
 startAppUpdates()

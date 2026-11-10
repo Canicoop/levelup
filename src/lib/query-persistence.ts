@@ -19,18 +19,56 @@ export function shouldPersistQuery(query: { queryKey: readonly unknown[]; state:
   return query.state.status === 'success' && query.queryKey[0] === 'workout'
 }
 
-// The storage the persister writes to. Writes are delayed (throttled), so one
-// can land after a sign-out or an account change: it is dropped unless the
-// account is still the current one, so another account's data never comes back.
-export function accountStorage(
-  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>,
-  accountId: string,
-  getCurrentAccountId: () => string | null,
-) {
+type StoredCopy = { buster?: unknown; timestamp?: unknown; clientState?: { queries?: unknown } }
+
+function parseCopy(raw: string | null): StoredCopy | null {
+  if (!raw) return null
+  try {
+    const copy: unknown = JSON.parse(raw)
+    return typeof copy === 'object' && copy !== null ? copy : null
+  } catch {
+    return null
+  }
+}
+
+function countQueries(raw: string | null) {
+  const queries = parseCopy(raw)?.clientState?.queries
+  return Array.isArray(queries) ? queries.length : 0
+}
+
+// When a usable copy was saved, or null without one (none, damaged, another
+// version or empty). Settings shows it, so readiness for the gym can be checked.
+export function copySavedAt(raw: string | null) {
+  const copy = parseCopy(raw)
+  if (!copy || copy.buster !== QUERY_CACHE_BUSTER || typeof copy.timestamp !== 'number') return null
+  return countQueries(raw) > 0 ? copy.timestamp : null
+}
+
+// The storage the copy is written through. A copy is only ever replaced by a
+// better one:
+// - not before it has been restored: until then the cache in memory does not
+//   hold it yet, and saving would put an empty cache over it;
+// - not with an empty cache over one that has data, whatever the reason;
+// - not by another account: writes are delayed (throttled), so one can land
+//   after a sign-out or an account change, and another account's data must not
+//   come back.
+export function copyStorage({
+  storage,
+  accountId,
+  getCurrentAccountId,
+  isRestored,
+}: {
+  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
+  accountId: string
+  getCurrentAccountId: () => string | null
+  isRestored: () => boolean
+}) {
   return {
     getItem: (key: string) => storage.getItem(key),
     setItem: (key: string, value: string) => {
-      if (getCurrentAccountId() === accountId) storage.setItem(key, value)
+      if (getCurrentAccountId() !== accountId || !isRestored()) return
+      if (countQueries(value) === 0 && countQueries(storage.getItem(key)) > 0) return
+      storage.setItem(key, value)
     },
     removeItem: (key: string) => storage.removeItem(key),
   }
