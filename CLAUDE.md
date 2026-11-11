@@ -5,7 +5,7 @@ LevelUP is a mobile-first personal life dashboard (gym, body weight, finance, da
 
 - Product scope and all technical decisions: `docs/decisions.md`. Read it before planning any work.
 - Roadmap and setup: `README.md`.
-- **Current phase: Phase 4 — Gym module.** Step 4.4b (a service worker and a copy of the data on the device) is done; next is step 4.5 ("Terminar treino").
+- **Current phase: Phase 4 — Gym module.** Step 4.5 ("Terminar treino") is done; next is step 4.6 (the workout history, the 12-week heatmap and the Home card).
 
 ## How we work (mandatory)
 1. **Communicate with the user in European Portuguese.** Code, comments, commit messages and documentation are written in English.

@@ -2,7 +2,7 @@
 
 This document records the main technical and product decisions for LevelUP, and the reasons behind them. New decisions are added as the project evolves.
 
-_Last updated: 2026-11-10_
+_Last updated: 2026-11-11_
 
 ---
 
@@ -94,6 +94,11 @@ _Last updated: 2026-11-10_
 - **The queue line** is at the top of Home and the Workout tab, under "Há uma versão nova", and only with workouts in the queue. Waiting ones: "1 treino por enviar" / "2 treinos por enviar", with "Tentar agora", which reads "A enviar…" while sending. Refused ones: "1 treino não foi aceite" / "2 treinos não foram aceites"; with several, each has its own row ("Push A, 6 de novembro") with its own buttons. "Descartar" asks "Descartar este treino?" with "As 15 séries registadas perdem-se.", and then the reads that finishing had updated (rule AT) are asked for again. The line does not hide "Próximo treino" or the workout in progress.
 - **Chunks:** the line is on Home, so it is in the main chunk with the queue and a small module that says which workout is being sent (`sending-state.ts`). The sender and the discard sheet come on demand.
 - **Verified** (2026-11-10, Playwright on `npm run dev` at 390 and 1280px, light and dark, with a fake session and `submit_workout` simulated inside the page): the confirmation with a missing set and the note "Terminado às 17:52, a hora da última série" for a last set two hours earlier; the summary going from "A enviar…" to "Guardado", with one call whose `finished_at` was that set's time; the summary after a reload; "À espera de rede" with "Failed to fetch"; "Tentar agora" showing "A enviar…" and staying in the queue; an expired session (PGRST301, 401) staying in the queue, not refused; the `online` event sending it; a refused workout on the summary and on Home, discarded with its confirmation (queue and summary both removed); two refused and one waiting, then "Tentar outra vez" sending the retried one and the waiting one, oldest first; finishing with nothing logged discarding without queueing; `/treino/terminado` without a summary going to the Workout tab; "Terminar", "⋯" and "Tentar agora" at 44px.
+
+**Tested with real sends on `levelup-dev`:**
+- **PC (2026-11-10):** finishing with network showed "Guardado"; "Próximo treino" moved to the next routine; in the next workout, "Última vez" showed "20 × 12 · 22,5 × 10 · 22,5 × 8", with the weights filled in.
+- **iPhone, the installed app (2026-11-11):** finished in airplane mode, the summary showed "À espera de rede, é enviado sozinho". The workout finished at 00:49:14 and reached Supabase at 00:51:20, by itself, when the network came back.
+- **The first workout saved lasted 23 h 22 min:** its sets were logged before each ✓ kept its time (step 4.5.1), so `finishTime` found no times and finished it "now" (rule AS), almost a day after it started; under 24 hours, the database accepted it. A one-off, from a workout started before step 4.5.1, and only in `levelup-dev`.
 
 **Workout tab ("Treino")**
 - The next workout, with "Iniciar treino", or the workout in progress.
@@ -367,11 +372,12 @@ Google's account chooser shows the Supabase project's domain (`<project>.supabas
 
 **No `useBlocker`:** the workout in progress is saved on the device at every change, so leaving its screen loses nothing, and a warning would only get in the way.
 
-**Lazy loading:** a module's pages move to `lazy` once the module has real code; splitting empty pages would only add requests. Lazy so far: Workout (`/treino`, `/treino/rotinas/:id`, `/treino/exercicios` and `/treino/em-curso`), plus the development-only page (see *Development-only page*). Home, Weight, Finance and Settings are still imported eagerly.
+**Lazy loading:** a module's pages move to `lazy` once the module has real code; splitting empty pages would only add requests. Lazy so far: Workout (`/treino`, `/treino/rotinas/:id`, `/treino/exercicios`, `/treino/em-curso` and `/treino/terminado`), plus the development-only page (see *Development-only page*). Home, Weight, Finance and Settings are still imported eagerly.
 - **One chunk per module, one import function.** `loadWorkoutPages()` (`src/features/workout/load-pages.ts`) imports `src/features/workout/pages/index.ts`, which re-exports the module's pages. The routes use it with the object form of `lazy` (`lazy: { Component: async () => (await loadWorkoutPages()).WorkoutPage }`), as React Router's data mode guide shows. Components used only by the module (the drawer, the input) end up in its chunk.
 - **Preloaded when idle.** Once the app is open and signed in, `AppShell` fetches the Workout chunk with `requestIdleCallback` (a timeout where it is missing). **Why:** if the connection drops after the app opens, tapping Treino still works. A failed preload is caught silently: the app may have opened offline, and tapping the tab tries again.
 - **The promise is not cached.** The browser already reuses a loaded module; a cached rejected promise would make a failed preload fail again on tap instead of retrying.
-- **Measured** (gzip, `npm run build`): moving Workout to `lazy` took the main chunk from 221.53 kB to 185.87 kB. At the end of step 4.4 the main chunk is 189.48 kB and the Workout chunk 45.58 kB.
+- **Measured** (gzip, `npm run build`): moving Workout to `lazy` took the main chunk from 221.53 kB to 185.87 kB. At the end of step 4.4 the main chunk was 189.48 kB and the Workout chunk 45.58 kB. **At the end of step 4.5** (2026-11-11) the bundler splits the code differently: the main chunk is 137.04 kB, a shared chunk loaded with it (`active-workout-*.js`) 59.49 kB, the Workout chunk (`pages-*.js`) 45.16 kB, and the others `prepare-offline-*.js` 2.82 kB, `workbox-window` 2.20 kB and `send-pending-workouts-*.js` 0.79 kB; the CSS is 10.84 kB. What loads at start (main, shared and `prepare-offline`) is 199.35 kB, against 189.48 kB at the end of step 4.4. Vite's 500 kB warning no longer shows.
+- **Found:** the main chunk imports `prepare-offline-*.js` statically (two shared exports), so the Workout data layer, `submit_workout` and `last_exercise_sets` included, loads at start, unlike what `main.tsx` and `AppShell` say (see *Open questions*).
 - **No `HydrateFallback` warning.** React Router warns only when no route on the opened path has a `HydrateFallback`. The root route has one (`AppLoading`, see *Loading screen*), so opening a lazy route directly shows it while the chunk loads, without a warning.
 
 **Package:** React Router 8 has no `react-router-dom` package. Everything is imported from `react-router`, except `RouterProvider`, which comes from `react-router/dom`.
@@ -393,6 +399,7 @@ Defined in `src/router.tsx`:
 | `/treino/rotinas/:id` | A routine's editor |
 | `/treino/exercicios` | Exercises ("Exercícios") |
 | `/treino/em-curso` | The workout in progress, full screen |
+| `/treino/terminado` | The summary after "Terminar", full screen |
 | `/peso` | Weight ("Peso") |
 | `/financas` | Finance ("Finanças") |
 | `/definicoes` | Settings ("Definições"), reached through the avatar on Home |
@@ -738,7 +745,7 @@ Deny rules in `.claude/settings.json` block these three for Claude Code, and als
 - **Fixed time zone:** `test.env.TZ = 'Europe/Lisbon'`, so date tests give the same result on any machine and in CI. Lisbon rather than UTC because its summer offset (UTC+1) is exactly what makes `toISODate` differ from `toISOString`. A test checks that the zone took effect; it was also run with the process set to `America/New_York`, and still ran in Lisbon.
 - **Tailwind reads only `.tsx` files (`@source not "./**/*.ts"` in `src/index.css`):** Tailwind scans `src` for class names in any text, comments included. Words in test descriptions ("absolute", "relative") had added `.absolute` and `.relative` to the production CSS, and later the word "table" in a comment of a data-layer file added `.table`. Excluding only the tests would not have caught the second case, so every `.ts` file is excluded: logic and tests live in `.ts`, and Tailwind classes only in `.tsx`. With the exclusion, the CSS is byte-for-byte the same as without those files.
 
-**What the 327 tests cover:**
+**What the 480 tests cover:**
 
 | File | Tests | Covers |
 |---|---|---|
@@ -755,14 +762,22 @@ Deny rules in `.claude/settings.json` block these three for Claude Code, and als
 | `src/features/workout/lib/positions.test.ts` | 8 | `moveItem`: only changed rows are sent, the ends, shared positions and gaps; `nextPosition` |
 | `src/features/workout/lib/routine-limits.test.ts` | 6 | `isRoutineFull` and the 30-exercise limit |
 | `src/features/workout/lib/labels.test.ts` | 13 | `formatExerciseCount`, `formatLastSets` ("Última vez: 40 × 12 · 22,5 × 10", "Primeira vez"), `formatSetProgress`, `formatLoggedSets` and `formatDiscardWarning`, singular and plural |
-| `src/features/workout/lib/active-workout.test.ts` | 67 | starting from a routine (sets, weights from last time or the previous set), `editSet` (a logged set stays valid), `toggleSet` (✓ refused without valid values, filling the next weight, opening the next exercise, nothing open after the last), "+ Série" up to 20, skipping and resuming, swapping with and without logged sets, adding up to 30, `repsPlaceholder`, `countLoggedSets`, `groupLastSets` |
+| `src/features/workout/lib/active-workout.test.ts` | 69 | starting from a routine (sets, weights from last time or the previous set), `editSet` (a logged set stays valid), `toggleSet` (✓ refused without valid values, filling the next weight, opening the next exercise, nothing open after the last, the time of each ✓ (`doneAt`), removed with the ✓, and a new time when logged again), "+ Série" up to 20, skipping and resuming, swapping with and without logged sets, adding up to 30, `repsPlaceholder`, `countLoggedSets`, `groupLastSets` |
 | `src/features/workout/lib/set-values.test.ts` | 41 | `parseWeight` (comma or point, above 0, up to 1000, two decimals), `parseReps` (whole numbers 1 to 100), `setFieldError`, `formatWeight` |
-| `src/features/workout/lib/active-workout-storage.test.ts` | 23 | the key per account; reading back what was saved; ignoring damaged values, another version, a wrong shape or a logged set with an invalid value; reading an older workout without `lastSetsUnavailable` |
+| `src/features/workout/lib/active-workout-storage.test.ts` | 27 | the key per account; reading back what was saved; ignoring damaged values, another version, a wrong shape or a logged set with an invalid value; reading an older workout without `lastSetsUnavailable`; an older workout without `doneAt`; a damaged `doneAt` dropped without losing the workout |
 | `src/features/workout/lib/next-routine.test.ts` | 11 | `nextRoutine`: the one after the last, wrapping around, skipping archived routines, a last routine that was archived, no workouts, no active routines |
 | `src/features/auth/lib/stored-session.test.ts` | 10 | `storedSessionKey` and `parseStoredUserId`, for every malformed stored value |
 | `src/features/workout/lib/workout-payload.test.ts` | 5 | `toSubmitPayload`: order, only sets with ✓, no skipped or empty exercises, null with nothing logged |
 | `src/lib/query-state.test.ts` | 4 | `isWaitingForNetwork`: paused without data, fetching, paused with data, finished |
 | `src/features/workout/lib/with-timeout.test.ts` | 3 | `withTimeout`: in time, passing on an error, `TimeoutError` after the limit |
+| `src/lib/query-persistence.test.ts` | 18 | the key per account, `shouldPersistQuery` (finished Workout reads only), `copyStorage` (no write before the restore, from another account, or of an empty cache over a copy with data) and `copySavedAt` |
+| `src/lib/online.test.ts` | 3 | `startOnlineFromNavigator`: offline at start, online, no navigator |
+| `src/features/settings/lib/device-copy.test.ts` | 11 | `formatDeviceCopy`: no copy, "agora mesmo", minutes, hours, days, a clock that went back |
+| `src/features/workout/lib/last-sets-copy.test.ts` | 16 | `lastSetsFromCopy`, `mergeLastSetsCopy`, `lastSetsFromPayload`, and laying the workouts waiting to be sent over a read (`overlayPendingLastSets`, `overlayPendingRoutineId`) |
+| `src/features/workout/lib/finishing.test.ts` | 15 | `lastLoggedAt`, `finishTime` (now, exactly an hour, the last set, no times, the 24-hour limit, a clock that went back) and `finishCounts` |
+| `src/features/workout/lib/pending-workouts.test.ts` | 46 | the queue's key and format, damaged entries dropped one by one, adding without duplicates, removing, refusing and retrying, oldest first, and `classifySubmitError` (an expired or missing session always retried, PGRST301 and 42501 with 401 included) |
+| `src/features/workout/lib/last-finished.test.ts` | 10 | the summary's key and format, and damaged values ignored |
+| `src/features/workout/lib/finish-labels.test.ts` | 28 | the confirmation, the finish note, the duration, the queue line in singular and plural, the summary and `sendState` |
 
 **Tests fail when a rule breaks:** removing the final `//` check from `getSafeReturnPath` made exactly the two expected tests fail (`/..//evil.com` and `/.//evil.com`); the function was then restored unchanged.
 
@@ -856,6 +871,8 @@ The MVP runs on free tiers: GitHub, Supabase Free and Vercel Hobby (personal, no
 | Question | When |
 |---|---|
 | On Vercel, serve `sw.js` without long caching, so new versions are found | Phase 5 |
+| "Há uma versão nova" and "Atualizar" on the installed app, not tested yet (see *Offline handling*) | Phase 5 |
+| The main chunk imports the `prepare-offline` chunk statically, so the Workout data layer loads at start (2.82 kB gzip): find which import, and keep it lazy or update the comments | Step 4.6 |
 | Backup strategy | Before Phase 5 |
 | Publish the Google OAuth app and complete its Branding (optional: only to show the app's name and logo on Google's sign-in screen) | Phase 5 |
 | Create the production Supabase project (`levelup-prod`) | Phase 5 |
