@@ -1,38 +1,43 @@
 import { useId, type ReactNode } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { Link } from 'react-router'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 
 type ModuleCardProps = {
   to: string
+  // The small label at the top ("Peso", "Novembro").
   title: string
+  // The link's name for screen readers, when the label alone does not say
+  // which module it opens ("Finanças de novembro").
+  label?: string
   children: ReactNode
 }
 
-// One card per module on Home. The title links to the module; only the title,
-// not the whole card, so the content can hold its own controls later.
-// The section stretches in the grid and the card fills it, so cards in a row
-// share the same height.
-export function ModuleCard({ to, title, children }: ModuleCardProps) {
+// A half-width card on Home (Weight, Finance), as in the "Graphite" mockup: a
+// small label, then the content. The label links to the module; only the label,
+// not the whole card, so the content can hold its own controls later. It looks
+// small, with a small arrow so it reads as a link on a phone, but its touch area
+// is 44px tall. The section stretches in the grid and the card fills it, so the
+// two cards share the same height.
+export function ModuleCard({ to, title, label, children }: ModuleCardProps) {
   const titleId = useId()
 
   return (
     <section aria-labelledby={titleId}>
-      <Card className="h-full">
-        <CardHeader>
-          <h2 id={titleId}>
-            {/* -mx-2 px-2 extends the hover fill without moving the text off
-                the card's content edge. */}
-            <Link
-              to={to}
-              className="-mx-2 -mt-2 flex min-h-11 touch-manipulation items-center justify-between gap-2 rounded-lg px-2 text-base font-medium outline-none select-none transition-[opacity,background-color] duration-150 ease-out hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring active:opacity-70 motion-reduce:transition-none"
-            >
-              {title}
-              <ChevronRight aria-hidden className="size-5 shrink-0 text-muted-foreground" strokeWidth={1.75} />
-            </Link>
-          </h2>
-        </CardHeader>
-        <CardContent>{children}</CardContent>
+      <Card size="sm" className="h-full gap-1">
+        <h2 id={titleId} className="px-3">
+          {/* -mx-2 px-2 and -my-2 extend the touch area and the hover fill
+              without moving the label off the card's content edge. */}
+          <Link
+            to={to}
+            aria-label={label}
+            className="-mx-2 -my-2 flex min-h-11 w-fit touch-manipulation items-center gap-0.5 rounded-lg px-2 text-sm text-muted-foreground outline-none select-none transition-[opacity,background-color,color] duration-150 ease-out hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring active:opacity-70 motion-reduce:transition-none"
+          >
+            {title}
+            <ChevronRight aria-hidden className="size-3.5 shrink-0" strokeWidth={2} />
+          </Link>
+        </h2>
+        <div className="px-3">{children}</div>
       </Card>
     </section>
   )

@@ -6,23 +6,18 @@ import { OfflineState } from '@/components/offline-state'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DayWorkoutsSheet } from '@/features/workout/components/day-workouts-sheet'
-import { FUTURE_CLASSES, LEVEL_CLASSES, TODAY_CLASSES } from '@/features/workout/components/heatmap-styles'
+import { HeatmapGrid } from '@/features/workout/components/heatmap-grid'
+import { LEVEL_CLASSES } from '@/features/workout/components/heatmap-styles'
 import { useRecentWorkouts } from '@/features/workout/hooks/use-workout-history'
 import {
   countTrainingDaysThisWeek,
   dayTotals,
-  formatHeatmapDayLabel,
   formatWeekCount,
-  heatmapLevel,
   heatmapWeeks,
   inHeatmap,
-  type HeatmapDay,
 } from '@/features/workout/lib/history'
 import { useNow } from '@/hooks/use-now'
 import { isWaitingForNetwork } from '@/lib/query-state'
-
-// Shared by every day: the same square, whatever it holds.
-const CELL = 'aspect-square w-full rounded-[3px] sm:rounded-[5px]'
 
 // The 12-week heatmap of the Workout tab (rule AU): one column per week, oldest
 // first, and one row per day from Monday to Sunday. The columns fill the card,
@@ -73,15 +68,7 @@ export function WorkoutHeatmap() {
           {/* As wide as the grid, so the legend ends where the grid does on wide
               screens; max-w-full lets the columns shrink on a phone. */}
           <div className="mx-4 flex w-fit max-w-[calc(100%-2rem)] flex-col gap-3">
-            <div
-              role="group"
-              aria-labelledby={titleId}
-              className="grid grid-flow-col grid-cols-[repeat(12,minmax(0,2.75rem))] grid-rows-7 gap-1 sm:gap-1.5"
-            >
-              {weeks.flat().map((day) => (
-                <HeatmapCell key={day.day} day={day} sets={totals.get(day.day)?.sets ?? 0} onOpen={openDay} />
-              ))}
-            </div>
+            <HeatmapGrid variant="squares" weeks={weeks} totals={totals} labelledBy={titleId} onOpen={openDay} />
             <Legend />
           </div>
         </Card>
@@ -103,31 +90,6 @@ export function WorkoutHeatmap() {
         />
       )}
     </section>
-  )
-}
-
-function HeatmapCell({ day, sets, onOpen }: { day: HeatmapDay; sets: number; onOpen: (day: string) => void }) {
-  // The rest of this week: empty and set apart, and nothing to read out.
-  if (day.isFuture) return <span aria-hidden className={cn(CELL, FUTURE_CLASSES)} />
-
-  const label = formatHeatmapDayLabel(day.day, sets)
-  const className = cn(CELL, LEVEL_CLASSES[heatmapLevel(sets)], day.isToday && TODAY_CLASSES)
-
-  // A day without a workout does not react.
-  if (sets === 0) {
-    return <span role="img" aria-label={label} aria-current={day.isToday ? 'date' : undefined} className={className} />
-  }
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      aria-current={day.isToday ? 'date' : undefined}
-      onClick={() => onOpen(day.day)}
-      className={cn(
-        className,
-        'touch-manipulation outline-none transition-transform duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-card active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100 motion-reduce:active:opacity-70',
-      )}
-    />
   )
 }
 

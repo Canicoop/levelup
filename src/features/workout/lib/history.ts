@@ -103,16 +103,6 @@ export function heatmapWeeks(today: Date): HeatmapDay[][] {
   )
 }
 
-// This week, Monday to Sunday, for Home's card: the heatmap's last column.
-export function currentWeek(today: Date): HeatmapDay[] {
-  const start = startOfWeek(today)
-  const todayKey = toISODate(today)
-  return Array.from({ length: 7 }, (_day, weekday) => {
-    const day = toISODate(addDays(start, weekday))
-    return { day, isToday: day === todayKey, isFuture: day > todayKey }
-  })
-}
-
 // The most recent workout of both reads (and the queue they already carry), or
 // null with none. Both, because the last workout can be older than the
 // heatmap's 12 weeks, and only the history has it then.
@@ -159,6 +149,28 @@ export function countTrainingDaysThisWeek(today: Date, totals: Map<string, DayTo
 // "3 esta semana", or "Ainda não treinaste esta semana".
 export function formatWeekCount(days: number) {
   return days === 0 ? 'Ainda não treinaste esta semana' : `${days} esta semana`
+}
+
+// Home's headline: the days with a workout this week against the goal, the
+// number of active routines ("2 de 5 treinos", "1 de 1 treino"). Without a goal
+// (no active routines, or the routines not known), only the count:
+// "2 esta semana", "0 esta semana".
+export function formatWeekGoal(days: number, goal: number | null) {
+  if (!goal) return `${days} esta semana`
+  return `${days} de ${goal} ${goal === 1 ? 'treino' : 'treinos'}`
+}
+
+// Days with at least one workout, in the totals given (the heatmap's 12 weeks).
+export function countTrainingDays(totals: Map<string, DayTotal>) {
+  let days = 0
+  for (const total of totals.values()) if (total.sets > 0) days++
+  return days
+}
+
+// What Home's heatmap says to screen readers, which do not read its days.
+export function formatHeatmapSummary(days: number) {
+  if (days === 0) return 'Nas últimas 12 semanas ainda não treinaste.'
+  return `Nas últimas 12 semanas treinaste em ${days} ${days === 1 ? 'dia' : 'dias'}.`
 }
 
 // ---------------------------------------------------------------------------
@@ -241,15 +253,13 @@ export function formatRecordSummary(record: WorkoutRecord, now: Date) {
   ].join(' · ')
 }
 
-// "ontem · 1 h 05 min": when, and how long. Home's card shows it below the
-// routine's name, so a long name never hides it.
-export function formatWorkoutWhen(record: WorkoutRecord, now: Date) {
-  return `${formatRelativeDay(record.startedAt, now)} · ${formatRecordDuration(record)}`
-}
-
-// "Upper - Peito + Tricep · ontem · 1 h 05 min".
-export function formatWorkoutLine(record: WorkoutRecord, now: Date) {
-  return `${record.routineName} · ${formatWorkoutWhen(record, now)}`
+// "Ontem · 6 exercícios · 52 min", below the routine in Home's "Último treino".
+export function formatLastWorkoutDetails(record: WorkoutRecord, now: Date) {
+  return [
+    capitalize(formatRelativeDay(record.startedAt, now)),
+    formatExerciseCount(record.exercises.length),
+    formatRecordDuration(record),
+  ].join(' · ')
 }
 
 // ---------------------------------------------------------------------------

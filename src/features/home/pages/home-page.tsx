@@ -1,25 +1,23 @@
-import { Scale, Wallet } from 'lucide-react'
 import { Link } from 'react-router'
-import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/layout/page-header'
 import { UpdateBanner } from '@/components/update-banner'
 import { UserAvatar } from '@/features/auth/components/user-avatar'
 import { useCurrentUser } from '@/features/auth/hooks/use-current-user'
 import { ModuleCard } from '@/features/home/components/module-card'
-import { QuickActions } from '@/features/home/components/quick-actions'
 import { getGreeting } from '@/features/home/lib/greeting'
-import { ActiveWorkoutCard } from '@/features/workout/components/active-workout-card'
-import { HomeWorkoutSummary } from '@/features/workout/components/home-workout-summary'
+import { HomeWeekCard } from '@/features/workout/components/home-week-card'
+import { LastWorkoutRow } from '@/features/workout/components/last-workout-row'
 import { PendingWorkoutsLine } from '@/features/workout/components/pending-workouts-line'
-import { useActiveWorkout } from '@/features/workout/hooks/use-active-workout'
 import { useNow } from '@/hooks/use-now'
-import { formatLongDate, toISODate } from '@/lib/format'
+import { formatLongDate, formatMonth, toISODate } from '@/lib/format'
 
+// Home, as in the "Graphite" mockup: the week and the way into a workout first,
+// then Weight and Finance side by side, then the last workout.
 export function HomePage() {
   const now = useNow()
   const user = useCurrentUser()
-  const workout = useActiveWorkout()
   const greeting = getGreeting(now)
+  const month = formatMonth(now)
 
   return (
     <div className="flex flex-col gap-8">
@@ -39,30 +37,38 @@ export function HomePage() {
           <UserAvatar avatarUrl={user.avatarUrl} initial={user.initial} className="size-full text-base" />
         </Link>
       </PageHeader>
-      <UpdateBanner />
-      <PendingWorkoutsLine />
-      {workout &&<ActiveWorkoutCard workout={workout} />}
-      <QuickActions />
-      {/* gap-3 matches the quick actions, so the columns line up on desktop. */}
-      <div className="grid gap-3 lg:grid-cols-3">
-        <ModuleCard to="/treino" title="Treino">
-          <HomeWorkoutSummary />
-        </ModuleCard>
-        <ModuleCard to="/peso" title="Peso">
-          <EmptyState
-            icon={Scale}
-            title="Ainda não registaste o teu peso"
-            description="Aqui vais ver o teu peso mais recente e a evolução."
-          />
-        </ModuleCard>
-        <ModuleCard to="/financas" title="Finanças">
-          <EmptyState
-            icon={Wallet}
-            title="Ainda não adicionaste nenhuma despesa"
-            description="Aqui vais ver quanto gastaste este mês e quanto resta do orçamento."
-          />
-        </ModuleCard>
+
+      <div className="flex flex-col gap-3">
+        <UpdateBanner />
+        <PendingWorkoutsLine />
+        <HomeWeekCard />
+        {/* Two columns on every width, as in the mockup. Until Phases 6 and 7
+            they hold a short empty state that fits half of 320px. */}
+        <div className="grid grid-cols-2 gap-3">
+          <ModuleCard to="/peso" title="Peso">
+            <EmptyModule title="Sem registos" description="O teu peso aparece aqui." />
+          </ModuleCard>
+          <ModuleCard to="/financas" title={capitalize(month)} label={`Finanças de ${month}`}>
+            <EmptyModule title="Sem despesas" description="Os gastos do mês aparecem aqui." />
+          </ModuleCard>
+        </div>
+        <LastWorkoutRow />
       </div>
+    </div>
+  )
+}
+
+function capitalize(text: string) {
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
+// Where the number goes once the module has data ("78,4 kg", "412 € de 600 €").
+function EmptyModule({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="flex flex-col gap-1">
+      {/* text-base on a phone, so "Sem despesas" fits half of 320px on one line. */}
+      <p className="text-base font-semibold tracking-tight sm:text-lg">{title}</p>
+      <p className="text-sm text-pretty text-muted-foreground">{description}</p>
     </div>
   )
 }

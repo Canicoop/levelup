@@ -1,18 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import {
   addDays,
+  countTrainingDays,
   countTrainingDaysThisWeek,
-  currentWeek,
   dayTotals,
   formatDayLabel,
+  formatHeatmapSummary,
+  formatWeekGoal,
   formatHeatmapDayLabel,
   formatRecordSummary,
   formatRelativeDay,
   formatWorkoutDateTime,
   formatWeekCount,
-  formatWorkoutLine,
   formatWorkoutSets,
-  formatWorkoutWhen,
+  formatLastWorkoutDetails,
   heatmapLevel,
   heatmapStart,
   heatmapWeeks,
@@ -192,41 +193,6 @@ describe('dayTotals and heatmapLevel', () => {
   })
 })
 
-describe('currentWeek', () => {
-  it('is this week, Monday to Sunday, the same as the heatmap’s last column', () => {
-    const today = local('2026-11-11')
-    const week = currentWeek(today)
-    expect(week.map((day) => day.day)).toEqual([
-      '2026-11-09',
-      '2026-11-10',
-      '2026-11-11',
-      '2026-11-12',
-      '2026-11-13',
-      '2026-11-14',
-      '2026-11-15',
-    ])
-    expect(week).toEqual(heatmapWeeks(today).at(-1))
-  })
-
-  it('marks today and the days after it', () => {
-    const week = currentWeek(local('2026-11-11'))
-    expect(week.filter((day) => day.isToday).map((day) => day.day)).toEqual(['2026-11-11'])
-    expect(week.filter((day) => day.isFuture)).toHaveLength(4)
-  })
-
-  it('has 7 days in the week the clocks go back', () => {
-    expect(currentWeek(local('2026-10-25')).map((day) => day.day)).toEqual([
-      '2026-10-19',
-      '2026-10-20',
-      '2026-10-21',
-      '2026-10-22',
-      '2026-10-23',
-      '2026-10-24',
-      '2026-10-25',
-    ])
-  })
-})
-
 describe('latestWorkout', () => {
   const newer = record('n', '2026-11-10T18:00:00Z', 3)
   const older = record('o', '2026-07-01T18:00:00Z', 3)
@@ -268,6 +234,36 @@ describe('the week on Home', () => {
   ])('%i days reads "%s"', (days, text) => {
     expect(formatWeekCount(days)).toBe(text)
   })
+
+  it.each([
+    [2, 5, '2 de 5 treinos'],
+    [0, 5, '0 de 5 treinos'],
+    [1, 1, '1 de 1 treino'],
+    [6, 4, '6 de 4 treinos'],
+    [2, 0, '2 esta semana'],
+    [0, 0, '0 esta semana'],
+    [3, null, '3 esta semana'],
+  ])('%i days with a goal of %s reads "%s"', (days, goal, text) => {
+    expect(formatWeekGoal(days, goal)).toBe(text)
+  })
+
+  it('counts the days with a workout in the 12 weeks', () => {
+    const totals = dayTotals([
+      record('a', '2026-11-09T08:00:00Z', 3),
+      record('b', '2026-11-09T19:00:00Z', 3),
+      record('c', '2026-10-01T19:00:00Z', 5),
+    ])
+    expect(countTrainingDays(totals)).toBe(2)
+    expect(countTrainingDays(new Map())).toBe(0)
+  })
+
+  it.each([
+    [0, 'Nas últimas 12 semanas ainda não treinaste.'],
+    [1, 'Nas últimas 12 semanas treinaste em 1 dia.'],
+    [9, 'Nas últimas 12 semanas treinaste em 9 dias.'],
+  ])('sums up %i days for screen readers', (days, text) => {
+    expect(formatHeatmapSummary(days)).toBe(text)
+  })
 })
 
 describe('formatRelativeDay', () => {
@@ -290,7 +286,7 @@ describe('formatRelativeDay', () => {
   })
 })
 
-describe('formatWorkoutSets and formatWorkoutLine', () => {
+describe('formatWorkoutSets and formatLastWorkoutDetails', () => {
   it('lists the sets with the weight in European Portuguese', () => {
     expect(
       formatWorkoutSets([
@@ -301,14 +297,11 @@ describe('formatWorkoutSets and formatWorkoutLine', () => {
     ).toBe('60 × 8 · 22,5 × 7 · 55 × 8')
   })
 
-  it('reads the last workout as "routine · day · duration"', () => {
-    const last = { ...record('w', '2026-11-10T18:00:00Z', 3, '2026-11-10T19:05:00Z'), routineName: 'Upper - Peito + Tricep' }
-    expect(formatWorkoutLine(last, local('2026-11-11'))).toBe('Upper - Peito + Tricep · ontem · 1 h 05 min')
-  })
-
-  it('reads when and how long, for the line below the routine', () => {
-    const short = record('w', '2026-11-11T08:00:00Z', 1, '2026-11-11T08:00:40Z')
-    expect(formatWorkoutWhen(short, local('2026-11-11', '10:00'))).toBe('hoje · menos de 1 min')
+  it('reads the last workout as day, exercises and duration, capitalised', () => {
+    const last = record('w', '2026-11-10T18:00:00Z', 3, '2026-11-10T18:52:00Z')
+    expect(formatLastWorkoutDetails(last, local('2026-11-11'))).toBe('Ontem · 1 exercício · 52 min')
+    const short = record('s', '2026-11-11T08:00:00Z', 1, '2026-11-11T08:00:40Z')
+    expect(formatLastWorkoutDetails(short, local('2026-11-11', '10:00'))).toBe('Hoje · 1 exercício · menos de 1 min')
   })
 })
 
