@@ -6,6 +6,7 @@ import { OfflineState } from '@/components/offline-state'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DayWorkoutsSheet } from '@/features/workout/components/day-workouts-sheet'
+import { FUTURE_CLASSES, LEVEL_CLASSES, TODAY_CLASSES } from '@/features/workout/components/heatmap-styles'
 import { useRecentWorkouts } from '@/features/workout/hooks/use-workout-history'
 import {
   countTrainingDaysThisWeek,
@@ -16,22 +17,12 @@ import {
   heatmapWeeks,
   inHeatmap,
   type HeatmapDay,
-  type HeatmapLevel,
 } from '@/features/workout/lib/history'
 import { useNow } from '@/hooks/use-now'
 import { isWaitingForNetwork } from '@/lib/query-state'
 
-// Written out in full so Tailwind finds the class names.
-const LEVEL_CLASSES: Record<HeatmapLevel, string> = {
-  0: 'bg-heatmap-0',
-  1: 'bg-heatmap-1',
-  2: 'bg-heatmap-2',
-  3: 'bg-heatmap-3',
-}
-
 // Shared by every day: the same square, whatever it holds.
 const CELL = 'aspect-square w-full rounded-[3px]'
-const TODAY = 'ring-2 ring-foreground ring-offset-1 ring-offset-card'
 
 // The 12-week heatmap of the Workout tab (rule AU): one column per week, oldest
 // first, and one row per day from Monday to Sunday. The columns shrink to fit
@@ -114,10 +105,10 @@ export function WorkoutHeatmap() {
 
 function HeatmapCell({ day, sets, onOpen }: { day: HeatmapDay; sets: number; onOpen: (day: string) => void }) {
   // The rest of this week: empty and set apart, and nothing to read out.
-  if (day.isFuture) return <span aria-hidden className={cn(CELL, 'border border-dashed border-border')} />
+  if (day.isFuture) return <span aria-hidden className={cn(CELL, FUTURE_CLASSES)} />
 
   const label = formatHeatmapDayLabel(day.day, sets)
-  const className = cn(CELL, LEVEL_CLASSES[heatmapLevel(sets)], day.isToday && TODAY)
+  const className = cn(CELL, LEVEL_CLASSES[heatmapLevel(sets)], day.isToday && TODAY_CLASSES)
 
   // A day without a workout does not react.
   if (sets === 0) {

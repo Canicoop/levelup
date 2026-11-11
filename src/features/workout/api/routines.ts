@@ -1,6 +1,7 @@
 import { RoutineNotFoundError, ValidationError, requireRows } from '@/features/workout/lib/errors'
 import { cleanName, validateRoutineName } from '@/features/workout/lib/names'
 import type { PositionChange, Routine, RoutineSummary, RoutineWithExercises } from '@/features/workout/lib/types'
+import { UUID } from '@/features/workout/lib/uuid'
 import { supabase } from '@/lib/supabase'
 
 // All the user's routines, archived included, ordered by (position, created_at),
@@ -18,9 +19,6 @@ export async function fetchRoutines(): Promise<RoutineSummary[]> {
     exercise_count: routine_exercises[0]?.count ?? 0,
   }))
 }
-
-// Any uuid shape, case-insensitive, as Postgres accepts it.
-export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 // One routine with its exercises and their names. The exercise is embedded
 // through the composite foreign key by name; PostgREST builds the join from all

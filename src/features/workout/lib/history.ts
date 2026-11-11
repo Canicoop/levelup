@@ -103,7 +103,24 @@ export function heatmapWeeks(today: Date): HeatmapDay[][] {
   )
 }
 
-export type DayTotal = { sets: number; workouts: WorkoutRecord[] }
+// This week, Monday to Sunday, for Home's card: the heatmap's last column.
+export function currentWeek(today: Date): HeatmapDay[] {
+  const start = startOfWeek(today)
+  const todayKey = toISODate(today)
+  return Array.from({ length: 7 }, (_day, weekday) => {
+    const day = toISODate(addDays(start, weekday))
+    return { day, isToday: day === todayKey, isFuture: day > todayKey }
+  })
+}
+
+// The most recent workout of both reads (and the queue they already carry), or
+// null with none. Both, because the last workout can be older than the
+// heatmap's 12 weeks, and only the history has it then.
+export function latestWorkout(recent: WorkoutRecord[], history: WorkoutRecord[]) {
+  return mergeWithPending(recent, history)[0] ?? null
+}
+
+export type DayTotal ={ sets: number; workouts: WorkoutRecord[] }
 
 // Per local day: the sets of every workout that day, and those workouts, the
 // most recent first.

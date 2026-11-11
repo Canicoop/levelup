@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   addDays,
   countTrainingDaysThisWeek,
+  currentWeek,
   dayTotals,
   formatDayLabel,
   formatHeatmapDayLabel,
@@ -15,6 +16,7 @@ import {
   heatmapStart,
   heatmapWeeks,
   inHeatmap,
+  latestWorkout,
   mergeWithPending,
   pendingAsRecords,
   startOfWeek,
@@ -186,6 +188,63 @@ describe('dayTotals and heatmapLevel', () => {
     [45, 3],
   ])('%i sets is level %i', (sets, level) => {
     expect(heatmapLevel(sets)).toBe(level)
+  })
+})
+
+describe('currentWeek', () => {
+  it('is this week, Monday to Sunday, the same as the heatmap’s last column', () => {
+    const today = local('2026-11-11')
+    const week = currentWeek(today)
+    expect(week.map((day) => day.day)).toEqual([
+      '2026-11-09',
+      '2026-11-10',
+      '2026-11-11',
+      '2026-11-12',
+      '2026-11-13',
+      '2026-11-14',
+      '2026-11-15',
+    ])
+    expect(week).toEqual(heatmapWeeks(today).at(-1))
+  })
+
+  it('marks today and the days after it', () => {
+    const week = currentWeek(local('2026-11-11'))
+    expect(week.filter((day) => day.isToday).map((day) => day.day)).toEqual(['2026-11-11'])
+    expect(week.filter((day) => day.isFuture)).toHaveLength(4)
+  })
+
+  it('has 7 days in the week the clocks go back', () => {
+    expect(currentWeek(local('2026-10-25')).map((day) => day.day)).toEqual([
+      '2026-10-19',
+      '2026-10-20',
+      '2026-10-21',
+      '2026-10-22',
+      '2026-10-23',
+      '2026-10-24',
+      '2026-10-25',
+    ])
+  })
+})
+
+describe('latestWorkout', () => {
+  const newer = record('n', '2026-11-10T18:00:00Z', 3)
+  const older = record('o', '2026-07-01T18:00:00Z', 3)
+
+  it('is the most recent of both reads', () => {
+    expect(latestWorkout([newer], [newer, older])?.id).toBe('n')
+  })
+
+  it('comes from the history when the 12 weeks are empty', () => {
+    expect(latestWorkout([], [older])?.id).toBe('o')
+  })
+
+  it('keeps the waiting workout and its mark', () => {
+    const waiting = { ...record('p', '2026-11-11T00:05:00Z', 3), pending: true as const }
+    expect(latestWorkout([waiting, newer], [waiting, newer])).toEqual(waiting)
+  })
+
+  it('is null with no workouts', () => {
+    expect(latestWorkout([], [])).toBeNull()
   })
 })
 

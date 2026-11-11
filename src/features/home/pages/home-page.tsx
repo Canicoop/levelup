@@ -1,4 +1,4 @@
-import { Dumbbell, Scale, Wallet } from 'lucide-react'
+import { Scale, Wallet } from 'lucide-react'
 import { Link } from 'react-router'
 import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/layout/page-header'
@@ -9,6 +9,7 @@ import { ModuleCard } from '@/features/home/components/module-card'
 import { QuickActions } from '@/features/home/components/quick-actions'
 import { getGreeting } from '@/features/home/lib/greeting'
 import { ActiveWorkoutCard } from '@/features/workout/components/active-workout-card'
+import { HomeWorkoutSummary } from '@/features/workout/components/home-workout-summary'
 import { PendingWorkoutsLine } from '@/features/workout/components/pending-workouts-line'
 import { useActiveWorkout } from '@/features/workout/hooks/use-active-workout'
 import { useNow } from '@/hooks/use-now'
@@ -45,11 +46,7 @@ export function HomePage() {
       {/* gap-3 matches the quick actions, so the columns line up on desktop. */}
       <div className="grid gap-3 lg:grid-cols-3">
         <ModuleCard to="/treino" title="Treino">
-          <EmptyState
-            icon={Dumbbell}
-            title="Ainda não registaste nenhum treino"
-            description="Aqui vais ver o teu último treino e os dias em que treinaste."
-          />
+          <HomeWorkoutSummary />
         </ModuleCard>
         <ModuleCard to="/peso" title="Peso">
           <EmptyState
