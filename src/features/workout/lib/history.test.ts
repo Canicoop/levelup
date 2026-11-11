@@ -11,7 +11,6 @@ import {
   formatRecordSummary,
   formatRelativeDay,
   formatWorkoutDateTime,
-  formatWeekCount,
   formatWorkoutSets,
   formatLastWorkoutDetails,
   heatmapLevel,
@@ -22,6 +21,7 @@ import {
   mergeWithPending,
   pendingAsRecords,
   startOfWeek,
+  stepWorkoutDay,
   toWorkoutRecord,
   workoutDay,
   type WorkoutRecord,
@@ -228,14 +228,6 @@ describe('the week on Home', () => {
   })
 
   it.each([
-    [0, 'Ainda não treinaste esta semana'],
-    [1, '1 esta semana'],
-    [3, '3 esta semana'],
-  ])('%i days reads "%s"', (days, text) => {
-    expect(formatWeekCount(days)).toBe(text)
-  })
-
-  it.each([
     [2, 5, '2 de 5 treinos'],
     [0, 5, '0 de 5 treinos'],
     [1, 1, '1 de 1 treino'],
@@ -263,6 +255,36 @@ describe('the week on Home', () => {
     [9, 'Nas últimas 12 semanas treinaste em 9 dias.'],
   ])('sums up %i days for screen readers', (days, text) => {
     expect(formatHeatmapSummary(days)).toBe(text)
+  })
+})
+
+describe('stepWorkoutDay', () => {
+  const days = ['2026-10-20', '2026-11-03', '2026-11-10']
+
+  it.each([
+    ['ArrowRight', '2026-11-03', '2026-11-10'],
+    ['ArrowDown', '2026-11-03', '2026-11-10'],
+    ['ArrowLeft', '2026-11-03', '2026-10-20'],
+    ['ArrowUp', '2026-11-03', '2026-10-20'],
+    ['Home', '2026-11-03', '2026-10-20'],
+    ['End', '2026-11-03', '2026-11-10'],
+  ])('%s from %s goes to %s', (key, current, expected) => {
+    expect(stepWorkoutDay(days, current, key)).toBe(expected)
+  })
+
+  it('stays at either end', () => {
+    expect(stepWorkoutDay(days, '2026-10-20', 'ArrowLeft')).toBe('2026-10-20')
+    expect(stepWorkoutDay(days, '2026-11-10', 'ArrowRight')).toBe('2026-11-10')
+  })
+
+  it('starts at the first or the last from a day without a workout', () => {
+    expect(stepWorkoutDay(days, null, 'ArrowRight')).toBe('2026-10-20')
+    expect(stepWorkoutDay(days, '2026-11-04', 'ArrowLeft')).toBe('2026-11-10')
+  })
+
+  it('ignores other keys, and has nowhere to go without workouts', () => {
+    expect(stepWorkoutDay(days, '2026-11-03', 'Enter')).toBeNull()
+    expect(stepWorkoutDay([], null, 'ArrowRight')).toBeNull()
   })
 })
 

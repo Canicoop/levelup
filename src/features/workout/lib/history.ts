@@ -146,9 +146,28 @@ export function countTrainingDaysThisWeek(today: Date, totals: Map<string, DayTo
   return days
 }
 
-// "3 esta semana", or "Ainda não treinaste esta semana".
-export function formatWeekCount(days: number) {
-  return days === 0 ? 'Ainda não treinaste esta semana' : `${days} esta semana`
+// The keyboard on Home's heatmap: one tab stop, and the arrows move between the
+// days with a workout in calendar order (`days`, oldest first). ← and ↑ go to
+// the previous one, → and ↓ to the next, Home and End to the first and the last;
+// at either end it stays. From no day (`current` not in the list), → starts at
+// the first and ← at the last. Null for any other key.
+export function stepWorkoutDay(days: string[], current: string | null, key: string) {
+  if (days.length === 0) return null
+  const index = current === null ? -1 : days.indexOf(current)
+  switch (key) {
+    case 'ArrowLeft':
+    case 'ArrowUp':
+      return days[index === -1 ? days.length - 1 : Math.max(index - 1, 0)]
+    case 'ArrowRight':
+    case 'ArrowDown':
+      return days[index === -1 ? 0 : Math.min(index + 1, days.length - 1)]
+    case 'Home':
+      return days[0]
+    case 'End':
+      return days[days.length - 1]
+    default:
+      return null
+  }
 }
 
 // Home's headline: the days with a workout this week against the goal, the
@@ -167,7 +186,8 @@ export function countTrainingDays(totals: Map<string, DayTotal>) {
   return days
 }
 
-// What Home's heatmap says to screen readers, which do not read its days.
+// What Home's heatmap says first to screen readers: the 12 weeks in one
+// sentence, before the days with a workout.
 export function formatHeatmapSummary(days: number) {
   if (days === 0) return 'Nas últimas 12 semanas ainda não treinaste.'
   return `Nas últimas 12 semanas treinaste em ${days} ${days === 1 ? 'dia' : 'dias'}.`
@@ -226,7 +246,7 @@ function capitalize(text: string) {
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
-// "Terça-feira, 3 de novembro", for a heatmap day and its sheet's title.
+// "Terça-feira, 3 de novembro", for the day picked on Home's heatmap.
 export function formatDayLabel(day: string) {
   return capitalize(longDayFormat.format(fromDayKey(day)))
 }

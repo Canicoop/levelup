@@ -4,7 +4,7 @@ import { Link } from 'react-router'
 import { PendingBadge } from '@/features/workout/components/pending-badge'
 import { formatRecordSummary, type WorkoutRecord } from '@/features/workout/lib/history'
 
-// One finished workout, in the history and in a heatmap day's sheet: the
+// One finished workout in the Workout tab's history: the
 // routine, then "ontem · 1 h 05 min · 4 exercícios · 15 séries". Opens its detail.
 export function HistoryRow({ record, now }: { record: WorkoutRecord; now: Date }) {
   return (
