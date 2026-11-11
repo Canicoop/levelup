@@ -51,8 +51,10 @@ startAppUpdates()
 
 // Finished workouts waiting on the device are sent when the app opens, when the
 // network or the app comes back, and on sign-in (see send-pending-workouts.ts).
-// Here rather than in AppShell, so it also runs on the workout screen, and
-// imported on demand, so the Workout data layer stays out of the main chunk.
+// Here rather than in AppShell, so it also runs on the workout screen. Imported
+// on demand, but the Workout data layer still loads at start: Rolldown puts its
+// runtime helpers in the prepare-offline chunk, which the main chunk then
+// imports (see React Router 8 in data mode, in docs/decisions.md).
 void loadSender()
   .then(({ startSendingPendingWorkouts }) => startSendingPendingWorkouts(queryClient))
   .catch(() => {})

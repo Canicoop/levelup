@@ -1,10 +1,12 @@
-import type { QueryClient } from '@tanstack/react-query'
+import type { InfiniteData, QueryClient } from '@tanstack/react-query'
+import type { HistoryCursor, HistoryPage } from '@/features/workout/api/history'
 import { getAccountId, subscribeToAccount } from '@/features/auth/account'
 import { workoutKeys } from '@/features/workout/api/query-keys'
 import { clearLastFinished } from '@/features/workout/last-finished-store'
 import { setSendingId } from '@/features/workout/sending-state'
 import { REQUEST_LIMIT_MS, submitWorkout } from '@/features/workout/api/workouts'
-import { sendablePendingWorkouts } from '@/features/workout/lib/pending-workouts'
+import { mergeWithPending, pendingAsRecords, type WorkoutRecord } from '@/features/workout/lib/history'
+import { sendablePendingWorkouts, type PendingWorkout } from '@/features/workout/lib/pending-workouts'
 import { withTimeout } from '@/features/workout/lib/with-timeout'
 import {
   clearPendingWorkoutRejected,
@@ -70,6 +72,9 @@ async function sendAll(queryClient: QueryClient) {
     setSendingId(pending.payload.id)
     const outcome = await submitWorkout(pending.payload).finally(() => setSendingId(null))
     if (outcome.kind === 'saved') {
+      // Into the reads first, then out of the queue, so the history and the
+      // heatmap never lose it between the two.
+      keepInReads(queryClient, pending)
       removeFromPendingWorkouts(accountId, pending.payload.id)
       saved = true
     } else if (outcome.kind === 'rejected') {
@@ -81,12 +86,42 @@ async function sendAll(queryClient: QueryClient) {
   }
 
   // The database now has them, so the reads that were laid over with them are
-  // asked for again: the routine of the last workout and "Última vez".
+  // asked for again: the routine of the last workout, "Última vez", the recent
+  // workouts and the history.
   if (saved && getAccountId() === accountId) refreshWorkoutReads(queryClient)
+}
+
+// The database now has the workout, so it joins the recent workouts and the
+// history's first page as saved (no "Por enviar") until they are read again.
+function keepInReads(queryClient: QueryClient, pending: PendingWorkout) {
+  const [record] = pendingAsRecords([pending])
+  if (!record) return
+  const saved: WorkoutRecord = {
+    id: record.id,
+    routineName: record.routineName,
+    startedAt: record.startedAt,
+    finishedAt: record.finishedAt,
+    exercises: record.exercises,
+  }
+  queryClient.setQueryData<WorkoutRecord[]>(workoutKeys.recentWorkouts(), (records) =>
+    records ? mergeWithPending(records, [saved]) : records,
+  )
+  queryClient.setQueryData<InfiniteData<HistoryPage, HistoryCursor>>(workoutKeys.history(), (history) =>
+    history
+      ? {
+          ...history,
+          pages: history.pages.map((page, index) =>
+            index === 0 ? { ...page, records: mergeWithPending(page.records, [saved]) } : page,
+          ),
+        }
+      : history,
+  )
 }
 
 function refreshWorkoutReads(queryClient: QueryClient) {
   void queryClient.invalidateQueries({ queryKey: workoutKeys.lastRoutineId() })
+  void queryClient.invalidateQueries({ queryKey: workoutKeys.recentWorkouts() })
+  void queryClient.invalidateQueries({ queryKey: workoutKeys.history() })
   void prepareWorkoutOffline(queryClient)
 }
 

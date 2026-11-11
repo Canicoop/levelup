@@ -19,7 +19,43 @@ export function shouldPersistQuery(query: { queryKey: readonly unknown[]; state:
   return query.state.status === 'success' && query.queryKey[0] === 'workout'
 }
 
-type StoredCopy = { buster?: unknown; timestamp?: unknown; clientState?: { queries?: unknown } }
+// Infinite reads whose copy keeps only their first page (the history): the
+// other pages are asked for again when they are needed, so the copy does not
+// grow with every "Ver mais".
+function keepsFirstPageOnly(queryKey: readonly unknown[]) {
+  return queryKey[0] === 'workout' && queryKey[1] === 'workouts' && queryKey[2] === 'history'
+}
+
+function isInfiniteData(data: unknown): data is { pages: unknown[]; pageParams: unknown[] } {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'pages' in data &&
+    'pageParams' in data &&
+    Array.isArray(data.pages) &&
+    Array.isArray(data.pageParams)
+  )
+}
+
+// What is written to the copy: the dehydrated cache, with the history cut to its
+// first page. Restored, the history has one page and "Ver mais" goes on from it.
+export function trimForCopy<
+  State extends { queries: { queryKey: readonly unknown[]; state: { data?: unknown } }[] },
+>(clientState: State): State {
+  return {
+    ...clientState,
+    queries: clientState.queries.map((query) => {
+      const { data } = query.state
+      if (!keepsFirstPageOnly(query.queryKey) || !isInfiniteData(data) || data.pages.length <= 1) return query
+      return {
+        ...query,
+        state: { ...query.state, data: { pages: data.pages.slice(0, 1), pageParams: data.pageParams.slice(0, 1) } },
+      }
+    }),
+  }
+}
+
+type StoredCopy ={ buster?: unknown; timestamp?: unknown; clientState?: { queries?: unknown } }
 
 function parseCopy(raw: string | null): StoredCopy | null {
   if (!raw) return null

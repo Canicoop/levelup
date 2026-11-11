@@ -15,8 +15,10 @@ export function AppShell() {
   // signed in (see load-pages.ts).
   useEffect(preloadWorkoutPages, [])
   // And the data a workout needs, kept on the device for when there is no
-  // network. Imported on demand, so the Workout data layer stays out of the
-  // main chunk; the service worker keeps it on the device anyway.
+  // network. Imported on demand, but its chunk already loads at start: Rolldown
+  // puts its runtime helpers there, and the main chunk imports them (see React
+  // Router 8 in data mode, in docs/decisions.md). The import still runs the
+  // preparation only once the app is open.
   const queryClient = useQueryClient()
   useEffect(() => {
     void import('@/features/workout/prepare-offline')

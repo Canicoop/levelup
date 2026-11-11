@@ -10,6 +10,7 @@ import {
   copyStorage,
   queryCacheKey,
   shouldPersistQuery,
+  trimForCopy,
 } from '@/lib/query-persistence'
 
 // One account's copy: the persister, and a way to save at once. Nothing is
@@ -25,7 +26,12 @@ function createAccountCopy(accountId: string) {
   })
 
   return {
-    persister: createSyncStoragePersister({ storage, key }),
+    // The history keeps only its first page in the copy (see trimForCopy).
+    persister: createSyncStoragePersister({
+      storage,
+      key,
+      serialize: (client) => JSON.stringify({ ...client, clientState: trimForCopy(client.clientState) }),
+    }),
     markRestored() {
       restored = true
     },
@@ -34,7 +40,7 @@ function createAccountCopy(accountId: string) {
     // lost, so this writes at once when the page is hidden or closed.
     saveNow() {
       try {
-        const clientState = dehydrate(queryClient, { shouldDehydrateQuery: shouldPersistQuery })
+        const clientState = trimForCopy(dehydrate(queryClient, { shouldDehydrateQuery: shouldPersistQuery }))
         storage.setItem(key, JSON.stringify({ buster: QUERY_CACHE_BUSTER, timestamp: Date.now(), clientState }))
       } catch {
         // Storage full or blocked: the copy stays as it was.

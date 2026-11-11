@@ -12,6 +12,13 @@ export const workoutKeys = {
   // network (see lastSetsFromCopy). Not a query of its own: written by the
   // background preparation and by every successful read of last sets.
   lastSetsCopy: () => [...workoutKeys.all, 'last-sets-copy'] as const,
+  // Finished workouts. `recent` covers the heatmap's 12 weeks; `history` is the
+  // list, 20 at a time (only its first page is kept on the device, see
+  // trimForCopy); `detail` is one workout not found in either.
+  workouts: () => [...workoutKeys.all, 'workouts'] as const,
+  recentWorkouts: () => [...workoutKeys.workouts(), 'recent'] as const,
+  history: () => [...workoutKeys.workouts(), 'history'] as const,
+  workoutDetail: (id: string) => [...workoutKeys.workouts(), 'detail', id] as const,
   // The routines that contain an exercise, for the archive confirmation.
   exerciseRoutines: (exerciseId: string) => [...workoutKeys.all, 'exercises', exerciseId, 'routines'] as const,
 }

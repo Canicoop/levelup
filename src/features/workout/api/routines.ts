@@ -20,7 +20,7 @@ export async function fetchRoutines(): Promise<RoutineSummary[]> {
 }
 
 // Any uuid shape, case-insensitive, as Postgres accepts it.
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 // One routine with its exercises and their names. The exercise is embedded
 // through the composite foreign key by name; PostgREST builds the join from all

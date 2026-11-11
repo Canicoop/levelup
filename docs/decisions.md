@@ -107,6 +107,26 @@ _Last updated: 2026-11-11_
 - An "Exercícios" row with the number of active exercises, leading to the Exercises screen.
 - The history.
 
+**History and heatmap** (step 4.6):
+- **Each day's colour is its number of sets** (AU), in 4 fixed levels: no workout, 1–9, 10–19 and 20 or more (`heatmapLevel`), with the theme's heatmap colours. 12 columns (weeks, oldest first) and 7 rows, Monday to Sunday, with today marked.
+- **Tapping a workout in the history, or a day with one in the heatmap, opens its detail** (AV), to look at only: the routine, the date, the duration and each exercise with its sets ("60 × 8 · 60 × 7 · 55 × 8"). A day with two or more workouts opens a sheet with that day's workouts.
+- **Past workouts are neither edited nor deleted** (AW): the database grants neither `UPDATE` nor `DELETE` on them.
+- **Home's Workout card** (AX) shows the last workout ("Upper - Peito + Tricep · ontem · 1 h 05 min") and this week in 7 squares, with "3 esta semana", counting days with a workout, or "Ainda não treinaste esta semana". The full heatmap is only on the Workout tab.
+- **Workouts waiting to be sent show at once** (AY) in the history and the heatmap, marked "Por enviar". Refused ones are left out, as in "Última vez": they may be discarded, and the queue line shows them.
+- **The history** sits below the routines, 20 at a time, with "Ver mais".
+- **Days are the device's local day** of the workout's start: one that starts at 23:50 and ends after midnight counts on the first day. Days and weeks move by calendar day, never by 24 hours, so the weeks of a clock change still have 7 days (tested on 29 March and 25 October 2026 in Lisbon).
+- **Relative days:** "hoje", "ontem", the weekday up to six days ago ("terça-feira"), then "3 de novembro", and "3 de novembro de 2025" in another year.
+- **The detail without network**, for a workout in neither read kept on the device, shows `OfflineState`.
+
+**Reads** (step 4.6.1), through the Data API, with no migration: a workout with its routine, exercises and sets in one request, through the named composite foreign keys (`src/features/workout/api/history.ts`). **Why not an SQL function** like `last_exercise_sets`: the API's row limit applies to the workouts only, a few dozen per read, and grouping by the device's local day would need the time zone passed in.
+- **The heatmap's 12 weeks** (`recentWorkouts`): every workout that finished since the first day shown, through the `(user_id, finished_at desc)` index; one that started the day before is left out. It also feeds Home's card and the detail.
+- **The history** (`history`, an infinite query): 20 per page, paged by a `(finished_at, id)` cursor, not an offset, so a workout that arrives meanwhile does not shift the pages. One more row than a page tells whether there is another.
+- **The detail** (`workoutDetail`): from the queue when waiting, otherwise from the two reads already on the device, and only otherwise from the network. A finished workout does not change, so it is never refetched (`staleTime: Infinity`).
+- **The queue over the reads** (`pendingAsRecords`, `mergeWithPending`) is applied in the hooks, not in the reads: the queue has its own store, so a workout shows at once and loses "Por enviar" when it leaves. A workout in both is the database's.
+- **After a send,** the workout joins the cached reads as saved before it leaves the queue, so it never disappears between the two, and the reads are asked for again.
+- **Kept on the device:** both reads are under `workoutKeys.all`, so they join the copy, and the background preparation fetches them when the app opens. **The history keeps only its first page in the copy** (`trimForCopy`, in the persister's `serialize` and in the immediate save): the other pages are asked for again when needed. A detail read on its own stays a day (`gcTime`), not for good like the other Workout reads. Estimate: about 1.4 kB per workout (6 exercises × 4 sets), so about 70 kB for 12 weeks at 4 workouts a week, and about 28 kB for the history's page.
+- **A new day or week** needs no new key: the window and "hoje"/"ontem" are worked out when drawing, and what falls out of the window is filtered; the next read, when the app opens, brings the rest.
+
 **Development order:** the gym module is built first because it will be used the most.
 
 ### Finance module
@@ -377,7 +397,7 @@ Google's account chooser shows the Supabase project's domain (`<project>.supabas
 - **Preloaded when idle.** Once the app is open and signed in, `AppShell` fetches the Workout chunk with `requestIdleCallback` (a timeout where it is missing). **Why:** if the connection drops after the app opens, tapping Treino still works. A failed preload is caught silently: the app may have opened offline, and tapping the tab tries again.
 - **The promise is not cached.** The browser already reuses a loaded module; a cached rejected promise would make a failed preload fail again on tap instead of retrying.
 - **Measured** (gzip, `npm run build`): moving Workout to `lazy` took the main chunk from 221.53 kB to 185.87 kB. At the end of step 4.4 the main chunk was 189.48 kB and the Workout chunk 45.58 kB. **At the end of step 4.5** (2026-11-11) the bundler splits the code differently: the main chunk is 137.04 kB, a shared chunk loaded with it (`active-workout-*.js`) 59.49 kB, the Workout chunk (`pages-*.js`) 45.16 kB, and the others `prepare-offline-*.js` 2.82 kB, `workbox-window` 2.20 kB and `send-pending-workouts-*.js` 0.79 kB; the CSS is 10.84 kB. What loads at start (main, shared and `prepare-offline`) is 199.35 kB, against 189.48 kB at the end of step 4.4. Vite's 500 kB warning no longer shows.
-- **Found:** the main chunk imports `prepare-offline-*.js` statically (two shared exports), so the Workout data layer, `submit_workout` and `last_exercise_sets` included, loads at start, unlike what `main.tsx` and `AppShell` say (see *Open questions*).
+- **Found:** the main chunk imports `prepare-offline-*.js` statically, so the Workout data layer, `submit_workout` and `last_exercise_sets` included, loads at start, unlike what `main.tsx` and `AppShell` say (see *Open questions*). **Cause** (a sourcemap build, 2026-11-11): the two names it imports are not app code but Rolldown's runtime helpers, `__commonJS` and `__toESM`, which the main chunk needs for CommonJS packages (React). At the end of step 4.5.1 they were in a chunk of their own (`rolldown-runtime-*.js`, 0.6 kB); since step 4.5.2 Rolldown puts them in the `prepare-offline` chunk. **Tried:** a `codeSplitting.groups` entry for the runtime (Rolldown 1.2.15, whose runtime module is `\0rolldown/runtime.js`): it changed nothing, and a logging `test` showed the runtime is never offered to groups. The change was reverted. **Accepted for now** (2026-11-11): 3.59 kB gzip at start, with no effect on behaviour; the comments in `main.tsx`, `AppShell` and `load-sender.ts` say so.
 - **No `HydrateFallback` warning.** React Router warns only when no route on the opened path has a `HydrateFallback`. The root route has one (`AppLoading`, see *Loading screen*), so opening a lazy route directly shows it while the chunk loads, without a warning.
 
 **Package:** React Router 8 has no `react-router-dom` package. Everything is imported from `react-router`, except `RouterProvider`, which comes from `react-router/dom`.
@@ -872,7 +892,7 @@ The MVP runs on free tiers: GitHub, Supabase Free and Vercel Hobby (personal, no
 |---|---|
 | On Vercel, serve `sw.js` without long caching, so new versions are found | Phase 5 |
 | "Há uma versão nova" and "Atualizar" on the installed app, not tested yet (see *Offline handling*) | Phase 5 |
-| The main chunk imports the `prepare-offline` chunk statically, so the Workout data layer loads at start (2.82 kB gzip): find which import, and keep it lazy or update the comments | Step 4.6 |
+| The main chunk imports the `prepare-offline` chunk statically, for Rolldown's runtime helpers, so the Workout data layer loads at start (3.59 kB gzip at step 4.6.1). Accepted for now (2026-11-11), and the comments say so; a `codeSplitting` group does not reach the runtime (see *React Router 8 in data mode*). Check again after the update | When Vite or Rolldown is updated |
 | Backup strategy | Before Phase 5 |
 | Publish the Google OAuth app and complete its Branding (optional: only to show the app's name and logo on Google's sign-in screen) | Phase 5 |
 | Create the production Supabase project (`levelup-prod`) | Phase 5 |

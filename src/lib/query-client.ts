@@ -31,3 +31,9 @@ export const queryClient = new QueryClient({
 // once, which removed these queries a millisecond after they were set. Their
 // age is still limited by the copy's maxAge.
 queryClient.setQueryDefaults(['workout'], { gcTime: Infinity })
+
+// Except a workout's detail read on its own (one not in the recent workouts or
+// the history): each one opened would otherwise stay in the copy for good. A
+// day, and never refetched by itself, since a finished workout does not change.
+// Set after the line above, so it wins for these keys.
+queryClient.setQueryDefaults(['workout', 'workouts', 'detail'], { gcTime: 24 * 60 * 60 * 1000, staleTime: Infinity })

@@ -5,6 +5,7 @@ import {
   copyStorage,
   queryCacheKey,
   shouldPersistQuery,
+  trimForCopy,
 } from '@/lib/query-persistence'
 
 describe('queryCacheKey', () => {
@@ -24,6 +25,48 @@ describe('shouldPersistQuery', () => {
 
   it('does not keep reads of other modules', () => {
     expect(shouldPersistQuery({ queryKey: ['weight'], state: { status: 'success' } })).toBe(false)
+  })
+
+  it('keeps the history and the recent workouts', () => {
+    expect(shouldPersistQuery({ queryKey: ['workout', 'workouts', 'history'], state: { status: 'success' } })).toBe(true)
+    expect(shouldPersistQuery({ queryKey: ['workout', 'workouts', 'recent'], state: { status: 'success' } })).toBe(true)
+  })
+})
+
+describe('trimForCopy', () => {
+  const history = (pages: number) => ({
+    queryKey: ['workout', 'workouts', 'history'],
+    state: {
+      status: 'success',
+      data: {
+        pages: Array.from({ length: pages }, (_, page) => ({ records: [`page ${page}`] })),
+        pageParams: Array.from({ length: pages }, (_, page) => (page === 0 ? null : `cursor ${page}`)),
+      },
+    },
+  })
+
+  it('keeps only the first page of the history', () => {
+    const [trimmed] = trimForCopy({ queries: [history(3)] }).queries
+    expect(trimmed.state.data).toEqual({ pages: [{ records: ['page 0'] }], pageParams: [null] })
+    expect(trimmed.state.status).toBe('success')
+  })
+
+  it('leaves a history of one page, and every other read, as they are', () => {
+    const routines = { queryKey: ['workout', 'routines'], state: { data: { pages: [1, 2], pageParams: [1, 2] } } }
+    const recent = { queryKey: ['workout', 'workouts', 'recent'], state: { data: [{ id: 'w1' }, { id: 'w2' }] } }
+    const one = history(1)
+    const state = { mutations: [], queries: [one, routines, recent] }
+    const trimmed = trimForCopy(state)
+    expect(trimmed.queries[0]).toBe(one)
+    expect(trimmed.queries[1]).toBe(routines)
+    expect(trimmed.queries[2]).toBe(recent)
+    expect(trimmed.mutations).toBe(state.mutations)
+  })
+
+  it('does not change the cache in memory', () => {
+    const query = history(2)
+    trimForCopy({ queries: [query] })
+    expect(query.state.data.pages).toHaveLength(2)
   })
 })
 
