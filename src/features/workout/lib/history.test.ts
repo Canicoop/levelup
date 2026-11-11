@@ -12,6 +12,7 @@ import {
   formatWeekCount,
   formatWorkoutLine,
   formatWorkoutSets,
+  formatWorkoutWhen,
   heatmapLevel,
   heatmapStart,
   heatmapWeeks,
@@ -303,6 +304,11 @@ describe('formatWorkoutSets and formatWorkoutLine', () => {
   it('reads the last workout as "routine · day · duration"', () => {
     const last = { ...record('w', '2026-11-10T18:00:00Z', 3, '2026-11-10T19:05:00Z'), routineName: 'Upper - Peito + Tricep' }
     expect(formatWorkoutLine(last, local('2026-11-11'))).toBe('Upper - Peito + Tricep · ontem · 1 h 05 min')
+  })
+
+  it('reads when and how long, for the line below the routine', () => {
+    const short = record('w', '2026-11-11T08:00:00Z', 1, '2026-11-11T08:00:40Z')
+    expect(formatWorkoutWhen(short, local('2026-11-11', '10:00'))).toBe('hoje · menos de 1 min')
   })
 })
 

@@ -13,7 +13,7 @@ import {
   currentWeek,
   dayTotals,
   formatWeekCount,
-  formatWorkoutLine,
+  formatWorkoutWhen,
   heatmapLevel,
   latestWorkout,
   type DayTotal,
@@ -54,12 +54,17 @@ export function HomeWorkoutSummary() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex h-5 min-w-0 items-center gap-2">
-        <p className="truncate text-sm font-medium">
-          <span className="sr-only">Último treino: </span>
-          {formatWorkoutLine(latest, now)}
-        </p>
-        {latest.pending && <PendingBadge />}
+      {/* The routine on its own line, truncated, so a long name never hides
+          when the workout was and how long it took. */}
+      <div className="flex flex-col gap-0.5">
+        <div className="flex h-5 min-w-0 items-center gap-2">
+          <p className="truncate text-sm font-medium">
+            <span className="sr-only">Último treino: </span>
+            {latest.routineName}
+          </p>
+          {latest.pending && <PendingBadge />}
+        </div>
+        <p className="h-5 truncate text-sm text-muted-foreground">{formatWorkoutWhen(latest, now)}</p>
       </div>
       {/* The count on its own line below the squares, at every width: beside
           them, "Ainda não treinaste esta semana" does not fit, and the card
@@ -93,14 +98,19 @@ function WeekSquares({ now, totals }: { now: Date; totals: Map<string, DayTotal>
   )
 }
 
-// The same three rows as the card with data (the line, the squares, the count),
-// so nothing moves when it arrives.
+// The same rows as the card with data (the routine, when, the squares, the
+// count), so nothing moves when it arrives.
 function SummarySkeleton() {
   return (
     <div aria-busy="true" className="flex flex-col gap-3">
       <span className="sr-only">A carregar…</span>
-      <div aria-hidden className="flex h-5 items-center">
-        <Skeleton className="h-4 w-56 max-w-full" />
+      <div aria-hidden className="flex flex-col gap-0.5">
+        <div className="flex h-5 items-center">
+          <Skeleton className="h-4 w-44 max-w-full" />
+        </div>
+        <div className="flex h-5 items-center">
+          <Skeleton className="h-3.5 w-28" />
+        </div>
       </div>
       <div aria-hidden className="flex flex-col gap-2">
         {/* As wide as the 7 squares: 7 × 16px + 6 × 4px. */}

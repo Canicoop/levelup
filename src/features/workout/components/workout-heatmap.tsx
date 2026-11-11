@@ -22,12 +22,15 @@ import { useNow } from '@/hooks/use-now'
 import { isWaitingForNetwork } from '@/lib/query-state'
 
 // Shared by every day: the same square, whatever it holds.
-const CELL = 'aspect-square w-full rounded-[3px]'
+const CELL = 'aspect-square w-full rounded-[3px] sm:rounded-[5px]'
 
 // The 12-week heatmap of the Workout tab (rule AU): one column per week, oldest
-// first, and one row per day from Monday to Sunday. The columns shrink to fit
-// 320px (about 18px each) and stop at 28px on wide screens. Below 44px the days
-// are a shortcut; the history is the main way to a workout.
+// first, and one row per day from Monday to Sunday. The columns fill the card,
+// shrinking to fit 320px (about 16px each) and stopping at 44px, the touch
+// target size, so on a tablet or desktop each day is a full target. Filling a
+// desktop card completely would mean squares of about 66px and a heatmap taller
+// than the rest of the tab. Below 44px the days are a shortcut; the history is
+// the main way to a workout.
 export function WorkoutHeatmap() {
   const now = useNow()
   const navigate = useNavigate()
@@ -73,7 +76,7 @@ export function WorkoutHeatmap() {
             <div
               role="group"
               aria-labelledby={titleId}
-              className="grid grid-flow-col grid-cols-[repeat(12,minmax(0,1.75rem))] grid-rows-7 gap-1"
+              className="grid grid-flow-col grid-cols-[repeat(12,minmax(0,2.75rem))] grid-rows-7 gap-1 sm:gap-1.5"
             >
               {weeks.flat().map((day) => (
                 <HeatmapCell key={day.day} day={day} sets={totals.get(day.day)?.sets ?? 0} onOpen={openDay} />
@@ -147,7 +150,8 @@ function HeatmapSkeleton() {
       <span className="sr-only">A carregar…</span>
       <Card aria-hidden>
         <div className="px-4">
-          <Skeleton className="aspect-12/7 w-full max-w-90" />
+          {/* As wide as the grid at most: 12 × 44px + 11 × 6px. */}
+          <Skeleton className="aspect-12/7 w-full max-w-[37.125rem]" />
         </div>
       </Card>
     </div>

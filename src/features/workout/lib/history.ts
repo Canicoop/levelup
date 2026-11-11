@@ -241,9 +241,15 @@ export function formatRecordSummary(record: WorkoutRecord, now: Date) {
   ].join(' · ')
 }
 
+// "ontem · 1 h 05 min": when, and how long. Home's card shows it below the
+// routine's name, so a long name never hides it.
+export function formatWorkoutWhen(record: WorkoutRecord, now: Date) {
+  return `${formatRelativeDay(record.startedAt, now)} · ${formatRecordDuration(record)}`
+}
+
 // "Upper - Peito + Tricep · ontem · 1 h 05 min".
 export function formatWorkoutLine(record: WorkoutRecord, now: Date) {
-  return `${record.routineName} · ${formatRelativeDay(record.startedAt, now)} · ${formatRecordDuration(record)}`
+  return `${record.routineName} · ${formatWorkoutWhen(record, now)}`
 }
 
 // ---------------------------------------------------------------------------
