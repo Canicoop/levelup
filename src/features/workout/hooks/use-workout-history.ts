@@ -3,6 +3,7 @@ import { useInfiniteQuery, useQuery, useQueryClient, type QueryClient } from '@t
 import { fetchWorkout, historyOptions, recentWorkoutsOptions, type HistoryPage } from '@/features/workout/api/history'
 import { workoutKeys } from '@/features/workout/api/query-keys'
 import { usePendingWorkouts } from '@/features/workout/hooks/use-finished-workouts'
+import { NotFoundError } from '@/features/workout/lib/errors'
 import { mergeWithPending, pendingAsRecords, type WorkoutRecord } from '@/features/workout/lib/history'
 
 // The reads of finished workouts, with the ones waiting to be sent laid over
@@ -57,6 +58,8 @@ export function useWorkoutDetail(id: string) {
     queryFn: () => fetchWorkout(id),
     enabled: !fromQueue,
     initialData: () => findCachedWorkout(queryClient, id),
+    // A workout that does not exist will not exist on a retry either.
+    retry: (failures, error) => !(error instanceof NotFoundError) && failures < 3,
   })
   return { query, record: fromQueue ?? query.data }
 }

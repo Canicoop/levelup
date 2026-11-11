@@ -3,6 +3,7 @@ export { ActiveWorkoutPage } from '@/features/workout/pages/active-workout-page'
 export { ExercisesPage } from '@/features/workout/pages/exercises-page'
 export { FinishedWorkoutPage } from '@/features/workout/pages/finished-workout-page'
 export { RoutineEditorPage } from '@/features/workout/pages/routine-editor-page'
+export { WorkoutDetailPage } from '@/features/workout/pages/workout-detail-page'
 export { WorkoutPage } from '@/features/workout/pages/workout-page'
 // Not a page: Home's workout card loads it lazily, to keep the drawer out of
 // the main chunk (see ActiveWorkoutCard).

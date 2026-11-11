@@ -50,6 +50,10 @@ export const router = createBrowserRouter([
             lazy: { Component: async () => (await loadWorkoutPages()).RoutineEditorPage },
           },
           {
+            path: 'treino/historico/:id',
+            lazy: { Component: async () => (await loadWorkoutPages()).WorkoutDetailPage },
+          },
+          {
             path: 'treino/exercicios',
             lazy: { Component: async () => (await loadWorkoutPages()).ExercisesPage },
           },

@@ -1,4 +1,5 @@
-import { formatDuration } from '@/features/workout/lib/finish-labels'
+import { formatClock, formatDuration, formatSetCount } from '@/features/workout/lib/finish-labels'
+import { formatExerciseCount } from '@/features/workout/lib/labels'
 import { sendablePendingWorkouts, type PendingWorkout } from '@/features/workout/lib/pending-workouts'
 import { formatWeight } from '@/features/workout/lib/set-values'
 import { toISODate } from '@/lib/format'
@@ -176,6 +177,51 @@ export function formatWorkoutSets(sets: HistorySet[]) {
 
 export function formatRecordDuration(record: Pick<WorkoutRecord, 'startedAt' | 'finishedAt'>) {
   return formatDuration(Date.parse(record.finishedAt) - Date.parse(record.startedAt))
+}
+
+// A day of the heatmap ("2026-11-03") as a local date at midnight.
+function fromDayKey(day: string) {
+  const [year, month, date] = day.split('-').map(Number)
+  return new Date(year, month - 1, date)
+}
+
+const longDayFormat = new Intl.DateTimeFormat('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' })
+const longDayYearFormat = new Intl.DateTimeFormat('pt-PT', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+})
+
+function capitalize(text: string) {
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
+// "Terça-feira, 3 de novembro", for a heatmap day and its sheet's title.
+export function formatDayLabel(day: string) {
+  return capitalize(longDayFormat.format(fromDayKey(day)))
+}
+
+// A heatmap day for screen readers: "Terça-feira, 3 de novembro: 18 séries".
+export function formatHeatmapDayLabel(day: string, sets: number) {
+  return `${formatDayLabel(day)}: ${sets === 0 ? 'sem treino' : formatSetCount(sets)}`
+}
+
+// "terça-feira, 3 de novembro, 19:42", with the year when it is not this one.
+export function formatWorkoutDateTime(iso: string, now: Date) {
+  const date = new Date(iso)
+  const day = date.getFullYear() === now.getFullYear() ? longDayFormat : longDayYearFormat
+  return `${day.format(date)}, ${formatClock(iso)}`
+}
+
+// "ontem · 1 h 05 min · 4 exercícios · 15 séries", under a history row.
+export function formatRecordSummary(record: WorkoutRecord, now: Date) {
+  return [
+    formatRelativeDay(record.startedAt, now),
+    formatRecordDuration(record),
+    formatExerciseCount(record.exercises.length),
+    formatSetCount(countRecordSets(record)),
+  ].join(' · ')
 }
 
 // "Upper - Peito + Tricep · ontem · 1 h 05 min".

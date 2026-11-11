@@ -3,7 +3,11 @@ import {
   addDays,
   countTrainingDaysThisWeek,
   dayTotals,
+  formatDayLabel,
+  formatHeatmapDayLabel,
+  formatRecordSummary,
   formatRelativeDay,
+  formatWorkoutDateTime,
   formatWeekCount,
   formatWorkoutLine,
   formatWorkoutSets,
@@ -240,6 +244,42 @@ describe('formatWorkoutSets and formatWorkoutLine', () => {
   it('reads the last workout as "routine · day · duration"', () => {
     const last = { ...record('w', '2026-11-10T18:00:00Z', 3, '2026-11-10T19:05:00Z'), routineName: 'Upper - Peito + Tricep' }
     expect(formatWorkoutLine(last, local('2026-11-11'))).toBe('Upper - Peito + Tricep · ontem · 1 h 05 min')
+  })
+})
+
+describe('the labels of a day and a workout', () => {
+  it('names a heatmap day, capitalised', () => {
+    expect(formatDayLabel('2026-11-03')).toBe('Terça-feira, 3 de novembro')
+  })
+
+  it.each([
+    [18, 'Terça-feira, 3 de novembro: 18 séries'],
+    [1, 'Terça-feira, 3 de novembro: 1 série'],
+    [0, 'Terça-feira, 3 de novembro: sem treino'],
+  ])('reads a day with %i sets as "%s"', (sets, text) => {
+    expect(formatHeatmapDayLabel('2026-11-03', sets)).toBe(text)
+  })
+
+  it('reads a workout start with the day and the local time', () => {
+    expect(formatWorkoutDateTime('2026-11-03T19:42:00Z', local('2026-11-11'))).toBe('terça-feira, 3 de novembro, 19:42')
+    expect(formatWorkoutDateTime('2026-07-01T18:05:00Z', local('2026-11-11'))).toBe('quarta-feira, 1 de julho, 19:05')
+  })
+
+  it('adds the year for another year', () => {
+    expect(formatWorkoutDateTime('2025-11-03T19:42:00Z', local('2026-11-11'))).toBe(
+      'segunda-feira, 3 de novembro de 2025, 19:42',
+    )
+  })
+
+  it('sums up a history row', () => {
+    const row: WorkoutRecord = {
+      ...record('w', '2026-11-10T18:00:00Z', 3, '2026-11-10T19:05:00Z'),
+      exercises: [
+        { exerciseId: 'a', name: 'Supino', sets: [{ weightKg: 60, reps: 8 }, { weightKg: 60, reps: 7 }] },
+        { exerciseId: 'b', name: 'Remada', sets: [{ weightKg: 50, reps: 10 }] },
+      ],
+    }
+    expect(formatRecordSummary(row, local('2026-11-11'))).toBe('ontem · 1 h 05 min · 2 exercícios · 3 séries')
   })
 })
 
