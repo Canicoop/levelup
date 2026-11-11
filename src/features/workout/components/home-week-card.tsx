@@ -6,7 +6,7 @@ import { OfflineState } from '@/components/offline-state'
 import { buttonVariants } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { HeatmapGrid } from '@/features/workout/components/heatmap-grid'
+import { HeatmapBarsSkeleton, HeatmapGrid } from '@/features/workout/components/heatmap-grid'
 import { useActiveWorkout } from '@/features/workout/hooks/use-active-workout'
 import { useRecentWorkouts } from '@/features/workout/hooks/use-workout-history'
 import { useRoutines } from '@/features/workout/hooks/use-workout-queries'
@@ -79,10 +79,9 @@ export function HomeWeekCard() {
           ) : recent.query.isError ? (
             <ErrorState onRetry={() => void recent.query.refetch()} />
           ) : (
-            // As tall as the bars: 7 rows of 10px (12px from 640px) and 6 gaps of 3px.
             <div aria-busy="true">
               <span className="sr-only">A carregar…</span>
-              <Skeleton aria-hidden className="h-22 w-full sm:h-25.5" />
+              <HeatmapBarsSkeleton />
             </div>
           )}
 

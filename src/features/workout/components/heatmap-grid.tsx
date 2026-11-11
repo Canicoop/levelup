@@ -1,4 +1,5 @@
 import { cn } from 'cn'
+import { Skeleton } from '@/components/ui/skeleton'
 import { FUTURE_CLASSES, LEVEL_CLASSES, TODAY_CLASSES } from '@/features/workout/components/heatmap-styles'
 import {
   formatHeatmapDayLabel,
@@ -19,7 +20,7 @@ type HeatmapGridProps = {
       onOpen: (day: string) => void
     }
   | {
-      // Home: low bars across the whole card, only to look at, hidden from
+      // Home: 2:1 bars across the whole card, only to look at, hidden from
       // screen readers (the card says it in text). No today ring, as in the
       // "Graphite" mockup.
       variant: 'bars'
@@ -35,12 +36,12 @@ export function HeatmapGrid(props: HeatmapGridProps) {
 
   if (props.variant === 'bars') {
     return (
-      <div aria-hidden className="grid grid-flow-col grid-cols-12 grid-rows-7 gap-[3px]">
+      <div aria-hidden className={BARS_GRID}>
         {days.map((day) => (
           <span
             key={day.day}
             className={cn(
-              'h-2.5 rounded-[2px] sm:h-3',
+              BAR,
               day.isFuture ? 'bg-heatmap-0 opacity-40' : LEVEL_CLASSES[heatmapLevel(totals.get(day.day)?.sets ?? 0)],
             )}
           />
@@ -58,6 +59,27 @@ export function HeatmapGrid(props: HeatmapGridProps) {
       {days.map((day) => (
         <SquareCell key={day.day} day={day} sets={totals.get(day.day)?.sets ?? 0} onOpen={props.onOpen} />
       ))}
+    </div>
+  )
+}
+
+// Home's bars keep the mockup's shape at every width: twice as wide as tall,
+// so the grid grows with the card instead of turning into thin stripes on
+// desktop. 3px gaps on a phone, 4px from 640px.
+const BARS_GRID = 'grid grid-flow-col grid-cols-12 grid-rows-7 gap-[3px] sm:gap-1'
+const BAR = 'aspect-[2/1] w-full rounded-[3px]'
+
+// The bars' skeleton: the same grid, invisible, under one pulsing block, so it
+// is exactly as tall as the bars at any width.
+export function HeatmapBarsSkeleton() {
+  return (
+    <div aria-hidden className="relative">
+      <div className={cn(BARS_GRID, 'invisible')}>
+        {Array.from({ length: 84 }, (_, index) => (
+          <span key={index} className={BAR} />
+        ))}
+      </div>
+      <Skeleton className="absolute inset-0" />
     </div>
   )
 }
