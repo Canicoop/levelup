@@ -302,7 +302,7 @@ export function formatDayLabel(day: string) {
 }
 
 // A heatmap day for screen readers: "Terça-feira, 3 de novembro: 18 séries".
-export function formatHeatmapDayLabel(day: string, sets: number) {
+export function formatCalendarDayLabel(day: string, sets: number) {
   return `${formatDayLabel(day)}: ${sets === 0 ? 'sem treino' : formatSetCount(sets)}`
 }
 

@@ -1,6 +1,7 @@
 import type { InfiniteData, QueryClient } from '@tanstack/react-query'
 import type { HistoryCursor, HistoryPage } from '@/features/workout/api/history'
 import { getAccountId, subscribeToAccount } from '@/features/auth/account'
+import { dropSentWorkout } from '@/features/workout/active-workout-store'
 import { workoutKeys } from '@/features/workout/api/query-keys'
 import { clearLastFinished } from '@/features/workout/last-finished-store'
 import { setSendingId } from '@/features/workout/sending-state'
@@ -73,9 +74,13 @@ async function sendAll(queryClient: QueryClient) {
     const outcome = await submitWorkout(pending.payload).finally(() => setSendingId(null))
     if (outcome.kind === 'saved') {
       // Into the reads first, then out of the queue, so the history and the
-      // calendar never lose it between the two.
-      keepInReads(queryClient, pending)
+      // calendar never lose it between the two. The reads in memory are the
+      // current account's: if the account changed while this was being sent,
+      // they belong to another one and are left alone (the queue and the stored
+      // workout are by account, so they are still updated).
+      if (getAccountId() === accountId) keepInReads(queryClient, pending)
       removeFromPendingWorkouts(accountId, pending.payload.id)
+      dropSentWorkout(accountId, pending.payload.id)
       saved = true
     } else if (outcome.kind === 'rejected') {
       markPendingWorkoutRejected(accountId, pending.payload.id, outcome.code)

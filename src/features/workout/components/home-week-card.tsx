@@ -6,7 +6,7 @@ import { OfflineState } from '@/components/offline-state'
 import { buttonVariants } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { CALENDAR_HINT, HeatmapDayDetails } from '@/features/workout/components/heatmap-day-details'
+import { CALENDAR_HINT, CalendarDayDetails } from '@/features/workout/components/calendar-day-details'
 import {
   CalendarGrid,
   CalendarSkeleton,
@@ -173,7 +173,7 @@ export function HomeWeekCard() {
             {/* From 1024px the day's name lines up with the month's title. */}
             <div className="lg:min-w-0 lg:flex-1 lg:pt-3">
               {shown.records ? (
-                <HeatmapDayDetails
+                <CalendarDayDetails
                   day={selectedDay}
                   workouts={selectedDay ? (totals.get(selectedDay)?.workouts ?? []) : []}
                   announcement={announcement}

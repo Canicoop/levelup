@@ -2,10 +2,10 @@ import type { KeyboardEvent, MouseEvent, ReactNode } from 'react'
 import { cn } from 'cn'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
-import { LEVEL_CLASSES, LEVEL_TEXT_CLASSES, SELECTED_CLASSES } from '@/features/workout/components/heatmap-styles'
+import { LEVEL_CLASSES, LEVEL_TEXT_CLASSES, SELECTED_CLASSES } from '@/features/workout/components/calendar-styles'
 import {
   addMonths,
-  formatHeatmapDayLabel,
+  formatCalendarDayLabel,
   formatMonthTitle,
   heatmapLevel,
   type CalendarDay,
@@ -164,7 +164,7 @@ function CalendarCell({ day, sets, selected }: { day: CalendarDay; sets: number;
     <button
       type="button"
       data-day={day.day}
-      aria-label={formatHeatmapDayLabel(day.day, sets)}
+      aria-label={formatCalendarDayLabel(day.day, sets)}
       aria-pressed={selected}
       aria-current={day.isToday ? 'date' : undefined}
       className={cn(CELL, 'group touch-manipulation outline-none select-none')}

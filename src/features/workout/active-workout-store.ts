@@ -2,6 +2,7 @@ import { getAccountId, subscribeToAccount } from '@/features/auth/account'
 import type { ActiveWorkout } from '@/features/workout/lib/active-workout'
 import {
   activeWorkoutKey,
+  isStoredWorkout,
   parseStoredWorkout,
   serializeWorkout,
 } from '@/features/workout/lib/active-workout-storage'
@@ -90,6 +91,24 @@ export function setActiveWorkout(next: ActiveWorkout | null, { keepStored = fals
   workout = next
   if (!keepStored) save(userId, next)
   notify()
+}
+
+// A workout just sent is never the workout in progress again: its stored copy
+// goes (it is left there when the queue could not be written, see
+// isStoredWorkout), and so does the one in memory here; other tabs follow
+// through the storage event. Only that account's copy, and only that workout.
+export function dropSentWorkout(accountId: string, id: string) {
+  try {
+    if (isStoredWorkout(localStorage.getItem(activeWorkoutKey(accountId)), id)) {
+      localStorage.removeItem(activeWorkoutKey(accountId))
+    }
+  } catch {
+    // Storage blocked: there is nothing stored to remove.
+  }
+  if (accountId === userId && workout?.id === id) {
+    workout = null
+    notify()
+  }
 }
 
 export function getActiveWorkoutAccountId() {

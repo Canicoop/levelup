@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ActiveWorkout } from '@/features/workout/lib/active-workout'
 import {
   activeWorkoutKey,
+  isStoredWorkout,
   parseStoredWorkout,
   serializeWorkout,
 } from '@/features/workout/lib/active-workout-storage'
@@ -38,6 +39,19 @@ function stored(changes: object, version = 1) {
 describe('activeWorkoutKey', () => {
   it('is one key per account', () => {
     expect(activeWorkoutKey('user-1')).toBe('levelup:active-workout:user-1')
+  })
+})
+
+describe('isStoredWorkout', () => {
+  it('is true only for the stored workout with that id', () => {
+    expect(isStoredWorkout(serializeWorkout(workout), 'workout-1')).toBe(true)
+    expect(isStoredWorkout(serializeWorkout(workout), 'workout-2')).toBe(false)
+  })
+
+  it('is false with nothing stored or a damaged value', () => {
+    expect(isStoredWorkout(null, 'workout-1')).toBe(false)
+    expect(isStoredWorkout('{not json', 'workout-1')).toBe(false)
+    expect(isStoredWorkout(stored({}, 99), 'workout-1')).toBe(false)
   })
 })
 

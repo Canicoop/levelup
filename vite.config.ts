@@ -34,7 +34,8 @@ export default defineConfig({
     },
   },
   // Vitest reads this file, so tests share the @/ alias. They run in Node (the
-  // default environment): only pure functions are tested for now.
+  // default environment): pure functions, and mocks only where no pure function
+  // can hold the rule (see Unit tests in docs/decisions.md).
   test: {
     // Unit tests sit next to the code they test.
     include: ['src/**/*.test.ts'],

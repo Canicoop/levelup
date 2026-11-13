@@ -11,7 +11,8 @@ type DiscardPendingSheetProps = {
 }
 
 // "Descartar" on a workout the database refused. Loaded lazily from the Workout
-// chunk where Home shows it, like DiscardWorkoutSheet.
+// chunk wherever the queue line shows it, Home included, so the drawer stays
+// out of the main chunk.
 export function DiscardPendingSheet({ open, onOpenChange, sets, onDiscard }: DiscardPendingSheetProps) {
   return (
     <BottomSheet open={open} onOpenChange={onOpenChange} title="Descartar este treino?">

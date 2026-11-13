@@ -12,7 +12,7 @@ import {
   formatMonthSummary,
   formatMonthTitle,
   formatWeekGoal,
-  formatHeatmapDayLabel,
+  formatCalendarDayLabel,
   formatRecordSummary,
   formatRelativeDay,
   formatWorkoutDateTime,
@@ -382,7 +382,7 @@ describe('the labels of a day and a workout', () => {
     [1, 'Terça-feira, 3 de novembro: 1 série'],
     [0, 'Terça-feira, 3 de novembro: sem treino'],
   ])('reads a day with %i sets as "%s"', (sets, text) => {
-    expect(formatHeatmapDayLabel('2026-11-03', sets)).toBe(text)
+    expect(formatCalendarDayLabel('2026-11-03', sets)).toBe(text)
   })
 
   it('reads a workout start with the day and the local time', () => {

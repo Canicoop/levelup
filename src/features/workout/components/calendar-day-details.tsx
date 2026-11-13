@@ -7,7 +7,7 @@ import { countRecordSets, formatDayLabel, type WorkoutRecord } from '@/features/
 // What the line says, and what screen readers hear, with no day selected.
 export const CALENDAR_HINT = 'Toca num dia para ver o treino.'
 
-type HeatmapDayDetailsProps = {
+type CalendarDayDetailsProps = {
   // The day picked on the calendar, or null.
   day: string | null
   workouts: WorkoutRecord[]
@@ -23,7 +23,7 @@ type HeatmapDayDetailsProps = {
 //
 // The announcement sits in a hidden live region of its own, so screen readers
 // hear one sentence for the day rather than the whole line.
-export function HeatmapDayDetails({ day, workouts, announcement }: HeatmapDayDetailsProps) {
+export function CalendarDayDetails({ day, workouts, announcement }: CalendarDayDetailsProps) {
   return (
     // Top-aligned, so the hint sits where a selected day's name does.
     <div className="flex min-h-17 flex-col">

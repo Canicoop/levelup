@@ -1,4 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query'
+import { getAccountId } from '@/features/auth/account'
 import { fetchExercises } from '@/features/workout/api/exercises'
 import { firstWorkoutMonthOptions, historyOptions, monthWorkoutsOptions } from '@/features/workout/api/history'
 import { workoutKeys } from '@/features/workout/api/query-keys'
@@ -14,7 +15,15 @@ import { addMonths, monthOf } from '@/features/workout/lib/history'
 // workoutKeys.all, so they are kept on the device (see QueryProvider), and
 // starting, "Trocar" and "+ Adicionar exercício" find them there.
 // Failures are ignored: this only adds to what is already there.
+//
+// The reads below are written into the cache by hand after an await, so each
+// write first checks that the account is still the one that asked: one that
+// changed meanwhile (the cache was cleared for it) must not get another
+// account's routines or sets. The prefetches need no check: clearing the cache
+// removes their queries, so a late answer reaches no one.
 export async function prepareWorkoutOffline(queryClient: QueryClient) {
+  const accountId = getAccountId()
+  const sameAccount = () => accountId !== null && getAccountId() === accountId
   void queryClient.prefetchQuery({ queryKey: workoutKeys.routines(), queryFn: fetchRoutines })
   void queryClient.prefetchQuery({ queryKey: workoutKeys.exercises(), queryFn: fetchExercises })
   void queryClient.prefetchQuery({ queryKey: workoutKeys.lastRoutineId(), queryFn: fetchLastRoutineId })
@@ -29,10 +38,13 @@ export async function prepareWorkoutOffline(queryClient: QueryClient) {
 
   try {
     const routines = await fetchActiveRoutinesWithExercises()
+    if (!sameAccount()) return
     for (const routine of routines) queryClient.setQueryData(workoutKeys.routine(routine.id), routine)
 
     const exerciseIds = [...new Set(routines.flatMap((routine) => routine.exercises.map((e) => e.exercise_id)))]
-    if (exerciseIds.length > 0) saveLastSetsCopy(queryClient, exerciseIds, await fetchLastSets(exerciseIds))
+    if (exerciseIds.length === 0) return
+    const lastSets = await fetchLastSets(exerciseIds)
+    if (sameAccount()) saveLastSetsCopy(queryClient, exerciseIds, lastSets)
   } catch {
     // Offline or failing: what was kept from the last time stays.
   }

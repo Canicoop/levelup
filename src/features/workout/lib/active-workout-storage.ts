@@ -94,6 +94,15 @@ export function parseStoredWorkout(raw: string | null): ActiveWorkout | null {
   }
 }
 
+// Whether the stored value is the workout with this id. After that workout is
+// sent, its copy as the workout in progress must go: it stays stored when the
+// queue could not be written (see finishActiveWorkout), and would otherwise
+// come back as in progress on the next opening, where sets added to it would be
+// lost, since the database ignores an id it already has.
+export function isStoredWorkout(raw: string | null, id: string) {
+  return parseStoredWorkout(raw)?.id === id
+}
+
 // doneAt came after the first workouts were stored, so it may be missing. A
 // damaged one is dropped rather than losing the workout: the set then only
 // counts as "time unknown" for the finish time.

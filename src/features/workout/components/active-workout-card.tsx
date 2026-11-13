@@ -1,25 +1,18 @@
-import { Suspense, lazy, useState } from 'react'
+import { useState } from 'react'
 import { cn } from 'cn'
 import { Link } from 'react-router'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { setActiveWorkout } from '@/features/workout/active-workout-store'
+import { DiscardWorkoutSheet } from '@/features/workout/components/discard-workout-sheet'
 import { countLoggedSets, type ActiveWorkout } from '@/features/workout/lib/active-workout'
 import { formatLoggedSets } from '@/features/workout/lib/labels'
-import { loadWorkoutPages } from '@/features/workout/load-pages'
 
-// Home loads with the main chunk and this card must not show late, but the
-// sheet would bring the drawer into it. So only the sheet is lazy, from the
-// Workout chunk, which is usually preloaded by the time it is needed.
-const DiscardWorkoutSheet = lazy(() =>
-  loadWorkoutPages().then(({ DiscardWorkoutSheet }) => ({ default: DiscardWorkoutSheet })),
-)
-
-// A workout in progress, on the Workout tab and on Home.
+// A workout in progress, at the top of the Workout tab. Only there (Home has
+// had no card for it since step 4.6.5), so it lives in the Workout chunk with
+// its confirmation sheet, and the drawer stays out of the main chunk.
 export function ActiveWorkoutCard({ workout }: { workout: ActiveWorkout }) {
   const [confirming, setConfirming] = useState(false)
-  // Stays mounted once opened, so the sheet can animate out.
-  const [sheetLoaded, setSheetLoaded] = useState(false)
   const loggedSets = countLoggedSets(workout)
 
   function discard() {
@@ -27,7 +20,6 @@ export function ActiveWorkoutCard({ workout }: { workout: ActiveWorkout }) {
       setActiveWorkout(null)
       return
     }
-    setSheetLoaded(true)
     setConfirming(true)
   }
 
@@ -48,11 +40,7 @@ export function ActiveWorkoutCard({ workout }: { workout: ActiveWorkout }) {
           </Button>
         </div>
       </div>
-      {sheetLoaded && (
-        <Suspense fallback={null}>
-          <DiscardWorkoutSheet open={confirming} onOpenChange={setConfirming} loggedSets={loggedSets} />
-        </Suspense>
-      )}
+      <DiscardWorkoutSheet open={confirming} onOpenChange={setConfirming} loggedSets={loggedSets} />
     </Card>
   )
 }
