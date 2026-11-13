@@ -27,9 +27,11 @@ describe('shouldPersistQuery', () => {
     expect(shouldPersistQuery({ queryKey: ['weight'], state: { status: 'success' } })).toBe(false)
   })
 
-  it('keeps the history and the recent workouts', () => {
+  it('keeps the history and the months', () => {
     expect(shouldPersistQuery({ queryKey: ['workout', 'workouts', 'history'], state: { status: 'success' } })).toBe(true)
-    expect(shouldPersistQuery({ queryKey: ['workout', 'workouts', 'recent'], state: { status: 'success' } })).toBe(true)
+    expect(shouldPersistQuery({ queryKey: ['workout', 'workouts', 'month', '2026-11'], state: { status: 'success' } })).toBe(
+      true,
+    )
   })
 })
 
@@ -53,14 +55,33 @@ describe('trimForCopy', () => {
 
   it('leaves a history of one page, and every other read, as they are', () => {
     const routines = { queryKey: ['workout', 'routines'], state: { data: { pages: [1, 2], pageParams: [1, 2] } } }
-    const recent = { queryKey: ['workout', 'workouts', 'recent'], state: { data: [{ id: 'w1' }, { id: 'w2' }] } }
+    const first = { queryKey: ['workout', 'workouts', 'first-month'], state: { data: '2026-03' } }
     const one = history(1)
-    const state = { mutations: [], queries: [one, routines, recent] }
+    const state = { mutations: [], queries: [one, routines, first] }
     const trimmed = trimForCopy(state)
     expect(trimmed.queries[0]).toBe(one)
     expect(trimmed.queries[1]).toBe(routines)
-    expect(trimmed.queries[2]).toBe(recent)
+    expect(trimmed.queries[2]).toBe(first)
     expect(trimmed.mutations).toBe(state.mutations)
+  })
+
+  const month = (key: string) => ({ queryKey: ['workout', 'workouts', 'month', key], state: { data: [] } })
+
+  it('keeps only this month and the one before', () => {
+    const queries = [month('2026-11'), month('2026-10'), month('2026-09'), month('2025-11')]
+    const kept = trimForCopy({ queries }, new Date(2026, 10, 11)).queries.map((query) => query.queryKey[3])
+    expect(kept).toEqual(['2026-11', '2026-10'])
+  })
+
+  it('reaches back into the year before in January', () => {
+    const queries = [month('2027-01'), month('2026-12'), month('2026-11')]
+    const kept = trimForCopy({ queries }, new Date(2027, 0, 1, 0, 30)).queries.map((query) => query.queryKey[3])
+    expect(kept).toEqual(['2027-01', '2026-12'])
+  })
+
+  it('drops the 12 weeks read that the calendar replaced', () => {
+    const recent = { queryKey: ['workout', 'workouts', 'recent'], state: { data: [{ id: 'w1' }] } }
+    expect(trimForCopy({ queries: [recent, history(1)] }).queries).toHaveLength(1)
   })
 
   it('does not change the cache in memory', () => {

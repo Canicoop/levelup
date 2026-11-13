@@ -4,7 +4,7 @@ import { sendablePendingWorkouts, type PendingWorkout } from '@/features/workout
 import { formatWeight } from '@/features/workout/lib/set-values'
 import { toISODate } from '@/lib/format'
 
-// A finished workout as the history, the heatmap and the detail show it. The
+// A finished workout as the history, the calendar and the detail show it. The
 // same shape whether it comes from the database or from the queue (pending:
 // still waiting to be sent, shown as "Por enviar").
 export type HistorySet = { weightKg: number; reps: number }
@@ -75,37 +75,82 @@ export function startOfWeek(date: Date) {
   return addDays(day, -((day.getDay() + 6) % 7))
 }
 
-export const HEATMAP_WEEKS = 12
-
-// Midnight of the first day the heatmap shows: the Monday 11 weeks before this
-// week's, so 12 columns in all.
-export function heatmapStart(today: Date) {
-  return addDays(startOfWeek(today), -7 * (HEATMAP_WEEKS - 1))
-}
-
 // A workout belongs to the day it started, so one that starts at 23:50 and
 // ends after midnight counts on the first day.
 export function workoutDay(record: Pick<WorkoutRecord, 'startedAt'>) {
   return toISODate(new Date(record.startedAt))
 }
 
-export type HeatmapDay = { day: string; isToday: boolean; isFuture: boolean }
+// ---------------------------------------------------------------------------
+// Months, for Home's calendar (rule AU). A month is "2026-11", in local time.
+// ---------------------------------------------------------------------------
 
-// 12 columns (weeks, oldest first), each with 7 days from Monday to Sunday.
-export function heatmapWeeks(today: Date): HeatmapDay[][] {
-  const start = heatmapStart(today)
+export type Month = string
+
+export function monthOf(date: Date): Month {
+  return toISODate(date).slice(0, 7)
+}
+
+// Midnight of the month's first day.
+export function monthStart(month: Month) {
+  const [year, index] = month.split('-').map(Number)
+  return new Date(year, index - 1, 1)
+}
+
+export function addMonths(month: Month, months: number): Month {
+  const start = monthStart(month)
+  return monthOf(new Date(start.getFullYear(), start.getMonth() + months, 1))
+}
+
+// What a month's read asks for, by finished_at: from midnight of its first day
+// to a day after midnight of the next month's first day. A workout belongs to
+// the day it started (inMonth), so one that starts on the 31st at 23:50 and
+// ends after midnight is still found; the database refuses workouts of 24
+// hours or more, so a day is enough.
+export function monthReadRange(month: Month) {
+  return { from: monthStart(month), until: addDays(monthStart(addMonths(month, 1)), 1) }
+}
+
+// Only the workouts that started in the month.
+export function inMonth(records: WorkoutRecord[], month: Month) {
+  return records.filter((record) => workoutDay(record).startsWith(`${month}-`))
+}
+
+export type CalendarDay = {
+  day: string
+  // 1 to 31; days of the months around it are left empty.
+  date: number
+  inMonth: boolean
+  isToday: boolean
+  isFuture: boolean
+}
+
+// Always 6 weeks of 7 days, Monday to Sunday, from the Monday on or before the
+// month's first day, so the calendar keeps its height whether the month takes
+// 4, 5 or 6 rows.
+export const CALENDAR_WEEKS = 6
+
+export function calendarWeeks(month: Month, today: Date): CalendarDay[][] {
+  const start = startOfWeek(monthStart(month))
   const todayKey = toISODate(today)
-  return Array.from({ length: HEATMAP_WEEKS }, (_week, week) =>
+  return Array.from({ length: CALENDAR_WEEKS }, (_week, week) =>
     Array.from({ length: 7 }, (_day, weekday) => {
-      const day = toISODate(addDays(start, week * 7 + weekday))
-      return { day, isToday: day === todayKey, isFuture: day > todayKey }
+      const date = addDays(start, week * 7 + weekday)
+      const day = toISODate(date)
+      return {
+        day,
+        date: date.getDate(),
+        inMonth: monthOf(date) === month,
+        isToday: day === todayKey,
+        isFuture: day > todayKey,
+      }
     }),
   )
 }
 
 // The most recent workout of both reads (and the queue they already carry), or
-// null with none. Both, because the last workout can be older than the
-// heatmap's 12 weeks, and only the history has it then.
+// null with none. Both, because the last workout can be older than this month,
+// and only the history has it then.
 export function latestWorkout(recent: WorkoutRecord[], history: WorkoutRecord[]) {
   return mergeWithPending(recent, history)[0] ?? null
 }
@@ -146,30 +191,6 @@ export function countTrainingDaysThisWeek(today: Date, totals: Map<string, DayTo
   return days
 }
 
-// The keyboard on Home's heatmap: one tab stop, and the arrows move between the
-// days with a workout in calendar order (`days`, oldest first). ← and ↑ go to
-// the previous one, → and ↓ to the next, Home and End to the first and the last;
-// at either end it stays. From no day (`current` not in the list), → starts at
-// the first and ← at the last. Null for any other key.
-export function stepWorkoutDay(days: string[], current: string | null, key: string) {
-  if (days.length === 0) return null
-  const index = current === null ? -1 : days.indexOf(current)
-  switch (key) {
-    case 'ArrowLeft':
-    case 'ArrowUp':
-      return days[index === -1 ? days.length - 1 : Math.max(index - 1, 0)]
-    case 'ArrowRight':
-    case 'ArrowDown':
-      return days[index === -1 ? 0 : Math.min(index + 1, days.length - 1)]
-    case 'Home':
-      return days[0]
-    case 'End':
-      return days[days.length - 1]
-    default:
-      return null
-  }
-}
-
 // Home's headline: the days with a workout this week against the goal, the
 // number of active routines ("2 de 5 treinos", "1 de 1 treino"). Without a goal
 // (no active routines, or the routines not known), only the count:
@@ -179,18 +200,39 @@ export function formatWeekGoal(days: number, goal: number | null) {
   return `${days} de ${goal} ${goal === 1 ? 'treino' : 'treinos'}`
 }
 
-// Days with at least one workout, in the totals given (the heatmap's 12 weeks).
+// What screen readers hear once a day is selected: "Terça-feira, 3 de novembro:
+// Pull, 12 séries; Push, 6 séries", or "…: sem treino".
+export function formatDayAnnouncement(day: string, workouts: WorkoutRecord[]) {
+  if (workouts.length === 0) return `${formatDayLabel(day)}: sem treino`
+  const lines = workouts.map((record) =>
+    [record.routineName, formatSetCount(countRecordSets(record)), record.pending && 'por enviar']
+      .filter(Boolean)
+      .join(', '),
+  )
+  return `${formatDayLabel(day)}: ${lines.join('; ')}`
+}
+
+// Days with at least one workout, in the totals given (a month's).
 export function countTrainingDays(totals: Map<string, DayTotal>) {
   let days = 0
   for (const total of totals.values()) if (total.sets > 0) days++
   return days
 }
 
-// What Home's heatmap says first to screen readers: the 12 weeks in one
-// sentence, before the days with a workout.
-export function formatHeatmapSummary(days: number) {
-  if (days === 0) return 'Nas últimas 12 semanas ainda não treinaste.'
-  return `Nas últimas 12 semanas treinaste em ${days} ${days === 1 ? 'dia' : 'dias'}.`
+const monthNameFormat = new Intl.DateTimeFormat('pt-PT', { month: 'long' })
+
+// The calendar's title: "Novembro 2026", without "de".
+export function formatMonthTitle(month: Month) {
+  const start = monthStart(month)
+  return `${capitalize(monthNameFormat.format(start))} ${start.getFullYear()}`
+}
+
+// What the calendar says first to screen readers: the month in one sentence,
+// before the days with a workout. "Ainda" only for the month still running.
+export function formatMonthSummary(month: Month, days: number, today: Date) {
+  const name = monthNameFormat.format(monthStart(month))
+  if (days > 0) return `Em ${name} treinaste em ${days} ${days === 1 ? 'dia' : 'dias'}.`
+  return month === monthOf(today) ? `Em ${name} ainda não treinaste.` : `Em ${name} não treinaste.`
 }
 
 // ---------------------------------------------------------------------------
@@ -246,7 +288,7 @@ function capitalize(text: string) {
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
-// "Terça-feira, 3 de novembro", for the day picked on Home's heatmap.
+// "Terça-feira, 3 de novembro", for the day picked on Home's calendar.
 export function formatDayLabel(day: string) {
   return capitalize(longDayFormat.format(fromDayKey(day)))
 }
@@ -314,8 +356,3 @@ export function mergeWithPending(records: WorkoutRecord[], pending: WorkoutRecor
   return [...records, ...pending.filter((record) => !ids.has(record.id))].sort(byRecent)
 }
 
-// Only the workouts that started on or after the heatmap's first day.
-export function inHeatmap(records: WorkoutRecord[], today: Date) {
-  const first = toISODate(heatmapStart(today))
-  return records.filter((record) => workoutDay(record) >= first)
-}

@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
   addDays,
+  addMonths,
+  calendarWeeks,
   countTrainingDays,
   countTrainingDaysThisWeek,
   dayTotals,
+  formatDayAnnouncement,
   formatDayLabel,
-  formatHeatmapSummary,
+  formatMonthSummary,
+  formatMonthTitle,
   formatWeekGoal,
   formatHeatmapDayLabel,
   formatRecordSummary,
@@ -14,14 +18,14 @@ import {
   formatWorkoutSets,
   formatLastWorkoutDetails,
   heatmapLevel,
-  heatmapStart,
-  heatmapWeeks,
-  inHeatmap,
+  inMonth,
   latestWorkout,
   mergeWithPending,
+  monthOf,
+  monthReadRange,
+  monthStart,
   pendingAsRecords,
   startOfWeek,
-  stepWorkoutDay,
   toWorkoutRecord,
   workoutDay,
   type WorkoutRecord,
@@ -130,41 +134,92 @@ describe('workoutDay', () => {
   })
 })
 
-describe('heatmapWeeks', () => {
-  const weeks = heatmapWeeks(local('2026-11-11'))
-  const days = weeks.flat()
-
-  it('has 12 weeks of 7 days, from Monday to Sunday', () => {
-    expect(weeks).toHaveLength(12)
-    expect(weeks.every((week) => week.length === 7)).toBe(true)
-    expect(weeks.every((week) => local(week[0].day).getDay() === 1)).toBe(true)
+describe('months', () => {
+  it('names a month by its local date', () => {
+    expect(monthOf(local('2026-11-30', '23:59'))).toBe('2026-11')
+    expect(monthOf(local('2026-12-01', '00:00'))).toBe('2026-12')
   })
 
-  it('starts on the Monday 11 weeks before this one and ends this Sunday', () => {
-    expect(days[0].day).toBe('2026-08-24')
-    expect(days.at(-1)?.day).toBe('2026-11-15')
-    expect(toISODate(heatmapStart(local('2026-11-11')))).toBe('2026-08-24')
+  it('moves by calendar months, across a year', () => {
+    expect(addMonths('2026-11', -1)).toBe('2026-10')
+    expect(addMonths('2026-01', -1)).toBe('2025-12')
+    expect(addMonths('2026-12', 1)).toBe('2027-01')
+    expect(toISODate(monthStart('2026-03'))).toBe('2026-03-01')
   })
 
-  it('has every day once, across the clocks going back', () => {
-    expect(new Set(days.map((day) => day.day)).size).toBe(84)
-    const index = days.findIndex((day) => day.day === '2026-10-25')
-    expect(days[index + 1].day).toBe('2026-10-26')
+  it('reads a day past the month, for a workout that ends after midnight', () => {
+    const { from, until } = monthReadRange('2026-10')
+    expect(from).toEqual(local('2026-10-01', '00:00'))
+    expect(until).toEqual(local('2026-11-02', '00:00'))
+  })
+
+  it('keeps the workouts that started in the month, by the local day', () => {
+    // 23:50 on 31 October in Lisbon (UTC in winter), ending in November.
+    const late = record('late', '2026-10-31T23:50:00Z', 3, '2026-11-01T00:40:00Z')
+    const november = record('nov', '2026-11-01T09:00:00Z', 3)
+    // 23:30 on 30 September in UTC is already 1 October in Lisbon (UTC+1 in summer).
+    const october = record('oct', '2026-09-30T23:30:00Z', 3)
+    expect(inMonth([late, november, october], '2026-10').map((r) => r.id)).toEqual(['late', 'oct'])
+    expect(inMonth([late, november, october], '2026-11').map((r) => r.id)).toEqual(['nov'])
+  })
+
+  it('titles the month without "de"', () => {
+    expect(formatMonthTitle('2026-11')).toBe('Novembro 2026')
+    expect(formatMonthTitle('2027-01')).toBe('Janeiro 2027')
+  })
+
+  it.each([
+    ['2026-11', 0, 'Em novembro ainda não treinaste.'],
+    ['2026-10', 0, 'Em outubro não treinaste.'],
+    ['2026-11', 1, 'Em novembro treinaste em 1 dia.'],
+    ['2026-10', 9, 'Em outubro treinaste em 9 dias.'],
+  ])('sums up %s with %i days for screen readers', (month, days, text) => {
+    expect(formatMonthSummary(month, days, local('2026-11-11'))).toBe(text)
+  })
+})
+
+describe('calendarWeeks', () => {
+  const today = local('2026-11-11')
+
+  it('always has 6 weeks of 7 days, from Monday to Sunday', () => {
+    for (const month of ['2026-02', '2026-11', '2027-03']) {
+      const weeks = calendarWeeks(month, today)
+      expect(weeks).toHaveLength(6)
+      expect(weeks.every((week) => week.length === 7)).toBe(true)
+      expect(local(weeks[0][0].day).getDay()).toBe(1)
+    }
+  })
+
+  it('starts on the Monday on or before the 1st, with the days around it marked', () => {
+    // 1 November 2026 is a Sunday.
+    const days = calendarWeeks('2026-11', today).flat()
+    expect(days[0].day).toBe('2026-10-26')
+    expect(days[6]).toMatchObject({ day: '2026-11-01', date: 1, inMonth: true })
+    expect(days.filter((day) => day.inMonth)).toHaveLength(30)
+    expect(days.at(-1)).toMatchObject({ day: '2026-12-06', date: 6, inMonth: false })
+  })
+
+  it('fits a month that takes 4 rows, with 2 rows left empty', () => {
+    // February 2027 starts on a Monday and has 28 days.
+    const weeks = calendarWeeks('2027-02', today)
+    expect(weeks[0][0].day).toBe('2027-02-01')
+    expect(weeks.slice(4).flat().every((day) => !day.inMonth)).toBe(true)
   })
 
   it('marks today and the days after it', () => {
+    const days = calendarWeeks('2026-11', today).flat()
     expect(days.filter((day) => day.isToday).map((day) => day.day)).toEqual(['2026-11-11'])
-    expect(days.filter((day) => day.isFuture).map((day) => day.day)).toEqual([
-      '2026-11-12',
-      '2026-11-13',
-      '2026-11-14',
-      '2026-11-15',
-    ])
+    expect(days.find((day) => day.day === '2026-11-12')?.isFuture).toBe(true)
+    expect(days.find((day) => day.day === '2026-11-10')?.isFuture).toBe(false)
   })
 
-  it('keeps 7 days in the week the clocks go forward', () => {
-    const march = heatmapWeeks(local('2026-04-01'))
-    expect(march.flat().filter((day) => day.day >= '2026-03-23' && day.day <= '2026-03-29')).toHaveLength(7)
+  it('has every day once, across the clocks going back and forward', () => {
+    const october = calendarWeeks('2026-10', today).flat()
+    expect(new Set(october.map((day) => day.day)).size).toBe(42)
+    const index = october.findIndex((day) => day.day === '2026-10-25')
+    expect(october[index + 1].day).toBe('2026-10-26')
+    const march = calendarWeeks('2026-03', today).flat()
+    expect(march.filter((day) => day.day >= '2026-03-23' && day.day <= '2026-03-29')).toHaveLength(7)
   })
 })
 
@@ -201,7 +256,7 @@ describe('latestWorkout', () => {
     expect(latestWorkout([newer], [newer, older])?.id).toBe('n')
   })
 
-  it('comes from the history when the 12 weeks are empty', () => {
+  it('comes from the history when this month is empty', () => {
     expect(latestWorkout([], [older])?.id).toBe('o')
   })
 
@@ -239,7 +294,7 @@ describe('the week on Home', () => {
     expect(formatWeekGoal(days, goal)).toBe(text)
   })
 
-  it('counts the days with a workout in the 12 weeks', () => {
+  it('counts the days with a workout in a month', () => {
     const totals = dayTotals([
       record('a', '2026-11-09T08:00:00Z', 3),
       record('b', '2026-11-09T19:00:00Z', 3),
@@ -248,43 +303,19 @@ describe('the week on Home', () => {
     expect(countTrainingDays(totals)).toBe(2)
     expect(countTrainingDays(new Map())).toBe(0)
   })
-
-  it.each([
-    [0, 'Nas últimas 12 semanas ainda não treinaste.'],
-    [1, 'Nas últimas 12 semanas treinaste em 1 dia.'],
-    [9, 'Nas últimas 12 semanas treinaste em 9 dias.'],
-  ])('sums up %i days for screen readers', (days, text) => {
-    expect(formatHeatmapSummary(days)).toBe(text)
-  })
 })
 
-describe('stepWorkoutDay', () => {
-  const days = ['2026-10-20', '2026-11-03', '2026-11-10']
-
-  it.each([
-    ['ArrowRight', '2026-11-03', '2026-11-10'],
-    ['ArrowDown', '2026-11-03', '2026-11-10'],
-    ['ArrowLeft', '2026-11-03', '2026-10-20'],
-    ['ArrowUp', '2026-11-03', '2026-10-20'],
-    ['Home', '2026-11-03', '2026-10-20'],
-    ['End', '2026-11-03', '2026-11-10'],
-  ])('%s from %s goes to %s', (key, current, expected) => {
-    expect(stepWorkoutDay(days, current, key)).toBe(expected)
+describe('formatDayAnnouncement', () => {
+  it('names the day and each workout with its sets, marking the waiting ones', () => {
+    const pull = { ...record('a', '2026-11-03T19:00:00Z', 12), routineName: 'Pull' }
+    const push = { ...record('b', '2026-11-03T08:00:00Z', 6), pending: true as const }
+    expect(formatDayAnnouncement('2026-11-03', [pull, push])).toBe(
+      'Terça-feira, 3 de novembro: Pull, 12 séries; Push, 6 séries, por enviar',
+    )
   })
 
-  it('stays at either end', () => {
-    expect(stepWorkoutDay(days, '2026-10-20', 'ArrowLeft')).toBe('2026-10-20')
-    expect(stepWorkoutDay(days, '2026-11-10', 'ArrowRight')).toBe('2026-11-10')
-  })
-
-  it('starts at the first or the last from a day without a workout', () => {
-    expect(stepWorkoutDay(days, null, 'ArrowRight')).toBe('2026-10-20')
-    expect(stepWorkoutDay(days, '2026-11-04', 'ArrowLeft')).toBe('2026-11-10')
-  })
-
-  it('ignores other keys, and has nowhere to go without workouts', () => {
-    expect(stepWorkoutDay(days, '2026-11-03', 'Enter')).toBeNull()
-    expect(stepWorkoutDay([], null, 'ArrowRight')).toBeNull()
+  it('says when there was no workout', () => {
+    expect(formatDayAnnouncement('2026-11-05', [])).toBe('Quinta-feira, 5 de novembro: sem treino')
   })
 })
 
@@ -407,13 +438,5 @@ describe('pendingAsRecords and mergeWithPending', () => {
     const sent = record('p1', '2026-11-11T18:00:00.000Z', 1, '2026-11-11T19:00:00.000Z')
     const merged = mergeWithPending([sent], pendingAsRecords([queued('p1', '2026-11-11T19:00:00.000Z')]))
     expect(merged).toEqual([sent])
-  })
-})
-
-describe('inHeatmap', () => {
-  it('keeps the workouts that started on or after the first day shown', () => {
-    const today = local('2026-11-11')
-    const records = [record('in', '2026-08-24T08:00:00Z', 3), record('out', '2026-08-23T22:00:00Z', 3, '2026-08-24T00:30:00Z')]
-    expect(inHeatmap(records, today).map((r) => r.id)).toEqual(['in'])
   })
 })

@@ -1,10 +1,16 @@
 import { useMemo } from 'react'
 import { useInfiniteQuery, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
-import { fetchWorkout, historyOptions, recentWorkoutsOptions, type HistoryPage } from '@/features/workout/api/history'
+import {
+  fetchWorkout,
+  firstWorkoutMonthOptions,
+  historyOptions,
+  monthWorkoutsOptions,
+  type HistoryPage,
+} from '@/features/workout/api/history'
 import { workoutKeys } from '@/features/workout/api/query-keys'
 import { usePendingWorkouts } from '@/features/workout/hooks/use-finished-workouts'
 import { NotFoundError } from '@/features/workout/lib/errors'
-import { mergeWithPending, pendingAsRecords, type WorkoutRecord } from '@/features/workout/lib/history'
+import { inMonth, mergeWithPending, pendingAsRecords, type Month, type WorkoutRecord } from '@/features/workout/lib/history'
 
 // The reads of finished workouts, with the ones waiting to be sent laid over
 // them (rule AY). The queue has its own store, so a workout shows at once, and
@@ -15,13 +21,23 @@ function usePendingRecords() {
   return useMemo(() => pendingAsRecords(queue), [queue])
 }
 
-// The heatmap's 12 weeks (and Home's card). `records` is undefined until the
-// read has data, from the network or the copy on the device.
-export function useRecentWorkouts() {
-  const query = useQuery(recentWorkoutsOptions())
+// One month of Home's calendar, with the waiting workouts that started in it.
+// `records` is undefined until the read has data, from the network or the copy
+// on the device.
+export function useMonthWorkouts(month: Month) {
+  const query = useQuery(monthWorkoutsOptions(month))
   const pending = usePendingRecords()
-  const records = useMemo(() => (query.data ? mergeWithPending(query.data, pending) : undefined), [query.data, pending])
+  const records = useMemo(
+    () => (query.data ? mergeWithPending(query.data, inMonth(pending, month)) : undefined),
+    [query.data, pending, month],
+  )
   return { query, records }
+}
+
+// The month of the first workout ever (null with none), where the calendar's ‹
+// stops. Undefined until known.
+export function useFirstWorkoutMonth() {
+  return useQuery(firstWorkoutMonthOptions())
 }
 
 // The history, 20 at a time ("Ver mais" is fetchNextPage).
@@ -35,14 +51,14 @@ export function useWorkoutHistory() {
   return { query, records }
 }
 
-// A workout already read with the recent workouts or the history.
+// A workout already read with a month or the history.
 function findCachedWorkout(queryClient: QueryClient, id: string) {
-  const recent = queryClient.getQueryData<WorkoutRecord[]>(workoutKeys.recentWorkouts())
+  for (const [, records] of queryClient.getQueriesData<WorkoutRecord[]>({ queryKey: workoutKeys.months() })) {
+    const found = records?.find((record) => record.id === id)
+    if (found) return found
+  }
   const history = queryClient.getQueryData<{ pages: HistoryPage[] }>(workoutKeys.history())
-  return (
-    recent?.find((record) => record.id === id) ??
-    history?.pages.flatMap((page) => page.records).find((record) => record.id === id)
-  )
+  return history?.pages.flatMap((page) => page.records).find((record) => record.id === id)
 }
 
 // One workout, for its detail (rule AV): from the queue when it is waiting,

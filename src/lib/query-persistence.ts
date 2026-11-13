@@ -2,6 +2,8 @@
 // network (see Offline handling in docs/decisions.md). Only the Workout reads
 // are kept, one copy per account.
 
+import { toISODate } from '@/lib/format'
+
 // Raised when the shape of the kept data changes: an older copy is then dropped.
 export const QUERY_CACHE_BUSTER = '1'
 
@@ -19,11 +21,30 @@ export function shouldPersistQuery(query: { queryKey: readonly unknown[]; state:
   return query.state.status === 'success' && query.queryKey[0] === 'workout'
 }
 
+// A read of finished workouts of this kind ('history', 'month', …).
+function isWorkoutsRead(queryKey: readonly unknown[], kind: string) {
+  return queryKey[0] === 'workout' && queryKey[1] === 'workouts' && queryKey[2] === kind
+}
+
 // Infinite reads whose copy keeps only their first page (the history): the
 // other pages are asked for again when they are needed, so the copy does not
 // grow with every "Ver mais".
 function keepsFirstPageOnly(queryKey: readonly unknown[]) {
-  return queryKey[0] === 'workout' && queryKey[1] === 'workouts' && queryKey[2] === 'history'
+  return isWorkoutsRead(queryKey, 'history')
+}
+
+// The months of Home's calendar the copy keeps: this one and the one before
+// ("2026-11", "2026-10"). Others are asked for again when shown.
+function keptMonths(now: Date) {
+  const month = (date: Date) => toISODate(date).slice(0, 7)
+  return new Set([month(now), month(new Date(now.getFullYear(), now.getMonth() - 1, 1))])
+}
+
+// Left out of the copy: the months not kept, and the 12 weeks' read that the
+// calendar replaced (step 4.6.9), which an older copy may still hold.
+function isLeftOut(queryKey: readonly unknown[], months: Set<string>) {
+  if (isWorkoutsRead(queryKey, 'recent')) return true
+  return isWorkoutsRead(queryKey, 'month') && !months.has(String(queryKey[3]))
 }
 
 function isInfiniteData(data: unknown): data is { pages: unknown[]; pageParams: unknown[] } {
@@ -38,20 +59,24 @@ function isInfiniteData(data: unknown): data is { pages: unknown[]; pageParams: 
 }
 
 // What is written to the copy: the dehydrated cache, with the history cut to its
-// first page. Restored, the history has one page and "Ver mais" goes on from it.
+// first page and only this month and the one before. Restored, the history has
+// one page and "Ver mais" goes on from it.
 export function trimForCopy<
   State extends { queries: { queryKey: readonly unknown[]; state: { data?: unknown } }[] },
->(clientState: State): State {
+>(clientState: State, now = new Date()): State {
+  const months = keptMonths(now)
   return {
     ...clientState,
-    queries: clientState.queries.map((query) => {
-      const { data } = query.state
-      if (!keepsFirstPageOnly(query.queryKey) || !isInfiniteData(data) || data.pages.length <= 1) return query
-      return {
-        ...query,
-        state: { ...query.state, data: { pages: data.pages.slice(0, 1), pageParams: data.pageParams.slice(0, 1) } },
-      }
-    }),
+    queries: clientState.queries
+      .filter((query) => !isLeftOut(query.queryKey, months))
+      .map((query) => {
+        const { data } = query.state
+        if (!keepsFirstPageOnly(query.queryKey) || !isInfiniteData(data) || data.pages.length <= 1) return query
+        return {
+          ...query,
+          state: { ...query.state, data: { pages: data.pages.slice(0, 1), pageParams: data.pageParams.slice(0, 1) } },
+        }
+      }),
   }
 }
 

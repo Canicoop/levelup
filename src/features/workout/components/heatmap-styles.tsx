@@ -10,5 +10,15 @@ export const LEVEL_CLASSES: Record<HeatmapLevel, string> = {
   3: 'bg-heatmap-3',
 }
 
-// The day picked on Home's heatmap.
+// The day's number on each level, at least 4.5:1 in both themes: the text
+// colour on levels 0 to 2 (5.2:1 at the lowest, level 2 in the light theme),
+// the background colour on level 3, the strongest (10.4:1 light, 8.8:1 dark).
+export const LEVEL_TEXT_CLASSES: Record<HeatmapLevel, string> = {
+  0: 'text-foreground',
+  1: 'text-foreground',
+  2: 'text-foreground',
+  3: 'text-background',
+}
+
+// The day picked on Home's calendar.
 export const SELECTED_CLASSES = 'ring-2 ring-foreground ring-offset-1 ring-offset-card'

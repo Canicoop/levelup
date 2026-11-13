@@ -1,7 +1,14 @@
 import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query'
 import { workoutKeys } from '@/features/workout/api/query-keys'
 import { NotFoundError } from '@/features/workout/lib/errors'
-import { heatmapStart, inHeatmap, toWorkoutRecord, type WorkoutRecord } from '@/features/workout/lib/history'
+import {
+  inMonth,
+  monthOf,
+  monthReadRange,
+  toWorkoutRecord,
+  type Month,
+  type WorkoutRecord,
+} from '@/features/workout/lib/history'
 import { UUID } from '@/features/workout/lib/uuid'
 import { supabase } from '@/lib/supabase'
 
@@ -13,19 +20,34 @@ import { supabase } from '@/lib/supabase'
 const WORKOUT_COLUMNS =
   'id, started_at, finished_at, routine:routines!workouts_routine_fkey(name), workout_exercises(exercise_id, position, exercise:exercises!workout_exercises_exercise_fkey(name), workout_sets(position, weight_kg, reps))'
 
-// The workouts of the heatmap's 12 weeks, the most recent first. Read by
-// finished_at, which the (user_id, finished_at desc) index serves; one that
-// finished in the window but started the day before it is left out.
-export async function fetchRecentWorkouts(now = new Date()): Promise<WorkoutRecord[]> {
-  const start = heatmapStart(now)
+// The workouts of one month of Home's calendar, the most recent first. Read by
+// finished_at, which the (user_id, finished_at desc) index serves, up to a day
+// past the month (monthReadRange), then kept to the ones that started in it.
+export async function fetchMonthWorkouts(month: Month): Promise<WorkoutRecord[]> {
+  const { from, until } = monthReadRange(month)
   const { data, error } = await supabase
     .from('workouts')
     .select(WORKOUT_COLUMNS)
-    .gte('finished_at', start.toISOString())
+    .gte('finished_at', from.toISOString())
+    .lt('finished_at', until.toISOString())
     .order('finished_at', { ascending: false })
     .order('id', { ascending: false })
   if (error) throw error
-  return inHeatmap(data.map(toWorkoutRecord), now)
+  return inMonth(data.map(toWorkoutRecord), month)
+}
+
+// The month of the first workout ever, where the calendar's ‹ stops, or null
+// with none yet. One row, the oldest by finished_at, through the same index.
+export async function fetchFirstWorkoutMonth(): Promise<Month | null> {
+  const { data, error } = await supabase
+    .from('workouts')
+    .select('started_at')
+    .order('finished_at', { ascending: true })
+    .order('id', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw error
+  return data ? monthOf(new Date(data.started_at)) : null
 }
 
 export const HISTORY_PAGE_SIZE = 20
@@ -70,8 +92,12 @@ export async function fetchWorkout(id: string): Promise<WorkoutRecord> {
 
 // Shared by the screens and the background preparation, so both read the same
 // way into the same keys.
-export function recentWorkoutsOptions() {
-  return queryOptions({ queryKey: workoutKeys.recentWorkouts(), queryFn: () => fetchRecentWorkouts() })
+export function monthWorkoutsOptions(month: Month) {
+  return queryOptions({ queryKey: workoutKeys.monthWorkouts(month), queryFn: () => fetchMonthWorkouts(month) })
+}
+
+export function firstWorkoutMonthOptions() {
+  return queryOptions({ queryKey: workoutKeys.firstWorkoutMonth(), queryFn: fetchFirstWorkoutMonth })
 }
 
 export function historyOptions() {
