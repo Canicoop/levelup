@@ -22,6 +22,7 @@ import {
   countTrainingDays,
   countTrainingDaysThisWeek,
   dayTotals,
+  followCurrentMonth,
   formatDayAnnouncement,
   formatMonthSummary,
   formatMonthTitle,
@@ -48,9 +49,23 @@ export function HomeWeekCard() {
 
   const current = monthOf(now)
   const [viewed, setViewed] = useState<Month>(current)
+  const [selected, setSelected] = useState<string | null>(null)
+  // A new month while the app stayed open (useNow ticks every minute and when
+  // the app comes back to the foreground): a calendar on the month that was
+  // current moves to the new one and clears its selection; one the user moved
+  // to another month stays. Adjusted while rendering, as React suggests for
+  // state that follows a changing value, so the old month never paints.
+  const [seenCurrent, setSeenCurrent] = useState<Month>(current)
+  if (seenCurrent !== current) {
+    setSeenCurrent(current)
+    const next = followCurrentMonth(viewed, seenCurrent, current)
+    if (next !== viewed) {
+      setViewed(next)
+      setSelected(null)
+    }
+  }
   // Never past this month, even if the clock went back.
   const month = viewed > current ? current : viewed
-  const [selected, setSelected] = useState<string | null>(null)
   // Read out when a day is selected or cleared (empty until then, so nothing is
   // said when the card appears).
   const [announcement, setAnnouncement] = useState('')

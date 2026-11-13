@@ -6,6 +6,7 @@ import {
   countTrainingDays,
   countTrainingDaysThisWeek,
   dayTotals,
+  followCurrentMonth,
   formatDayAnnouncement,
   formatDayLabel,
   formatMonthSummary,
@@ -161,6 +162,19 @@ describe('months', () => {
     const october = record('oct', '2026-09-30T23:30:00Z', 3)
     expect(inMonth([late, november, october], '2026-10').map((r) => r.id)).toEqual(['late', 'oct'])
     expect(inMonth([late, november, october], '2026-11').map((r) => r.id)).toEqual(['nov'])
+  })
+
+  it('follows a new month only from the month that was current', () => {
+    // Left open on November, 1 December arrives: it moves to December.
+    expect(followCurrentMonth('2026-11', '2026-11', '2026-12')).toBe('2026-12')
+    // Across a year.
+    expect(followCurrentMonth('2026-12', '2026-12', '2027-01')).toBe('2027-01')
+    // The user was looking at October: it stays there.
+    expect(followCurrentMonth('2026-10', '2026-11', '2026-12')).toBe('2026-10')
+    // No new month: nothing moves.
+    expect(followCurrentMonth('2026-10', '2026-11', '2026-11')).toBe('2026-10')
+    // A clock that went back a month takes a calendar on the current month with it.
+    expect(followCurrentMonth('2026-12', '2026-12', '2026-11')).toBe('2026-11')
   })
 
   it('titles the month without "de"', () => {

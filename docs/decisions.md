@@ -135,7 +135,7 @@ _Last updated: 2026-11-13_
 - **The queue over the reads** (`pendingAsRecords`, `mergeWithPending`) is applied in the hooks, not in the reads: the queue has its own store, so a workout shows at once and loses "Por enviar" when it leaves. A workout in both is the database's.
 - **After a send,** the workout joins its month and the history's first page as saved before it leaves the queue, so it never disappears between the two, and the months, the first workout's month and the history are asked for again.
 - **Kept on the device:** the reads are under `workoutKeys.all`, so they join the copy, and the background preparation fetches this month, the one before, the first workout's month and the history's first page when the app opens. **The copy keeps only this month and the one before, and the history's first page** (`trimForCopy`, in the persister's `serialize` and in the immediate save): other months and pages are asked for again when shown; without network, a month not kept shows `OfflineState` in place of the grid. The 12 weeks' read that an older copy may hold is left out of the next save. A detail read on its own stays a day (`gcTime`), not for good like the other Workout reads. Estimate: about 1.4 kB per workout (6 exercises × 4 sets), so about 24 kB a month at 4 workouts a week, 48 kB for the two months, and about 28 kB for the history's page.
-- **A new day or month** needs no new key: "hoje", "ontem" and this week are worked out when drawing. A calendar left open keeps the month it shows when a new month starts, and › then leads to the new one, which is read when shown; the app opens on the current month (see *Open questions*). The copy drops the oldest month at its next save.
+- **A new day or month** needs no new key: "hoje", "ontem" and this week are worked out when drawing. **A new month while the app stays open** (step 4.7), seen when `useNow` ticks (every minute, and when the app comes back to the foreground): a calendar on the month that was current moves to the new one and clears its selection; one the user moved to another month stays there (`followCurrentMonth`). Verified in Playwright by moving the page's clock 20 days on: November with a day selected became December with none; October, chosen by hand, stayed with its day. The new month is read when shown. The copy drops the oldest month at its next save.
 
 **Development order:** the gym module is built first because it will be used the most.
 
@@ -791,7 +791,7 @@ Deny rules in `.claude/settings.json` block these three for Claude Code, and als
 - **Fixed time zone:** `test.env.TZ = 'Europe/Lisbon'`, so date tests give the same result on any machine and in CI. Lisbon rather than UTC because its summer offset (UTC+1) is exactly what makes `toISODate` differ from `toISOString`. A test checks that the zone took effect; it was also run with the process set to `America/New_York`, and still ran in Lisbon.
 - **Tailwind reads only `.tsx` files (`@source not "./**/*.ts"` in `src/index.css`):** Tailwind scans `src` for class names in any text, comments included. Words in test descriptions ("absolute", "relative") had added `.absolute` and `.relative` to the production CSS, and later the word "table" in a comment of a data-layer file added `.table`. Excluding only the tests would not have caught the second case, so every `.ts` file is excluded: logic and tests live in `.ts`, and Tailwind classes only in `.tsx`. With the exclusion, the CSS is byte-for-byte the same as without those files.
 
-**What the 557 tests cover:**
+**What the 558 tests cover:**
 
 | File | Tests | Covers |
 |---|---|---|
@@ -824,7 +824,7 @@ Deny rules in `.claude/settings.json` block these three for Claude Code, and als
 | `src/features/workout/lib/pending-workouts.test.ts` | 46 | the queue's key and format, damaged entries dropped one by one, adding without duplicates, removing, refusing and retrying, oldest first, and `classifySubmitError` (an expired or missing session always retried, PGRST301 and 42501 with 401 included) |
 | `src/features/workout/lib/last-finished.test.ts` | 10 | the summary's key and format, and damaged values ignored |
 | `src/features/workout/lib/finish-labels.test.ts` | 28 | the confirmation, the finish note, the duration, the queue line in singular and plural, the summary and `sendState` |
-| `src/features/workout/lib/history.test.ts` | 69 | `toWorkoutRecord` (order by position); weeks, days and months by the local calendar (`startOfWeek`, `addDays`, `workoutDay`, `monthOf`, `addMonths`, `monthReadRange`, `inMonth`); `calendarWeeks` (always 6 weeks, today and the days to come, the clock changes); `dayTotals` and the 4 levels; `latestWorkout`; this week and its goal; the month's title and summary; the day's announcement and labels; relative days; the history row and "Último treino"; the queue over the reads |
+| `src/features/workout/lib/history.test.ts` | 70 | `toWorkoutRecord` (order by position); weeks, days and months by the local calendar (`startOfWeek`, `addDays`, `workoutDay`, `monthOf`, `addMonths`, `monthReadRange`, `inMonth`); `followCurrentMonth` (a new month only from the one that was current); `calendarWeeks` (always 6 weeks, today and the days to come, the clock changes); `dayTotals` and the 4 levels; `latestWorkout`; this week and its goal; the month's title and summary; the day's announcement and labels; relative days; the history row and "Último treino"; the queue over the reads |
 
 No test file was removed: the tests of the 12 weeks, the sliding and the sticking pick were in `history.test.ts` and went with that code.
 
@@ -921,7 +921,6 @@ The MVP runs on free tiers: GitHub, Supabase Free and Vercel Hobby (personal, no
 |---|---|
 | On Vercel, serve `sw.js` without long caching, so new versions are found | Phase 5 |
 | "Há uma versão nova" and "Atualizar" on the installed app, not tested yet (see *Offline handling*) | Phase 5 |
-| On Home, the calendar follows a new month: when the app comes back to the foreground, or `useNow` reaches a new month, a calendar on the month that was current moves to the new one; one the user moved to another month stays where it is (see *Gym module*, Reads) | Step 4.7 |
 | The main chunk imports the `prepare-offline` chunk statically, for Rolldown's runtime helpers (`__toESM`, `__commonJS`, checked again with a sourcemap build on 2026-11-13): 0.73 kB gzip at the end of step 4.6 (3.59 kB at step 4.6.1). Since step 4.6 the rest of the Workout data layer loads at start anyway, in the shared chunk Home's calendar needs. Accepted for now (2026-11-11), and the comments say so; a `codeSplitting` group does not reach the runtime (see *React Router 8 in data mode*). Check again after the update | When Vite or Rolldown is updated |
 | Backup strategy | Before Phase 5 |
 | Publish the Google OAuth app and complete its Branding (optional: only to show the app's name and logo on Google's sign-in screen) | Phase 5 |

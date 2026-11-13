@@ -102,6 +102,14 @@ export function addMonths(month: Month, months: number): Month {
   return monthOf(new Date(start.getFullYear(), start.getMonth() + months, 1))
 }
 
+// The month Home's calendar shows once the current month changes from `was` to
+// `now` (a new month while the app stayed open, seen when it comes back to the
+// foreground or when useNow ticks): a calendar on the month that was current
+// follows to the new one; one the user moved to another month stays there.
+export function followCurrentMonth(shown: Month, was: Month, now: Month): Month {
+  return shown === was ? now : shown
+}
+
 // What a month's read asks for, by finished_at: from midnight of its first day
 // to a day after midnight of the next month's first day. A workout belongs to
 // the day it started (inMonth), so one that starts on the 31st at 23:50 and
