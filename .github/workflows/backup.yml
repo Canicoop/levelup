@@ -1,0 +1,122 @@
+# Weekly database backup (see docs/backups.md and "Backups" in docs/decisions.md).
+#
+# Dumps the Supabase database with the project's pinned CLI, encrypts each dump
+# with age on its way out of `supabase db dump`, and keeps only the encrypted
+# files as an artifact for 90 days. The repository is public, so the artifact
+# and the logs are too: nothing readable leaves the runner, and the plain dump
+# is never written to disk.
+name: Backup
+
+on:
+  schedule:
+    # Mondays at 03:17 UTC. In a public repository GitHub disables scheduled
+    # workflows after 60 days without repository activity (see docs/backups.md).
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Dump, encrypt and upload
+    runs-on: ubuntu-24.04
+    # Holds SUPABASE_DB_PASSWORD (secret) and SUPABASE_DB_USER and
+    # SUPABASE_DB_HOST (variables), and only lets `main` use them.
+    environment: backup
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      # The Supabase CLI, pinned in package.json and checked by the lockfile's
+      # integrity hashes. It needs no install script: the launcher finds its
+      # binary in the platform package.
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      # From Ubuntu's signed archive (universe).
+      - name: Install age
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends age
+          age --version
+
+      - name: Dump and encrypt
+        # The password only reaches this step. GitHub hides its value in the
+        # logs wherever it appears, alone or inside the URL.
+        env:
+          SUPABASE_DB_USER: ${{ vars.SUPABASE_DB_USER }}
+          SUPABASE_DB_HOST: ${{ vars.SUPABASE_DB_HOST }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+
+          for name in SUPABASE_DB_USER SUPABASE_DB_HOST SUPABASE_DB_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::$name is not set in the backup environment."
+              exit 1
+            fi
+          done
+
+          # The session pooler (IPv4; runners have no IPv6). Built here and
+          # never printed. The password is letters and digits only, so it
+          # needs no percent-encoding.
+          db_url="postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@${SUPABASE_DB_HOST}:5432/postgres"
+
+          mkdir backup
+
+          # One dump, straight into age: the plain SQL only ever passes through
+          # the pipe. With pipefail, a failing dump fails the step.
+          dump() {
+            local name="$1"
+            shift
+            npx --no-install supabase db dump --db-url "$db_url" "$@" \
+              | age --encrypt --recipients-file backups/age-recipient.txt --output "backup/$name.sql.age"
+          }
+
+          dump roles --role-only
+          dump schema
+          dump data --data-only --use-copy -x storage.buckets_vectors -x storage.vector_indexes
+
+          # An empty dump still makes a valid age file of about 200 bytes,
+          # since age adds only a header and a small tag. Anything under 1 KiB
+          # means the schema or the data came out (nearly) empty, so the run
+          # fails. roles.sql is left out: with no custom roles it is short.
+          for name in schema data; do
+            size="$(stat --format=%s "backup/$name.sql.age")"
+            if [ "$size" -lt 1024 ]; then
+              echo "::error::backup/$name.sql.age is only $size bytes: the dump came out empty."
+              exit 1
+            fi
+          done
+
+          ls -l backup
+
+      - name: Name the artifact
+        id: name
+        run: echo "artifact=backup-$(date -u +%Y-%m-%d)-run${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the encrypted backup
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ steps.name.outputs.artifact }}
+          path: backup/*.sql.age
+          if-no-files-found: error
+          retention-days: 90
+          # Encrypted data does not compress.
+          compression-level: 0

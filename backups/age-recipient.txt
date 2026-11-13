@@ -1,0 +1,4 @@
+# The age public key that encrypts the database backups (see docs/backups.md).
+# Public by design: it can only encrypt. The private key is kept by the owner,
+# outside this repository, and is the only way to read a backup.
+age1ksffv6aus3m254cg506ctssaxdp9y02879m22ep483nrfa3c444s9xuvr9
