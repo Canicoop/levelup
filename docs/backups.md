@@ -50,8 +50,12 @@ missing a value.
    (`aws-…-<region>.pooler.supabase.com`). If the database password has any
    character other than letters and digits, reset it (Database settings → Reset
    database password) to a long one with letters and digits only: it goes into a
-   URL, and this way it needs no encoding. The new password is also the one the
-   CLI asks for (`supabase link`, `db push`).
+   URL, and this way it needs no encoding. The new password only takes effect
+   after confirming with **Reset password**, and GitHub must get the same one
+   (step 4). The new password is also the one the CLI asks for
+   (`supabase link`, `db push`). **A backup that fails with
+   `password authentication failed`** means the password in the GitHub secret is
+   not the project's.
 4. **In GitHub:** Settings → Environments → New environment, named `backup`.
    - Deployment branches and tags → Selected branches and tags → `main` only.
    - Environment secrets → `SUPABASE_DB_PASSWORD`: the database password.
@@ -105,6 +109,7 @@ tables (`"public"."workouts"`, `"public"."workout_sets"`, …).
 **When done, always:**
 
 ```powershell
+Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
 Set-Location $HOME
 Remove-Item -Recurse -Force $restore
 Remove-Item "$HOME\Downloads\backup-<date>-run<n>.zip"
@@ -129,11 +134,29 @@ function Write-Sql($name, $text) {
 }
 ```
 
-**The connection** is the session pooler URI **without the password**, so psql
-asks for it and it never reaches PowerShell's history:
+**The connection** is the session pooler URI **without the password**, so it
+never reaches PowerShell's history:
 
 ```powershell
 $uri = "postgresql://postgres.<project-ref>@<session pooler host>:5432/postgres?sslmode=require"
+```
+
+**The password** goes to psql through `PGPASSWORD`, read with a hidden prompt.
+Run `Read-Host` first; only when it is waiting, copy the password from the
+password manager and paste it. (psql's own hidden prompt was tried first and
+failed: the clipboard still held a command, not the password, and a hidden
+prompt does not show it.)
+
+```powershell
+$secure = Read-Host -AsSecureString 'Database password'
+$env:PGPASSWORD = [Net.NetworkCredential]::new('', $secure).Password
+$env:PGPASSWORD.Length   # must not be 0
+```
+
+When done with psql, and always before closing the terminal:
+
+```powershell
+Remove-Item Env:PGPASSWORD
 ```
 
 **Row counts** (`counts.sql`), used to compare before and after:
@@ -167,15 +190,20 @@ fails, the transaction is undone and the project stays exactly as it was. A
    else: whatever is written after the backup is lost in phase 2.
 3. **Decrypt** the backup and check its `COPY` lines (see *Reading a backup*).
 4. **The tables to empty:** every table the backup fills, from its `COPY` lines
-   only. Check the list it prints (table names, no data), then write
-   `truncate.sql`:
+   only, except those of `storage`. Check the list it prints (table names, no
+   data), then write `truncate.sql`:
 
    ```powershell
    $tables = Select-String -Path data.sql -Pattern '^COPY ("[^"]+"\."[^"]+")' |
-     ForEach-Object { $_.Matches[0].Groups[1].Value } | Sort-Object -Unique
+     ForEach-Object { $_.Matches[0].Groups[1].Value } |
+     Where-Object { $_ -notlike '"storage".*' } | Sort-Object -Unique
    $tables
    Write-Sql 'truncate.sql' "TRUNCATE TABLE $($tables -join ', ') CASCADE;`n"
    ```
+
+   The `storage` tables are left out because the app does not use Storage, so
+   they are empty, their `COPY` lines load 0 rows, and Supabase protects them
+   against direct deletes, which would stop the transaction.
 
 5. **Phase 1, a rehearsal that changes nothing:** empty the tables, load the
    backup, show the counts, and undo it all with `ROLLBACK`.
@@ -223,8 +251,25 @@ fails, the transaction is undone and the project stays exactly as it was. A
    the canary workout is gone and the rest of the history is there. Signing in
    again may be needed, since the sessions are back to their state at the time
    of the backup.
-8. **Clean up:** delete the restore folder and the downloaded zip (see *Reading
-   a backup*).
+8. **Clean up:** `Remove-Item Env:PGPASSWORD`, then delete the restore folder
+   and the downloaded zip (see *Reading a backup*).
+
+### Tested
+
+On 2026-11-13, by the owner, with the backup of run 2 and a canary workout
+finished after it:
+
+- **Phase 1 (rehearsal):** inside the transaction, from the backup, the
+  workouts went from 3 to 2, the workout's exercises from 5 to 4 and the sets
+  from 11 to 8: the canary was gone. `ROLLBACK` brought everything back to the
+  counts from before.
+- **Phase 2 (the real restore):** the app showed the backup's 2 workouts, and
+  the canary was gone.
+- **Confirmed along the way:**
+  - the `postgres` role can `TRUNCATE` the `auth` tables;
+  - `SET session_replication_role` works through the session pooler;
+  - the backup was made by `pg_dump` 17.11, from a 17.11 server;
+  - psql 17.12 on the PC.
 
 ## Restoring into a new project
 
