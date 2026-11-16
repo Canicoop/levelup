@@ -139,6 +139,34 @@ _Last updated: 2026-11-16_
 
 **Development order:** the gym module is built first because it will be used the most.
 
+### Weight module
+Decided on 2026-11-16, before Phase 6 (step 6.1). The details of each screen are added as they are built.
+
+**Logging**
+- **Only today's weight is logged.** Today is the calendar day in Lisbon (`Europe/Lisbon`), and no other date can be chosen. At most one entry per user and day (`unique (user_id, entry_date)`).
+- **In kg, with one decimal** ("78,4"), from 20,0 to 300,0 kg in the form. A comma or a point is accepted (`inputMode="decimal"`). The database only refuses impossible values (0 or less, above 500) and more than one decimal.
+- **The database decides the day.** The app sends only the weight. `entry_date` defaults to Lisbon's day when the request arrives (`(now() at time zone 'Europe/Lisbon')::date`), and the app has no privilege to write it. **Why:** a `timestamptz` is an absolute instant, and UTC is only how Supabase shows it. Converted in Lisbon's zone, it gives Lisbon's day, summer time included, whatever the time zone of the session or the server. Neither the phone's clock nor a request made by hand can choose another day.
+- **The app works out "today" in Lisbon too** (`lisbonToday`, with `Intl.DateTimeFormat` and `timeZone: 'Europe/Lisbon'`), not in the device's zone, so the app and the database agree even abroad. **This is unlike the Workout module**, whose days are the device's local day.
+- **At midnight, with the app open,** "today" moves on by itself (`useNow`), and yesterday's entry stops being editable. A sheet opened before midnight and saved after it is refused ("O dia mudou. Regista o peso de hoje."), so a value meant for yesterday is not saved on the new day. **Limit:** a request that crosses midnight between sending and arriving is saved on the day it arrives.
+- **Limit:** the zone is fixed. Someone in the Azores would get Lisbon's day. A zone per user is outside the MVP.
+- **Logging needs the network,** as every write outside the workout does (see *Offline handling*). The reads are kept on the device (step 6.5b).
+
+**The Weight page**
+- **The summary at the top:** the current weight (the most recent entry) and the difference from the start of the chosen period (the first entry inside it).
+- **The chart:** the daily values as a line in a discreet colour (secondary text), and the 7-day moving average in the data accent, with a period filter: 1M / 3M / 1A / Tudo. Days without an entry stay empty: the lines break there, and no value is invented.
+- **The 7-day moving average** exists only on days with an entry. It is the mean of the entries in the 7 calendar days ending that day, and only when that window holds at least 3 entries. With fewer, it is empty.
+- **The history:** newest first, with the date, the weight and the difference from the previous entry (none for the first).
+- **Only today's entry can be edited, and any entry can be deleted,** after a confirmation. The database enforces the first rule: only `weight_kg` can be updated, and only on today's row.
+- **Differences are neutral,** never red or green. With no goal, going up or down is neither good nor bad, and those colours are reserved for errors and confirmations.
+- **Calculations in whole tenths:** differences and averages work on tenths of a kg, so 78,4 − 78,9 is exactly −0,5. Weight is not money, but this keeps floating-point noise out of what is shown.
+- **Charts use Recharts** (planned in *Frontend*), pinned to an exact version and only in the Weight chunk.
+- **The form is plain code,** like the workout's `parseWeight`: a single field does not justify React Hook Form and Zod.
+
+**Home**
+- **The Weight card shows real data:** the current weight, its relative day ("hoje", "ontem"…) and the difference from the previous entry. With no entry today, "Registar peso" opens `/peso` with the sheet already open, so the drawer stays out of the main chunk. There is no mini chart, so Recharts stays out of the main chunk too.
+
+**Out of scope for the MVP:** a weight goal, BMI, body fat percentage and reminders.
+
 ### Finance module
 - **Manual entry only.** No bank integrations.
 - **Fixed monthly budget**, overall and per category, applied every month until changed.
