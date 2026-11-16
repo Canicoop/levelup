@@ -2,7 +2,7 @@
 
 This document records the main technical and product decisions for LevelUP, and the reasons behind them. New decisions are added as the project evolves.
 
-_Last updated: 2026-11-13_
+_Last updated: 2026-11-16_
 
 ---
 
@@ -294,6 +294,14 @@ _Last updated: 2026-11-13_
 **Why:** Supabase's built-in email service only delivers to the project's team members, with a very low rate limit, so confirmation and password-reset emails would not reach anyone else without a custom SMTP provider. Google sign-in needs no email delivery at all.
 
 **Testing mode:** the Google OAuth app is in testing mode, but it only asks for the identity scopes (name, email, profile), so the test-user list does not apply and any Google account can sign in. This was confirmed with an account that is not a test user. Publishing the app is only needed to show its name and logo on Google's sign-in screen.
+
+**`levelup-prod`** (step 5.3, done by the owner on 2026-11-16):
+- **Its own OAuth client,** "LevelUP prod" (Web application), in the same Google Cloud project as `levelup-dev`'s. **Why:** each Supabase project has its own secret, so one can be renewed or deleted without touching the other, and each client lists only its own redirect URI. The consent screen (name, logo, authorized domains, audience and publishing status) is one per Google Cloud project, so both clients share it.
+- **Redirect URI:** `https://yieyseopnopufdgdqpna.supabase.co/auth/v1/callback`. **No JavaScript origins:** with `signInWithOAuth` and PKCE, the browser only navigates (to Supabase, then Google, then back to Supabase's callback and to `/entrar`), and it is Supabase's server that talks to Google; JavaScript origins are for pages whose own script calls Google.
+- **The consent screen stays in Testing:** an app that asks only for `openid`, `email` and `profile` is let in for any Google account, without the test-user list, and its authorizations do not expire after 7 days (Google's exception for these scopes). Publishing it and verifying the brand would only show the app's name and logo, which stays an optional Open question.
+- **The Google provider on `levelup-prod`:** "Skip nonce checks" off (it is for native flows that send an ID token; this one is web) and "Allow users without an email" off (a Google account always has one). The client secret went straight from Google Cloud to Supabase.
+- **Tested before Vercel:** a local build with a temporary `.env.production.local` (production's URL and publishable key; Vite gives it priority over `.env.local` in production mode, so the development setup was not touched), served by `npm run preview` on `localhost:4173`, with `http://localhost:4173/entrar` in production's Redirect URLs. The owner signed in, the app was empty (it is production), and Users showed 1 account. Afterwards nothing temporary was left: the Redirect URL and the site's data in the browser were deleted, and neither `.env.production.local` nor `dist` remained in the project (checked on the PC); `.env.local` still points at `levelup-dev`.
+- **New sign-ups are closed** on `levelup-prod` ("Allow new users to sign up" off), after the owner's first sign-in, so only that account exists. Tested: the owner's account still signs in, and another Google account is refused and does not appear in Users.
 
 ---
 
@@ -710,7 +718,7 @@ The Security Advisor reports nothing about `weight_entries`, `set_updated_at`, t
 **`levelup-prod`** (created by the user on 2026-11-16, step 5.2): ref `yieyseopnopufdgdqpna`, West EU (Paris), the same region as `levelup-dev`.
 - **Postgres 17.11**, not "Postgres with OrioleDB": OrioleDB is a public beta that Supabase does not recommend for production, and its projects cannot restore a backup into a new project.
 - **Data API on**, since the app uses it. **"Automatically expose new tables" off** and **"Enable automatic RLS" on**, as on `levelup-dev`: nothing is reachable until a migration grants it, and RLS is a second barrier behind the one the migrations enable (see *Privileges and RLS*).
-- **Authentication:** the Email provider off (see *Sign-in with Google only*), anonymous sign-ins off, and "Allow new users to sign up" on until the owner's first sign-in (see *Open questions*). Google comes in step 5.3, and the Site URL and Redirect URLs with Vercel's address in step 5.4.
+- **Authentication:** the Email provider off and anonymous sign-ins off; Google on, with its own OAuth client, and new sign-ups closed after the owner's first sign-in (step 5.3, see *Sign-in with Google only*). Left for step 5.4: the Site URL and the Redirect URLs, with Vercel's address.
 - **Verified after the migrations** (2026-11-16): the 7 `public` tables, all with RLS; `supabase/tests/weight_entries_rls.sql` and `supabase/tests/gym_rls.sql` passed in the SQL Editor; the Security Advisor shows 0 errors and only the 2 warnings on `rls_auto_enable()` already accepted on `levelup-dev` (see *Accepted advisor warnings*).
 
 ### Supabase CLI and migrations
@@ -969,8 +977,8 @@ The MVP runs on free tiers: GitHub, Supabase Free and Vercel Hobby (personal, no
 | On Vercel, serve `sw.js` without long caching, so new versions are found | Phase 5 |
 | "Há uma versão nova" and "Atualizar" on the installed app, not tested yet (see *Offline handling*) | Phase 5 |
 | The main chunk imports the `prepare-offline` chunk statically, for Rolldown's runtime helpers (`__toESM`, `__commonJS`, checked again with a sourcemap build on 2026-11-13): 0.73 kB gzip at the end of step 4.6 (3.59 kB at step 4.6.1). Since step 4.6 the rest of the Workout data layer loads at start anyway, in the shared chunk Home's calendar needs. Accepted for now (2026-11-11), and the comments say so; a `codeSplitting` group does not reach the runtime (see *React Router 8 in data mode*). Check again after the update | When Vite or Rolldown is updated |
-| Turn off "Allow new users to sign up" on `levelup-prod` after the owner's first sign-in, so that only that account exists; first confirm in Supabase's documentation that existing accounts still sign in with Google | Step 5.4 |
+| Another account on `levelup-prod` (a friend, for example): turn "Allow new users to sign up" on for that first sign-in, then off again. The consent screen in Testing already lets any Google account in (see *Sign-in with Google only*), so no Google change is needed | When someone else is to use the app |
 | Home's calendar: when the first workout's month cannot be read (an error that keeps failing), ‹ stays on with no end, and each earlier month is one more empty request. No wrong data is shown (found at the step 4.7 review) | Later |
-| Publish the Google OAuth app and complete its Branding (optional: only to show the app's name and logo on Google's sign-in screen) | Phase 5 |
+| Publish the Google OAuth app and complete its Branding (optional: only to show the app's name and logo on Google's sign-in screen; it stays in Testing, which works for any account with these scopes, see *Sign-in with Google only*) | Optional |
 | Custom domain | Phase 5 (optional) |
 | Lazy loading for the other modules, to address Vite's 500 kB chunk warning (Workout is lazy already, see *React Router 8 in data mode*) | When each module has code |
