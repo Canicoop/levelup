@@ -707,6 +707,12 @@ The Security Advisor reports nothing about `weight_entries`, `set_updated_at`, t
 
 **Why:** Running Supabase locally requires Docker, which adds setup complexity on Windows. The free plan allows two active projects. Database changes are kept as versioned SQL migrations in the repository.
 
+**`levelup-prod`** (created by the user on 2026-11-16, step 5.2): ref `yieyseopnopufdgdqpna`, West EU (Paris), the same region as `levelup-dev`.
+- **Postgres 17.11**, not "Postgres with OrioleDB": OrioleDB is a public beta that Supabase does not recommend for production, and its projects cannot restore a backup into a new project.
+- **Data API on**, since the app uses it. **"Automatically expose new tables" off** and **"Enable automatic RLS" on**, as on `levelup-dev`: nothing is reachable until a migration grants it, and RLS is a second barrier behind the one the migrations enable (see *Privileges and RLS*).
+- **Authentication:** the Email provider off (see *Sign-in with Google only*), anonymous sign-ins off, and "Allow new users to sign up" on until the owner's first sign-in (see *Open questions*). Google comes in step 5.3, and the Site URL and Redirect URLs with Vercel's address in step 5.4.
+- **Verified after the migrations** (2026-11-16): the 7 `public` tables, all with RLS; `supabase/tests/weight_entries_rls.sql` and `supabase/tests/gym_rls.sql` passed in the SQL Editor; the Security Advisor shows 0 errors and only the 2 warnings on `rls_auto_enable()` already accepted on `levelup-dev` (see *Accepted advisor warnings*).
+
 ### Supabase CLI and migrations
 **Decision:** database changes are versioned SQL migrations in `supabase/migrations/`, applied with the Supabase CLI, a dev dependency pinned to an exact version (`supabase@2.122.0`).
 
@@ -729,6 +735,27 @@ Every command that reaches the remote database is run by the user, never by Clau
 - `supabase db reset` and `supabase migration repair`: they erase data or rewrite the migration history.
 
 Deny rules in `.claude/settings.json` block these three for Claude Code, and also `supabase db push` (including `--dry-run`): migrations are only ever applied by the user, in their own terminal.
+
+**Migrations on `levelup-prod`** (step 5.2, 2026-11-16): **the CLI stays linked to `levelup-dev`**, always, and `levelup-prod` is only reached with `--db-url`, so no command meant for development can reach production by mistake. Linking to production and back was rejected: until the link went back, `db push` and `npm run db:types` would act on production. The URI is the session pooler's (IPv4) **without the password**; the password is read with `Read-Host -AsSecureString` into `$env:PGPASSWORD`, so it never reaches PowerShell's history, and the CLI (2.122.0) used it. The sequence, run by the user:
+
+```powershell
+Get-Content supabase\.temp\project-ref          # must be levelup-dev's ref
+$secure = Read-Host -AsSecureString 'levelup-prod database password'
+# Only now copy the password from the password manager and paste it.
+$env:PGPASSWORD = [Net.NetworkCredential]::new('', $secure).Password
+$env:PGPASSWORD.Length                          # must not be 0
+$prod = "postgresql://postgres.<prod-ref>@<prod session pooler host>:5432/postgres?sslmode=require"
+
+npx supabase migration list --db-url $prod      # a read-only check that the connection and password work
+npx supabase db push --db-url $prod --dry-run   # lists exactly the pending migrations
+npx supabase db push --db-url $prod
+npx supabase migration list --db-url $prod      # every migration in both columns (Local and Remote)
+
+Remove-Item Env:PGPASSWORD
+Get-Content supabase\.temp\project-ref          # still levelup-dev's ref
+```
+
+On 2026-11-16 this applied the 4 migrations, and the last `migration list` showed all 4 in both columns.
 
 ### Database security tests
 **Decision:** security tests are plain SQL files in `supabase/tests/`, run by the user in the SQL Editor of `levelup-dev`. `supabase test db` (pgTAP) runs in Docker, which the project does not use.
@@ -919,6 +946,7 @@ Skills live in `.claude/skills/` and are pinned in `skills-lock.json`.
 - **A failed or empty backup fails the run:** `set -euo pipefail` fails the step when any dump fails, and an encrypted `schema` or `data` file under 1 KiB means the dump came out empty (age adds only about 200 bytes to an empty input). The size is checked on the encrypted file, not counted with `tee` and a process substitution, whose exit status `pipefail` does not see. Checked by running the step's exact text in bash with stand-ins for `npx` and `age`: exit 0 for a normal dump, and 1 for a failing dump, an empty dump and a missing password. GitHub then emails whoever last changed the `cron` line, if Actions email notifications are on.
 - **Restore:** decrypted in a folder outside the repository, deleted at the end; psql gets the URI without the password, and the password through `PGPASSWORD`, read with `Read-Host -AsSecureString` and removed afterwards, so it stays out of PowerShell's history. **Tested on `levelup-dev`** in two phases, inside one transaction each, with a canary workout logged after the backup: a rehearsal that ends in `ROLLBACK`, then the real restore. There is no third project to restore into on the free plan. The `storage` tables are left out of the `TRUNCATE`: they are empty (the app does not use Storage) and Supabase protects them against direct deletes. **A restore is never tested on `levelup-prod`:** there, a backup is only decrypted and its `COPY` lines checked.
 - **The restore test passed** (2026-11-13, by the owner, with run 2's backup): inside the rehearsal's transaction the canary was gone (workouts 3 → 2, the workout's exercises 5 → 4, sets 11 → 8), and `ROLLBACK` brought everything back; the real restore left the app with the backup's 2 workouts. It also confirmed that the `postgres` role can `TRUNCATE` the `auth` tables, that `SET session_replication_role` works through the session pooler, and the versions: `pg_dump` 17.11 against a 17.11 server, psql 17.12 on the PC (see `docs/backups.md`, *Tested*).
+- **Now on `levelup-prod`** (2026-11-16, step 5.2): the `backup` environment was moved to production; the pooler host is the same as `levelup-dev`'s (`aws-1-eu-west-3`), so only the user and the password changed. The first backup (run 4) was checked by the owner: it has the `public` and `auth` tables, `pg_dump` 17.11 against a 17.11 server, and 0 rows of data. **`levelup-dev` has no backups since.**
 - **Limits:** in a public repository GitHub disables scheduled workflows after 60 days without repository activity, without a failure email; running by hand still works (see `docs/backups.md`). A weekly dump does not keep a free project from pausing: Supabase asks for "a few user requests to the database each day"; in production, daily use of the app does. 90 days keeps about 13 backups.
 
 **Routing on Vercel:** the app uses client-side routing, so Vercel needs a rewrite that serves `index.html` for every path. Without it, opening or reloading a URL such as `/treino` returns a 404.
@@ -941,9 +969,8 @@ The MVP runs on free tiers: GitHub, Supabase Free and Vercel Hobby (personal, no
 | On Vercel, serve `sw.js` without long caching, so new versions are found | Phase 5 |
 | "Há uma versão nova" and "Atualizar" on the installed app, not tested yet (see *Offline handling*) | Phase 5 |
 | The main chunk imports the `prepare-offline` chunk statically, for Rolldown's runtime helpers (`__toESM`, `__commonJS`, checked again with a sourcemap build on 2026-11-13): 0.73 kB gzip at the end of step 4.6 (3.59 kB at step 4.6.1). Since step 4.6 the rest of the Workout data layer loads at start anyway, in the shared chunk Home's calendar needs. Accepted for now (2026-11-11), and the comments say so; a `codeSplitting` group does not reach the runtime (see *React Router 8 in data mode*). Check again after the update | When Vite or Rolldown is updated |
-| Backups: move the workflow to `levelup-prod` and check its first backup (see *Backups* and `docs/backups.md`) | Phase 5, before the first deploy |
+| Turn off "Allow new users to sign up" on `levelup-prod` after the owner's first sign-in, so that only that account exists; first confirm in Supabase's documentation that existing accounts still sign in with Google | Step 5.4 |
 | Home's calendar: when the first workout's month cannot be read (an error that keeps failing), ‹ stays on with no end, and each earlier month is one more empty request. No wrong data is shown (found at the step 4.7 review) | Later |
 | Publish the Google OAuth app and complete its Branding (optional: only to show the app's name and logo on Google's sign-in screen) | Phase 5 |
-| Create the production Supabase project (`levelup-prod`) | Phase 5 |
 | Custom domain | Phase 5 (optional) |
 | Lazy loading for the other modules, to address Vite's 500 kB chunk warning (Workout is lazy already, see *React Router 8 in data mode*) | When each module has code |

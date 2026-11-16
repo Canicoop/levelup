@@ -75,6 +75,13 @@ replace `SUPABASE_DB_PASSWORD`, `SUPABASE_DB_USER` and `SUPABASE_DB_HOST` in the
 `backup` environment. Then run it by hand once and check it (see *Checking a
 backup*).
 
+**Done on 2026-11-16:** the `backup` environment now points at `levelup-prod`.
+The session pooler host is the same as `levelup-dev`'s (`aws-1-eu-west-3`), so
+only `SUPABASE_DB_USER` and `SUPABASE_DB_PASSWORD` changed. The first backup
+(run 4) was checked: it has the `public` and `auth` tables, was made by
+`pg_dump` 17.11 from a 17.11 server, and holds 0 rows of data (the project was
+still empty). `levelup-dev` has had no backups since.
+
 ## Reading a backup
 
 Everything below happens in a folder **outside the repository**, deleted at the

@@ -5,7 +5,7 @@ LevelUP is a mobile-first personal life dashboard (gym, body weight, finance, da
 
 - Product scope and all technical decisions: `docs/decisions.md`. Read it before planning any work.
 - Roadmap and setup: `README.md`.
-- **Current phase: Phase 5 — First production deploy.** Phase 4 (gym module) is complete. The first decision of Phase 5 is the backup strategy (see *Open questions* and *Early deploy* in `docs/decisions.md`).
+- **Current phase: Phase 5 — First production deploy.** Phase 4 (gym module) is complete. Steps 5.1 (backups) and 5.2 (the `levelup-prod` project and its migrations) are done; next is step 5.3 (Google OAuth on `levelup-prod`).
 
 ## How we work (mandatory)
 1. **Communicate with the user in European Portuguese.** Code, comments, commit messages and documentation are written in English.
