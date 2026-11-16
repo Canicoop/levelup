@@ -718,7 +718,7 @@ The Security Advisor reports nothing about `weight_entries`, `set_updated_at`, t
 **`levelup-prod`** (created by the user on 2026-11-16, step 5.2): ref `yieyseopnopufdgdqpna`, West EU (Paris), the same region as `levelup-dev`.
 - **Postgres 17.11**, not "Postgres with OrioleDB": OrioleDB is a public beta that Supabase does not recommend for production, and its projects cannot restore a backup into a new project.
 - **Data API on**, since the app uses it. **"Automatically expose new tables" off** and **"Enable automatic RLS" on**, as on `levelup-dev`: nothing is reachable until a migration grants it, and RLS is a second barrier behind the one the migrations enable (see *Privileges and RLS*).
-- **Authentication:** the Email provider off and anonymous sign-ins off; Google on, with its own OAuth client, and new sign-ups closed after the owner's first sign-in (step 5.3, see *Sign-in with Google only*). Left for step 5.4: the Site URL and the Redirect URLs, with Vercel's address.
+- **Authentication:** the Email provider off and anonymous sign-ins off; Google on, with its own OAuth client, and new sign-ups closed after the owner's first sign-in (step 5.3, see *Sign-in with Google only*). Site URL `https://levelup-canico.vercel.app`, and the only Redirect URL `https://levelup-canico.vercel.app/entrar`, exact (step 5.4, see *Vercel*).
 - **Verified after the migrations** (2026-11-16): the 7 `public` tables, all with RLS; `supabase/tests/weight_entries_rls.sql` and `supabase/tests/gym_rls.sql` passed in the SQL Editor; the Security Advisor shows 0 errors and only the 2 warnings on `rls_auto_enable()` already accepted on `levelup-dev` (see *Accepted advisor warnings*).
 
 ### Supabase CLI and migrations
@@ -957,7 +957,27 @@ Skills live in `.claude/skills/` and are pinned in `skills-lock.json`.
 - **Now on `levelup-prod`** (2026-11-16, step 5.2): the `backup` environment was moved to production; the pooler host is the same as `levelup-dev`'s (`aws-1-eu-west-3`), so only the user and the password changed. The first backup (run 4) was checked by the owner: it has the `public` and `auth` tables, `pg_dump` 17.11 against a 17.11 server, and 0 rows of data. **`levelup-dev` has no backups since.**
 - **Limits:** in a public repository GitHub disables scheduled workflows after 60 days without repository activity, without a failure email; running by hand still works (see `docs/backups.md`). A weekly dump does not keep a free project from pausing: Supabase asks for "a few user requests to the database each day"; in production, daily use of the app does. 90 days keeps about 13 backups.
 
-**Routing on Vercel:** the app uses client-side routing, so Vercel needs a rewrite that serves `index.html` for every path. Without it, opening or reloading a URL such as `/treino` returns a 404.
+### Vercel
+**Decision** (step 5.4, done by the owner on 2026-11-16): the app is served by Vercel, project `levelup` on the `Canicoop` account (Hobby), deployed from `main` on GitHub.
+
+- **Access:** the Vercel app on GitHub has access to the `levelup` repository only. The Vercel account has two-factor authentication (TOTP); so does the Google account, which the Google Cloud console now requires, turned on during this phase.
+- **Production domain:** `https://levelup-canico.vercel.app`. The generated one, `levelup-eight-eta.vercel.app`, was replaced and removed.
+- **Environment variables:** `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` of `levelup-prod`, in Production only (they are public anyway: they end up in the bundle). Vercel's Supabase integration was not added, so no other keys come with it. Speed Insights and Web Analytics stay off, so the app loads no third-party scripts.
+- **Build:** Node 24.x, as in CI (changed in the dashboard after the first deploy; the next deploy used it). The rest is in `vercel.json`, so it is versioned:
+  - `framework: "vite"`, `buildCommand: "npm run build"` (`tsc -b && vite build`), `outputDirectory: "dist"`, and **`installCommand: "npm ci"`**, as in CI, instead of Vercel's default `npm install`, so the lockfile is followed exactly.
+  - **No preview deployments** (`git.deploymentEnabled`: `"*"` off, `main` on): a preview would get no variables (they are Production only), or the development project's, whose Redirect URLs would need every preview's address, or production's, where an unreviewed build would write to real data. Work happens on `main`, with CI as the check.
+  - **The rewrite** sends to `index.html` only paths with no dot outside `/assets/` (`/((?!assets/)[^.]*)`), for the app's routes (`/treino/rotinas/<uuid>` has none). Vercel serves an existing file before any rewrite, so `sw.js`, the manifest and the icons are never rewritten; and a file that does not exist, such as an old `/assets/…` of an earlier version, gets a 404 rather than `index.html` served as if it were JavaScript.
+  - **Cache:** `/assets/*` (hashed names) a year, `immutable`; everything else `public, max-age=0, must-revalidate`: `/`, the rewritten routes, `sw.js`, `workbox-*.js`, the manifest and the icons, so a new service worker is found at once (vite-plugin-pwa asks for no long caching on these). The two rules do not overlap. The manifest is served as `application/manifest+json`.
+  - **Security headers** on every path: `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, a `Permissions-Policy` that turns off APIs the app does not use, `X-Frame-Options: DENY`, and a `Content-Security-Policy` with only `frame-ancestors 'none'` (no framing, nothing else restricted). No `X-XSS-Protection`, which browsers no longer use. Vercel adds `Strict-Transport-Security` itself. A full CSP is a step of its own (see *Open questions*).
+- **Deployment Checks:** available on Hobby, and on. A production deployment is built on every push to `main`, but only promoted if CI's "Lint, test and build" job passes on the same commit. Chosen under "Select checks to add", with no change to `ci.yml`.
+- **Supabase (`levelup-prod`):** Site URL `https://levelup-canico.vercel.app`; Redirect URLs only `https://levelup-canico.vercel.app/entrar`, exact. The app always sends `redirectTo: <origin>/entrar`, so one URL is enough, and the fewer URLs accepted, the fewer places can receive a sign-in code. **Never `*.vercel.app`:** anyone can publish a site under `vercel.app`, and a wildcard would let such a site receive the redirects of this project's sign-in.
+- **Tested on 2026-11-16:**
+  - signing in with Google on the production domain reached Home, and Users still had 1 account;
+  - in a private window (no service worker), `/treino/exercicios` opened the sign-in screen with `?next=`, with no 404;
+  - `curl -I` on `sw.js` and on `/treino`: 200, `public, max-age=0, must-revalidate`, the 5 security headers and Vercel's `Strict-Transport-Security`;
+  - `/assets/nao-existe.js`: 404 `NOT_FOUND`;
+  - the service worker "activated and is running".
+- **Noted, no action:** a 404 for a missing `/assets/*` file also carries the one-year `Cache-Control`, since Vercel's header rules do not depend on the response's status. Deployments are atomic, so new HTML never points to an asset that does not exist yet.
 
 ### Costs
 The MVP runs on free tiers: GitHub, Supabase Free and Vercel Hobby (personal, non-commercial use).
@@ -974,8 +994,8 @@ The MVP runs on free tiers: GitHub, Supabase Free and Vercel Hobby (personal, no
 
 | Question | When |
 |---|---|
-| On Vercel, serve `sw.js` without long caching, so new versions are found | Phase 5 |
-| "Há uma versão nova" and "Atualizar" on the installed app, not tested yet (see *Offline handling*) | Phase 5 |
+| "Há uma versão nova" and "Atualizar" on the installed app, not tested yet (see *Offline handling*) | Step 5.5 |
+| A full Content-Security-Policy, as a step of its own: first as `Content-Security-Policy-Report-Only`, checking the console for violations over a few days of use, then enforced. Likely directives: `default-src 'self'`; `script-src 'self'`; `connect-src 'self' https://yieyseopnopufdgdqpna.supabase.co`; `img-src 'self' data: https://*.googleusercontent.com` (Google photos); `font-src 'self'`; `style-src 'self' 'unsafe-inline'` (Base UI and React set `style` attributes); `worker-src 'self'`; `manifest-src 'self'`; `object-src 'none'`; `base-uri 'self'`; `frame-ancestors 'none'`. **Why later:** a wrong value breaks sign-in or the app silently, found at the gym, while the gain now is small (no third-party scripts, no user-supplied HTML, and React escapes text) | Phase 5, after the first deploy is stable |
 | The main chunk imports the `prepare-offline` chunk statically, for Rolldown's runtime helpers (`__toESM`, `__commonJS`, checked again with a sourcemap build on 2026-11-13): 0.73 kB gzip at the end of step 4.6 (3.59 kB at step 4.6.1). Since step 4.6 the rest of the Workout data layer loads at start anyway, in the shared chunk Home's calendar needs. Accepted for now (2026-11-11), and the comments say so; a `codeSplitting` group does not reach the runtime (see *React Router 8 in data mode*). Check again after the update | When Vite or Rolldown is updated |
 | Another account on `levelup-prod` (a friend, for example): turn "Allow new users to sign up" on for that first sign-in, then off again. The consent screen in Testing already lets any Google account in (see *Sign-in with Google only*), so no Google change is needed | When someone else is to use the app |
 | Home's calendar: when the first workout's month cannot be read (an error that keeps failing), ‹ stays on with no end, and each earlier month is one more empty request. No wrong data is shown (found at the step 4.7 review) | Later |
