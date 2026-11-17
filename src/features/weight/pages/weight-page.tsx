@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Scale } from 'lucide-react'
+import { useLocation, useNavigate } from 'react-router'
 import { EmptyState } from '@/components/empty-state'
 import { ErrorState } from '@/components/error-state'
 import { PageHeader } from '@/components/layout/page-header'
@@ -12,9 +13,10 @@ import { WeightEntrySheet, type WeightSheetTarget } from '@/features/weight/comp
 import { WeightHistory, WeightHistorySkeleton } from '@/features/weight/components/weight-history'
 import { WeightSummary, WeightSummarySkeleton } from '@/features/weight/components/weight-summary'
 import { useWeightEntries } from '@/features/weight/hooks/use-weight-entries'
-import { canEdit, newestFirst, type WeightEntry } from '@/features/weight/lib/entries'
+import { canEdit, newestFirst, todayEntry, type WeightEntry } from '@/features/weight/lib/entries'
 import { lisbonToday } from '@/features/weight/lib/lisbon-day'
 import type { Period } from '@/features/weight/lib/periods'
+import { wantsRegister } from '@/features/weight/lib/register-intent'
 import { useNow } from '@/hooks/use-now'
 import { isWaitingForNetwork } from '@/lib/query-state'
 
@@ -38,6 +40,15 @@ export function WeightPage() {
     setSheetOpen(true)
   }
 
+  // The sheet for today: logging, or editing when there is already an entry
+  // (logged meanwhile on another device, for one).
+  const todaySheet = (list: WeightEntry[], openedOn: string): WeightSheetTarget => {
+    const logged = todayEntry(list, openedOn)
+    return logged
+      ? { kind: 'today', openedOn, entry: logged }
+      : { kind: 'new', openedOn, placeholder: newestFirst(list)[0]?.tenths ?? null }
+  }
+
   const register = () =>
     openSheet((openedOn) => ({
       kind: 'new',
@@ -47,6 +58,26 @@ export function WeightPage() {
 
   const openEntry = (entry: WeightEntry) =>
     openSheet((openedOn) => ({ kind: canEdit(entry, openedOn) ? 'today' : 'past', openedOn, entry }))
+
+  // Home's "Registar peso" (see register-intent.ts): once the entries are
+  // known, open today's sheet, once per navigation (the location's key).
+  // Adjusted during render, as React advises for state that follows other
+  // values; the request is then cleared with replace, so going back or
+  // reloading does not open the sheet again.
+  const location = useLocation()
+  const navigate = useNavigate()
+  const fromHome = wantsRegister(location.state)
+  const [handledKey, setHandledKey] = useState<string | null>(null)
+  if (fromHome && entries && handledKey !== location.key) {
+    setHandledKey(location.key)
+    setTarget(todaySheet(entries, today))
+    setSheetOpen(true)
+  }
+  useEffect(() => {
+    if (fromHome && handledKey === location.key) {
+      void navigate(location.pathname, { replace: true, state: null })
+    }
+  }, [fromHome, handledKey, location.key, location.pathname, navigate])
 
   return (
     <div className="flex flex-col gap-8">

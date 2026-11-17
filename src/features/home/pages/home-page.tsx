@@ -3,6 +3,7 @@ import { PageHeader } from '@/components/layout/page-header'
 import { UpdateBanner } from '@/components/update-banner'
 import { UserAvatar } from '@/features/auth/components/user-avatar'
 import { useCurrentUser } from '@/features/auth/hooks/use-current-user'
+import { HomeWeightCard } from '@/features/home/components/home-weight-card'
 import { ModuleCard } from '@/features/home/components/module-card'
 import { getGreeting } from '@/features/home/lib/greeting'
 import { HomeWeekCard } from '@/features/workout/components/home-week-card'
@@ -42,12 +43,10 @@ export function HomePage() {
         <UpdateBanner />
         <PendingWorkoutsLine />
         <HomeWeekCard />
-        {/* Two columns on every width, as in the mockup. Until Phases 6 and 7
-            they hold a short empty state that fits half of 320px. */}
+        {/* Two columns on every width, as in the mockup. Until Phase 7 the
+            Finance card holds a short empty state that fits half of 320px. */}
         <div className="grid grid-cols-2 gap-3">
-          <ModuleCard to="/peso" title="Peso">
-            <EmptyModule title="Sem registos" description="O teu peso aparece aqui." />
-          </ModuleCard>
+          <HomeWeightCard />
           <ModuleCard to="/financas" title={capitalize(month)} label={`Finanças de ${month}`}>
             <EmptyModule title="Sem despesas" description="Os gastos do mês aparecem aqui." />
           </ModuleCard>
