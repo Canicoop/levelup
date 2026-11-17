@@ -1,5 +1,6 @@
 import { historyRows, type WeightEntry } from '@/features/weight/lib/entries'
 import { dayTime, daysBetween, type DayKey } from '@/features/weight/lib/lisbon-day'
+import type { Period } from '@/features/weight/lib/periods'
 import { formatDifference, formatWeight, type Tenths } from '@/features/weight/lib/weight-values'
 
 // Days are formatted from midnight UTC in the UTC zone (see dayTime), so the
@@ -18,6 +19,58 @@ const dayMonthYearFormat = new Intl.DateTimeFormat('pt-PT', {
 export function formatEntryDate(day: DayKey, today: DayKey) {
   const format = day.slice(0, 4) === today.slice(0, 4) ? dayMonthFormat : dayMonthYearFormat
   return format.format(dayTime(day))
+}
+
+const shortMonthFormat = new Intl.DateTimeFormat('pt-PT', { timeZone: 'UTC', month: 'short' })
+const longDayFormat = new Intl.DateTimeFormat('pt-PT', {
+  timeZone: 'UTC',
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+})
+const longDayYearFormat = new Intl.DateTimeFormat('pt-PT', {
+  timeZone: 'UTC',
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+})
+
+// Spans up to this many days label the time axis by day; longer ones by month.
+const AXIS_DAY_SPAN = 120
+
+// A time-axis label: "17 nov" over a short span, "nov 2026" over a long one
+// (1A, Tudo), where the months of two years would otherwise look alike.
+// pt-PT's short date is "17/11", so the label is built from the month's short
+// name without its dot.
+export function formatAxisDay(day: DayKey, spanDays: number) {
+  const month = shortMonthFormat.format(dayTime(day)).replace('.', '')
+  return spanDays <= AXIS_DAY_SPAN ? `${Number(day.slice(8, 10))} ${month}` : `${month} ${day.slice(0, 4)}`
+}
+
+// The day at the top of the chart's touch card: "terça-feira, 17 de
+// novembro", with the year when it is another.
+export function formatChartDay(day: DayKey, today: DayKey) {
+  const format = day.slice(0, 4) === today.slice(0, 4) ? longDayFormat : longDayYearFormat
+  return format.format(dayTime(day))
+}
+
+const PERIOD_PHRASES: Record<Period, string> = {
+  '1M': 'No último mês',
+  '3M': 'Nos últimos 3 meses',
+  '1A': 'No último ano',
+  all: 'Desde o primeiro registo',
+}
+
+// The chart's description for screen readers, from the period's entries
+// (oldest first): "No último mês, o peso foi de 79,6 kg a 78,4 kg."
+export function formatChartDescription(period: Period, entries: WeightEntry[]) {
+  const phrase = PERIOD_PHRASES[period]
+  const first = entries[0]
+  const last = entries[entries.length - 1]
+  if (!first || !last) return 'Sem registos neste período.'
+  if (first === last) return `${phrase}, há um registo: ${formatWeight(first.tenths)}.`
+  return `${phrase}, o peso foi de ${formatWeight(first.tenths)} a ${formatWeight(last.tenths)}.`
 }
 
 // "hoje", "ontem", the weekday up to six days ago ("terça-feira"), then the

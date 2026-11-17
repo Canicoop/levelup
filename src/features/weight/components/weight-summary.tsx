@@ -5,23 +5,24 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { todayEntry, type WeightEntry } from '@/features/weight/lib/entries'
 import { formatSummaryLine } from '@/features/weight/lib/labels'
 import type { DayKey } from '@/features/weight/lib/lisbon-day'
-import { periodSummary } from '@/features/weight/lib/periods'
+import { periodSummary, type Period } from '@/features/weight/lib/periods'
 import { formatKg } from '@/features/weight/lib/weight-values'
 
 type WeightSummaryProps = {
   // Never empty: the page shows the empty state instead.
   entries: WeightEntry[]
+  // The filter's period, shared with the chart.
+  period: Period
   today: DayKey
   onRegister: () => void
   onEditToday: (entry: WeightEntry) => void
 }
 
 // The current weight and its difference from the period's first entry. The
-// period is 1M until the chart's filter controls it (step 6.6). The difference
-// is neutral text: with no goal, neither direction is good or bad.
-export function WeightSummary({ entries, today, onRegister, onEditToday }: WeightSummaryProps) {
+// difference is neutral text: with no goal, neither direction is good or bad.
+export function WeightSummary({ entries, period, today, onRegister, onEditToday }: WeightSummaryProps) {
   const titleId = useId()
-  const { current, difference, since } = periodSummary(entries, '1M', today)
+  const { current, difference, since } = periodSummary(entries, period, today)
   const logged = todayEntry(entries, today)
   if (!current) return null
 

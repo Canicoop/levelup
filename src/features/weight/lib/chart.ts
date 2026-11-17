@@ -33,6 +33,69 @@ export function movingAverage(entries: WeightEntry[]): Map<DayKey, number> {
   return averages
 }
 
+const DAY_MS = 86_400_000
+
+// The chart's time axis: from the period's first day to today. A span of a
+// single day (one entry today, in "Tudo") is widened by three days on each
+// side, so the point sits in the middle instead of on an edge.
+export function timeDomain(start: DayKey, today: DayKey): [number, number] {
+  if (start >= today) return [dayTime(today) - 3 * DAY_MS, dayTime(today) + 3 * DAY_MS]
+  return [dayTime(start), dayTime(today)]
+}
+
+// Up to `count` days for the time axis, evenly spread from start to end, both
+// included, never the same day twice.
+export function timeTicks(start: DayKey, end: DayKey, count = 4): DayKey[] {
+  const span = daysBetween(start, end)
+  if (span <= 0) return [end]
+  const steps = Math.min(count - 1, span)
+  const days = Array.from({ length: steps + 1 }, (_, index) => shiftDays(start, Math.round((span * index) / steps)))
+  return [...new Set(days)]
+}
+
+// The weight range to show, in whole kg: the whole kg just around the lowest
+// and highest values in the points (daily and average), so 78,2 to 80,0 gives
+// 78 to 80. A single whole value (78,0) gets a kg on each side. It never
+// starts at zero: what matters in a weight is its change.
+export function weightDomain(points: ChartPoint[]): [number, number] | null {
+  const values = points.flatMap((point) => [point.weight, point.average]).filter((value) => value !== null)
+  if (values.length === 0) return null
+  const low = Math.floor(Math.min(...values))
+  const high = Math.ceil(Math.max(...values))
+  return low === high ? [low - 1, high + 1] : [low, high]
+}
+
+const TICK_STEPS = [1, 2, 5, 10, 20, 50]
+const MAX_WEIGHT_TICKS = 5
+
+// Whole-kg ticks for the weight axis: the smallest round step (1, 2, 5, 10…)
+// that covers the range in at most five ticks, aligned to multiples of the
+// step. The axis runs from the first tick to the last, so it never adds more
+// room than one step needs.
+export function weightTicks([low, high]: [number, number]): number[] {
+  for (const step of TICK_STEPS) {
+    const first = Math.floor(low / step) * step
+    const last = Math.ceil(high / step) * step
+    const count = (last - first) / step + 1
+    if (count <= MAX_WEIGHT_TICKS) return Array.from({ length: count }, (_, index) => first + index * step)
+  }
+  return [low, high]
+}
+
+// Above this many daily points the dots would merge into a thick line, so only
+// the line is drawn.
+export const MAX_DOTS = 120
+
+// Whether the daily value at `index` gets a dot: every one up to MAX_DOTS
+// points, and above that only an isolated one (no daily value on either side),
+// which would otherwise not show at all, since a line needs two points.
+export function showDailyDot(points: ChartPoint[], index: number) {
+  if (points[index]?.weight == null) return false
+  const daily = points.filter((point) => point.weight !== null).length
+  if (daily <= MAX_DOTS) return true
+  return points[index - 1]?.weight == null && points[index + 1]?.weight == null
+}
+
 // One point of the chart, in kg. `time` places it on a time axis, so points
 // sit at their real dates and days without an entry have no point.
 export type ChartPoint = { time: number; day: DayKey; weight: number | null; average: number | null }

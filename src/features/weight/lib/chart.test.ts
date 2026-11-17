@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { chartPoints, movingAverage } from '@/features/weight/lib/chart'
+import {
+  chartPoints,
+  movingAverage,
+  showDailyDot,
+  timeDomain,
+  timeTicks,
+  weightDomain,
+  weightTicks,
+  type ChartPoint,
+} from '@/features/weight/lib/chart'
 import type { WeightEntry } from '@/features/weight/lib/entries'
 import { dayTime } from '@/features/weight/lib/lisbon-day'
 
@@ -82,5 +91,88 @@ describe('chartPoints', () => {
   it('is empty without entries in the period', () => {
     expect(chartPoints([entry('2026-08-01', 800)], '1M', today)).toEqual([])
     expect(chartPoints([], 'all', today)).toEqual([])
+  })
+})
+
+const point = (day: string, weight: number | null, average: number | null = null): ChartPoint => ({
+  time: dayTime(day),
+  day,
+  weight,
+  average,
+})
+
+describe('timeDomain', () => {
+  it('goes from the first day to today', () => {
+    expect(timeDomain('2026-10-17', '2026-11-17')).toEqual([dayTime('2026-10-17'), dayTime('2026-11-17')])
+  })
+
+  it('widens a single day by three days on each side', () => {
+    expect(timeDomain('2026-11-17', '2026-11-17')).toEqual([dayTime('2026-11-14'), dayTime('2026-11-20')])
+  })
+})
+
+describe('timeTicks', () => {
+  it('spreads four days from start to end, both included', () => {
+    expect(timeTicks('2026-10-17', '2026-11-17')).toEqual(['2026-10-17', '2026-10-27', '2026-11-07', '2026-11-17'])
+  })
+
+  it('never repeats a day on a short span', () => {
+    expect(timeTicks('2026-11-16', '2026-11-17')).toEqual(['2026-11-16', '2026-11-17'])
+  })
+
+  it('has one tick for a single day', () => {
+    expect(timeTicks('2026-11-17', '2026-11-17')).toEqual(['2026-11-17'])
+  })
+})
+
+describe('weightDomain and weightTicks', () => {
+  it('gives a single value the whole kg around it', () => {
+    const domain = weightDomain([point('2026-11-17', 78.4)])
+    expect(domain).toEqual([78, 79])
+    expect(weightTicks(domain!)).toEqual([78, 79])
+  })
+
+  it('gives a single whole value a kg on each side', () => {
+    expect(weightDomain([point('2026-11-17', 78)])).toEqual([77, 79])
+  })
+
+  it('covers the daily values and the averages, with no extra room', () => {
+    const domain = weightDomain([point('2026-11-15', 79.6, 80), point('2026-11-17', 78.2, 78.9)])
+    expect(domain).toEqual([78, 80])
+    expect(weightTicks(domain!)).toEqual([78, 79, 80])
+  })
+
+  it('ignores the empty points that break the lines', () => {
+    expect(weightDomain([point('2026-11-10', null), point('2026-11-17', 78.4)])).toEqual([78, 79])
+  })
+
+  it('is null without values', () => {
+    expect(weightDomain([])).toBeNull()
+  })
+
+  it('takes the smallest round step that fits in five ticks', () => {
+    expect(weightTicks([75, 82])).toEqual([74, 76, 78, 80, 82])
+    expect(weightTicks([77, 82])).toEqual([76, 78, 80, 82])
+    expect(weightTicks([70, 82])).toEqual([70, 75, 80, 85])
+  })
+})
+
+describe('showDailyDot', () => {
+  it('shows every dot up to the limit', () => {
+    const points = [point('2026-11-16', 78.5), point('2026-11-17', 78.4)]
+    expect(showDailyDot(points, 0)).toBe(true)
+    expect(showDailyDot(points, 1)).toBe(true)
+  })
+
+  it('never shows a dot for an empty point', () => {
+    expect(showDailyDot([point('2026-11-11', null)], 0)).toBe(false)
+  })
+
+  it('above the limit, shows only isolated values', () => {
+    const many = Array.from({ length: 130 }, (_, index) => point(`d${index}`, 78))
+    many[60] = point('gap', null)
+    many[62] = point('gap', null)
+    expect(showDailyDot(many, 10)).toBe(false)
+    expect(showDailyDot(many, 61)).toBe(true)
   })
 })

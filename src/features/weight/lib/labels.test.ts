@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { WeightEntry } from '@/features/weight/lib/entries'
 import {
+  formatAxisDay,
+  formatChartDay,
+  formatChartDescription,
   formatDeleteQuestion,
   formatEntryDate,
   formatEntryDay,
@@ -30,6 +33,43 @@ describe('formatEntryDay', () => {
 
   it('gives the date for a day after today', () => {
     expect(formatEntryDay('2026-11-18', today)).toBe('18 de novembro')
+  })
+})
+
+describe('formatAxisDay', () => {
+  it('labels a short span by day, without the dot of the short month', () => {
+    expect(formatAxisDay('2026-11-17', 31)).toBe('17 nov')
+    expect(formatAxisDay('2026-10-01', 92)).toBe('1 out')
+  })
+
+  it('labels a long span by month and year', () => {
+    expect(formatAxisDay('2025-11-17', 365)).toBe('nov 2025')
+  })
+})
+
+describe('formatChartDay', () => {
+  it('gives the weekday and the date, with the year when it is another', () => {
+    expect(formatChartDay('2026-11-17', today)).toBe('terça-feira, 17 de novembro')
+    expect(formatChartDay('2025-11-17', today)).toBe('segunda-feira, 17 de novembro de 2025')
+  })
+})
+
+describe('formatChartDescription', () => {
+  it('gives the first and the last weight of the period', () => {
+    expect(formatChartDescription('1M', [entry('2026-10-20', 796), entry(today, 784)])).toBe(
+      'No último mês, o peso foi de 79,6 kg a 78,4 kg.',
+    )
+    expect(formatChartDescription('all', [entry('2025-01-02', 820), entry(today, 784)])).toBe(
+      'Desde o primeiro registo, o peso foi de 82,0 kg a 78,4 kg.',
+    )
+  })
+
+  it('names a single entry', () => {
+    expect(formatChartDescription('3M', [entry(today, 784)])).toBe('Nos últimos 3 meses, há um registo: 78,4 kg.')
+  })
+
+  it('says when the period is empty', () => {
+    expect(formatChartDescription('1A', [])).toBe('Sem registos neste período.')
   })
 })
 

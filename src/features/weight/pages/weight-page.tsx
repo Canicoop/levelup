@@ -6,12 +6,15 @@ import { PageHeader } from '@/components/layout/page-header'
 import { OfflineState } from '@/components/offline-state'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { PeriodFilter } from '@/features/weight/components/period-filter'
+import { WeightChart } from '@/features/weight/components/weight-chart'
 import { WeightEntrySheet, type WeightSheetTarget } from '@/features/weight/components/weight-entry-sheet'
 import { WeightHistory, WeightHistorySkeleton } from '@/features/weight/components/weight-history'
 import { WeightSummary, WeightSummarySkeleton } from '@/features/weight/components/weight-summary'
 import { useWeightEntries } from '@/features/weight/hooks/use-weight-entries'
 import { canEdit, newestFirst, type WeightEntry } from '@/features/weight/lib/entries'
 import { lisbonToday } from '@/features/weight/lib/lisbon-day'
+import type { Period } from '@/features/weight/lib/periods'
 import { useNow } from '@/hooks/use-now'
 import { isWaitingForNetwork } from '@/lib/query-state'
 
@@ -23,6 +26,8 @@ export function WeightPage() {
   const query = useWeightEntries()
   const entries = query.data
 
+  // Always 1M when the page opens; not remembered.
+  const [period, setPeriod] = useState<Period>('1M')
   const [sheetOpen, setSheetOpen] = useState(false)
   const [target, setTarget] = useState<WeightSheetTarget | null>(null)
 
@@ -67,7 +72,19 @@ export function WeightPage() {
           </Card>
         ) : (
           <>
-            <WeightSummary entries={entries} today={today} onRegister={register} onEditToday={openEntry} />
+            {/* The filter scopes the summary and the chart; the history below
+                is never filtered. */}
+            <div className="flex flex-col gap-3">
+              <PeriodFilter value={period} onChange={setPeriod} />
+              <WeightSummary
+                entries={entries}
+                period={period}
+                today={today}
+                onRegister={register}
+                onEditToday={openEntry}
+              />
+              <WeightChart entries={entries} period={period} today={today} />
+            </div>
             <WeightHistory entries={entries} today={today} onOpen={openEntry} />
           </>
         )
