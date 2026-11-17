@@ -20,10 +20,30 @@ export function queryCacheKey(accountId: string) {
 // year of daily weighing), since its "Tudo" chart needs them all.
 const KEPT_MODULES = new Set(['workout', 'weight'])
 
-// Only finished Workout and Weight reads: never an error, a pending read or
-// another module.
-export function shouldPersistQuery(query: { queryKey: readonly unknown[]; state: { status: string } }) {
-  return query.state.status === 'success' && KEPT_MODULES.has(String(query.queryKey[0]))
+type QueryStatusState = { status?: string; data?: unknown }
+
+// A read whose latest refetch failed (a weak network, an expired session, a
+// server error) but that still holds the data of an earlier one. TanStack
+// Query keeps that data and marks the query 'error'.
+function failedWithData(state: QueryStatusState) {
+  return state.status === 'error' && state.data !== undefined
+}
+
+// Workout and Weight reads that hold data: finished ones, and those whose
+// latest refetch failed, so a failed refetch never drops their data from the
+// copy. Never a pending read, a failed one without data, or another module.
+export function shouldPersistQuery(query: { queryKey: readonly unknown[]; state: QueryStatusState }) {
+  if (!KEPT_MODULES.has(String(query.queryKey[0]))) return false
+  return query.state.status === 'success' || failedWithData(query.state)
+}
+
+// A read kept after a failed refetch is written as the success it last was:
+// its data, with no error, and the time of that data (dataUpdatedAt), so the
+// app reads it again as soon as it opens. The copy holds the last good data,
+// never an old error.
+function asLastSuccess<S extends QueryStatusState>(state: S): S {
+  if (!failedWithData(state)) return state
+  return { ...state, status: 'success', error: null, fetchFailureCount: 0, fetchFailureReason: null }
 }
 
 // A read of finished workouts of this kind ('history', 'month', …).
@@ -64,16 +84,21 @@ function isInfiniteData(data: unknown): data is { pages: unknown[]; pageParams: 
 }
 
 // What is written to the copy: the dehydrated cache, with the history cut to its
-// first page and only this month and the one before. Restored, the history has
-// one page and "Ver mais" goes on from it.
+// first page and only this month and the one before, and reads kept after a
+// failed refetch written as their last success. Restored, the history has one
+// page and "Ver mais" goes on from it.
 export function trimForCopy<
-  State extends { queries: { queryKey: readonly unknown[]; state: { data?: unknown } }[] },
+  State extends { queries: { queryKey: readonly unknown[]; state: QueryStatusState }[] },
 >(clientState: State, now = new Date()): State {
   const months = keptMonths(now)
   return {
     ...clientState,
     queries: clientState.queries
       .filter((query) => !isLeftOut(query.queryKey, months))
+      .map((query) => {
+        const state = asLastSuccess(query.state)
+        return state === query.state ? query : { ...query, state }
+      })
       .map((query) => {
         const { data } = query.state
         if (!keepsFirstPageOnly(query.queryKey) || !isInfiniteData(data) || data.pages.length <= 1) return query

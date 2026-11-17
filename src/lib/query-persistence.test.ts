@@ -31,6 +31,19 @@ describe('shouldPersistQuery', () => {
     expect(shouldPersistQuery({ queryKey: ['weight', 'entries'], state: { status } })).toBe(false)
   })
 
+  it('keeps a read whose refetch failed while it still holds data', () => {
+    expect(
+      shouldPersistQuery({ queryKey: ['weight', 'entries'], state: { status: 'error', data: [{ id: 'w1' }] } }),
+    ).toBe(true)
+    expect(shouldPersistQuery({ queryKey: ['workout', 'routines'], state: { status: 'error', data: [] } })).toBe(true)
+  })
+
+  it('does not keep a failed read without data', () => {
+    expect(shouldPersistQuery({ queryKey: ['weight', 'entries'], state: { status: 'error', data: undefined } })).toBe(
+      false,
+    )
+  })
+
   it('does not keep reads of other modules', () => {
     expect(shouldPersistQuery({ queryKey: ['finance'], state: { status: 'success' } })).toBe(false)
   })
@@ -53,6 +66,36 @@ describe('trimForCopy', () => {
         pageParams: Array.from({ length: pages }, (_, page) => (page === 0 ? null : `cursor ${page}`)),
       },
     },
+  })
+
+  it('writes a read kept after a failed refetch as its last success', () => {
+    const failed = {
+      queryKey: ['weight', 'entries'],
+      state: {
+        status: 'error',
+        data: [{ id: 'w1' }],
+        dataUpdatedAt: 1000,
+        error: {},
+        errorUpdatedAt: 2000,
+        fetchFailureCount: 4,
+        fetchFailureReason: {},
+      },
+    }
+    const [kept] = trimForCopy({ queries: [failed] }).queries
+    expect(kept.state).toEqual({
+      status: 'success',
+      data: [{ id: 'w1' }],
+      dataUpdatedAt: 1000,
+      error: null,
+      errorUpdatedAt: 2000,
+      fetchFailureCount: 0,
+      fetchFailureReason: null,
+    })
+  })
+
+  it('leaves finished reads as they are', () => {
+    const finished = { queryKey: ['weight', 'entries'], state: { status: 'success', data: [], error: null } }
+    expect(trimForCopy({ queries: [finished] }).queries).toEqual([finished])
   })
 
   it('keeps every weight entry, since "Tudo" needs them', () => {
