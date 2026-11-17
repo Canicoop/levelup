@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { WeightEntry } from '@/features/weight/lib/entries'
-import { formatDeleteQuestion, formatEntryDay, homeWeightSummary } from '@/features/weight/lib/labels'
+import {
+  formatDeleteQuestion,
+  formatEntryDate,
+  formatEntryDay,
+  formatHistoryDay,
+  formatSummaryLine,
+  homeWeightSummary,
+} from '@/features/weight/lib/labels'
 
 const entry = (day: string, tenths: number): WeightEntry => ({ id: day, day, tenths })
 const today = '2026-11-17' // a Tuesday
@@ -23,6 +30,38 @@ describe('formatEntryDay', () => {
 
   it('gives the date for a day after today', () => {
     expect(formatEntryDay('2026-11-18', today)).toBe('18 de novembro')
+  })
+})
+
+describe('formatEntryDate', () => {
+  it('is always the date, with the year when it is another', () => {
+    expect(formatEntryDate('2026-11-16', today)).toBe('16 de novembro')
+    expect(formatEntryDate('2025-12-31', today)).toBe('31 de dezembro de 2025')
+  })
+})
+
+describe('formatHistoryDay', () => {
+  it('capitalises the relative day', () => {
+    expect(formatHistoryDay('2026-11-17', today)).toBe('Hoje')
+    expect(formatHistoryDay('2026-11-15', today)).toBe('Domingo')
+  })
+
+  it('leaves a date as it is', () => {
+    expect(formatHistoryDay('2026-11-10', today)).toBe('10 de novembro')
+  })
+})
+
+describe('formatSummaryLine', () => {
+  it('gives the day and the difference since the period\'s first entry', () => {
+    expect(formatSummaryLine('2026-11-17', -5, '2026-10-20', today)).toBe('hoje · −0,5 kg desde 20 de outubro')
+  })
+
+  it('names a recent start by its relative day', () => {
+    expect(formatSummaryLine('2026-11-17', 0, '2026-11-16', today)).toBe('hoje · sem alteração desde ontem')
+  })
+
+  it('gives only the day without a difference', () => {
+    expect(formatSummaryLine('2026-11-16', null, null, today)).toBe('ontem')
   })
 })
 

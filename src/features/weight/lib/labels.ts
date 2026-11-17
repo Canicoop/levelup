@@ -1,6 +1,6 @@
 import { historyRows, type WeightEntry } from '@/features/weight/lib/entries'
 import { dayTime, daysBetween, type DayKey } from '@/features/weight/lib/lisbon-day'
-import { formatDifference, formatWeight } from '@/features/weight/lib/weight-values'
+import { formatDifference, formatWeight, type Tenths } from '@/features/weight/lib/weight-values'
 
 // Days are formatted from midnight UTC in the UTC zone (see dayTime), so the
 // device's time zone never shifts the name of a day.
@@ -13,8 +13,9 @@ const dayMonthYearFormat = new Intl.DateTimeFormat('pt-PT', {
   year: 'numeric',
 })
 
-// "3 de novembro", or "3 de novembro de 2025" in another year.
-function formatDate(day: DayKey, today: DayKey) {
+// "3 de novembro", or "3 de novembro de 2025" in another year. Always the
+// date, for the sheet of an older entry and its delete question.
+export function formatEntryDate(day: DayKey, today: DayKey) {
   const format = day.slice(0, 4) === today.slice(0, 4) ? dayMonthFormat : dayMonthYearFormat
   return format.format(dayTime(day))
 }
@@ -26,12 +27,26 @@ export function formatEntryDay(day: DayKey, today: DayKey) {
   if (ago === 0) return 'hoje'
   if (ago === 1) return 'ontem'
   if (ago > 1 && ago < 7) return weekdayFormat.format(dayTime(day))
-  return formatDate(day, today)
+  return formatEntryDate(day, today)
+}
+
+// A history row's day, capitalised: "Hoje", "Ontem", "Domingo", "10 de novembro".
+export function formatHistoryDay(day: DayKey, today: DayKey) {
+  const text = formatEntryDay(day, today)
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
+// The line under the current weight: "hoje · −0,5 kg desde 20 de outubro",
+// or only the day when there is no difference.
+export function formatSummaryLine(day: DayKey, difference: Tenths | null, since: DayKey | null, today: DayKey) {
+  const when = formatEntryDay(day, today)
+  if (difference === null || since === null) return when
+  return `${when} · ${formatDifference(difference)} desde ${formatEntryDay(since, today)}`
 }
 
 // Always the date, never a weekday, which could be read as another week.
 export function formatDeleteQuestion(day: DayKey, today: DayKey) {
-  return `Apagar o registo de ${day === today ? 'hoje' : formatDate(day, today)}?`
+  return `Apagar o registo de ${day === today ? 'hoje' : formatEntryDate(day, today)}?`
 }
 
 // Home's Weight card: the latest entry, its day, and its difference from the

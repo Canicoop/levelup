@@ -5,7 +5,7 @@ LevelUP is a mobile-first personal life dashboard (gym, body weight, finance, da
 
 - Product scope and all technical decisions: `docs/decisions.md`. Read it before planning any work.
 - Roadmap and setup: `README.md`.
-- **Current phase: Phase 6 — Body weight module.** Phase 4 (gym module) is complete. Phase 5 (first production deploy) is done except step 5.5 (installing on the iPhone, real use, and testing "Há uma versão nova"), which runs in parallel. Phase 6 follows the plan approved on 2026-11-16 (steps 6.1 to 6.8, and 6.5b); next is step 6.4.
+- **Current phase: Phase 6 — Body weight module.** Phase 4 (gym module) is complete. Phase 5 (first production deploy) is done except step 5.5 (installing on the iPhone, real use, and testing "Há uma versão nova"), which runs in parallel. Phase 6 follows the plan approved on 2026-11-16 (steps 6.1 to 6.8, and 6.5b); next is step 6.5b.
 
 ## How we work (mandatory)
 1. **Communicate with the user in European Portuguese.** Code, comments, commit messages and documentation are written in English.
