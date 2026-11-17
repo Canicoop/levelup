@@ -605,6 +605,8 @@ Icons, manifest and iOS details: see *App icon*.
 
 **Tested on an iPhone** (2026-11-10, the installed app, after the fixes above): in airplane mode, after closing and reopening the app, Settings showed the copy, and the Workout tab showed the 5 routines, "Próximo treino" and the 27 exercises. "Há uma versão nova" and "Atualizar" were not reported in this test.
 
+**"Há uma versão nova" tested on an iPhone** (2026-11-17, step 5.5, the installed app on production): after the deploy of step 6.5, the line showed; "Atualizar" reloaded the app, and the new Weight page opened, with its empty state. Step 5.5, and with it Phase 5, is closed.
+
 **Console errors seen while testing** ("Failed to fetch", "Unexpected end of JSON input") are not from the app: their initiator in the Network panel and the files in their stack (`requests.js`, `content.js`, `processor.js`, `200.js`) are scripts of a browser extension that intercepts `fetch`. Not investigated further.
 
 **TanStack Query without network** (reproduced on 2026-11-04 in Playwright, by simulating what the browser does: the `offline` event, `navigator.onLine` false and `fetch` failing):
@@ -1056,7 +1058,6 @@ The MVP runs on free tiers: GitHub, Supabase Free and Vercel Hobby (personal, no
 
 | Question | When |
 |---|---|
-| "Há uma versão nova" and "Atualizar" on the installed app, not tested yet (see *Offline handling*) | Step 5.5 |
 | A full Content-Security-Policy, as a step of its own: first as `Content-Security-Policy-Report-Only`, checking the console for violations over a few days of use, then enforced. Likely directives: `default-src 'self'`; `script-src 'self'`; `connect-src 'self' https://yieyseopnopufdgdqpna.supabase.co`; `img-src 'self' data: https://*.googleusercontent.com` (Google photos); `font-src 'self'`; `style-src 'self' 'unsafe-inline'` (Base UI and React set `style` attributes); `worker-src 'self'`; `manifest-src 'self'`; `object-src 'none'`; `base-uri 'self'`; `frame-ancestors 'none'`. **Why later:** a wrong value breaks sign-in or the app silently, found at the gym, while the gain now is small (no third-party scripts, no user-supplied HTML, and React escapes text) | Phase 5, after the first deploy is stable |
 | The main chunk imports the `prepare-offline` chunk statically, for Rolldown's runtime helpers (`__toESM`, `__commonJS`, checked again with a sourcemap build on 2026-11-13): 0.73 kB gzip at the end of step 4.6 (3.59 kB at step 4.6.1). Since step 4.6 the rest of the Workout data layer loads at start anyway, in the shared chunk Home's calendar needs. Accepted for now (2026-11-11), and the comments say so; a `codeSplitting` group does not reach the runtime (see *React Router 8 in data mode*). Check again after the update | When Vite or Rolldown is updated |
 | Another account on `levelup-prod` (a friend, for example): turn "Allow new users to sign up" on for that first sign-in, then off again. The consent screen in Testing already lets any Google account in (see *Sign-in with Google only*), so no Google change is needed | When someone else is to use the app |

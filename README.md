@@ -4,7 +4,7 @@ A personal life dashboard to track gym workouts, body weight and personal financ
 
 [![CI](https://github.com/Canicoop/levelup/actions/workflows/ci.yml/badge.svg)](https://github.com/Canicoop/levelup/actions/workflows/ci.yml)
 
-> **Status:** 🚧 In development. Phases 1 (repository and environment), 2 (visual foundation and navigation), 3 (Supabase, authentication and security) and 4 (gym module) are complete. In the gym module, the Workout tab has routines and exercises (create, edit, reorder and archive) and the workout history, where each workout opens its detail. The workout in progress works: start it, log sets, swap, skip and add exercises, resume and discard it, all saved on the device. Finishing a workout saves it, without network too: it waits on the device and is sent by itself when the network is back. Home shows this week against a goal, a month's calendar coloured by the sets of each day (tap a day to see its workouts), cards for Weight and Finance, and the last workout. The installed app on the phone works without network: it opens offline, and the routines, the exercises, the last sets of each exercise and the recent workouts are kept on the device. Users sign in with Google, every page needs a session, and every table has Row Level Security, column-level privileges and SQL security tests, managed through versioned migrations. Unit tests run with Vitest, locally and in CI. The app also has its visual identity, navigation, shared loading, empty and error states, and an icon and web manifest for the iPhone home screen. The Weight and Finance pages are still empty. Next: Phase 5, the first production deploy, so the app runs online on the iPhone without a PC.
+> **Status:** 🚧 In development. Phases 1 (repository and environment), 2 (visual foundation and navigation), 3 (Supabase, authentication and security), 4 (gym module) and 5 (first production deploy, on Vercel) are complete. In the gym module, the Workout tab has routines and exercises (create, edit, reorder and archive) and the workout history, where each workout opens its detail. The workout in progress works: start it, log sets, swap, skip and add exercises, resume and discard it, all saved on the device. Finishing a workout saves it, without network too: it waits on the device and is sent by itself when the network is back. Home shows this week against a goal, a month's calendar coloured by the sets of each day (tap a day to see its workouts), cards for Weight and Finance, and the last workout. The installed app on the phone works without network: it opens offline, and the routines, the exercises, the last sets of each exercise and the recent workouts are kept on the device. Users sign in with Google, every page needs a session, and every table has Row Level Security, column-level privileges and SQL security tests, managed through versioned migrations. Unit tests run with Vitest, locally and in CI. The app also has its visual identity, navigation, shared loading, empty and error states, and an icon and web manifest for the iPhone home screen. The Weight page logs today's weight (one entry per day, in Lisbon's day) and shows its history; its chart and Home's Weight card come next. The Finance page is still empty. Next: the rest of Phase 6, the body weight module.
 
 ## Planned features (MVP)
 
@@ -47,7 +47,7 @@ A personal life dashboard to track gym workouts, body weight and personal financ
 | Backend | Supabase (PostgreSQL, Auth, Row Level Security) | ✅ In use |
 | Unit tests | Vitest | ✅ In use |
 | Component and end-to-end tests | React Testing Library, Playwright | Planned |
-| Hosting | Vercel | Planned |
+| Hosting | Vercel | ✅ In use |
 
 ## Getting started
 
@@ -98,7 +98,7 @@ npx supabase db push --linked
 - [x] **Phase 2** — Visual foundation and navigation
 - [x] **Phase 3** — Supabase, authentication and security
 - [x] **Phase 4** — Gym module
-- [ ] **Phase 5** — First production deploy
+- [x] **Phase 5** — First production deploy
 - [ ] **Phase 6** — Body weight module
 - [ ] **Phase 7** — Finance module
 - [ ] **Phase 8** — Dashboard
