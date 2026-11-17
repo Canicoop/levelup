@@ -31,6 +31,8 @@ export const queryClient = new QueryClient({
 // once, which removed these queries a millisecond after they were set. Their
 // age is still limited by the copy's maxAge.
 queryClient.setQueryDefaults(['workout'], { gcTime: Infinity })
+// The Weight reads are kept on the device too (step 6.5b), for the same reason.
+queryClient.setQueryDefaults(['weight'], { gcTime: Infinity })
 
 // Except a workout's detail read on its own (one not in the recent workouts or
 // the history): each one opened would otherwise stay in the copy for good. A

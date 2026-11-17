@@ -23,8 +23,16 @@ describe('shouldPersistQuery', () => {
     expect(shouldPersistQuery({ queryKey: ['workout', 'routines'], state: { status } })).toBe(false)
   })
 
+  it('keeps finished Weight reads', () => {
+    expect(shouldPersistQuery({ queryKey: ['weight', 'entries'], state: { status: 'success' } })).toBe(true)
+  })
+
+  it.each(['pending', 'error'])('does not keep a %s Weight read', (status) => {
+    expect(shouldPersistQuery({ queryKey: ['weight', 'entries'], state: { status } })).toBe(false)
+  })
+
   it('does not keep reads of other modules', () => {
-    expect(shouldPersistQuery({ queryKey: ['weight'], state: { status: 'success' } })).toBe(false)
+    expect(shouldPersistQuery({ queryKey: ['finance'], state: { status: 'success' } })).toBe(false)
   })
 
   it('keeps the history and the months', () => {
@@ -45,6 +53,12 @@ describe('trimForCopy', () => {
         pageParams: Array.from({ length: pages }, (_, page) => (page === 0 ? null : `cursor ${page}`)),
       },
     },
+  })
+
+  it('keeps every weight entry, since "Tudo" needs them', () => {
+    const entries = Array.from({ length: 400 }, (_, index) => ({ id: `id-${index}`, day: `day-${index}`, tenths: 780 }))
+    const weight = { queryKey: ['weight', 'entries'], state: { status: 'success', data: entries } }
+    expect(trimForCopy({ queries: [weight] }).queries).toEqual([weight])
   })
 
   it('keeps only the first page of the history', () => {

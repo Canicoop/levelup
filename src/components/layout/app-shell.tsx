@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Outlet, ScrollRestoration } from 'react-router'
 import { BottomNav } from '@/components/layout/bottom-nav'
 import { SidebarNav } from '@/components/layout/sidebar-nav'
+import { preloadWeightPages } from '@/features/weight/load-pages'
 import { preloadWorkoutPages } from '@/features/workout/load-pages'
 
 // Content is padded away from the notch and, in landscape, the rounded corners.
@@ -14,6 +15,7 @@ export function AppShell() {
   // Lazy modules are fetched in the background once the app is open and
   // signed in (see load-pages.ts).
   useEffect(preloadWorkoutPages, [])
+  useEffect(preloadWeightPages, [])
   // And the data a workout needs, kept on the device for when there is no
   // network. Imported on demand, but its chunk already loads at start: Rolldown
   // puts its runtime helpers there, and the main chunk imports them (see React

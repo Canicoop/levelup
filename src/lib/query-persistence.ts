@@ -1,6 +1,6 @@
 // The copy of server reads kept on the device, so the app works without
-// network (see Offline handling in docs/decisions.md). Only the Workout reads
-// are kept, one copy per account.
+// network (see Offline handling in docs/decisions.md). Only the Workout and
+// Weight reads are kept, one copy per account.
 
 import { toISODate } from '@/lib/format'
 
@@ -16,9 +16,14 @@ export function queryCacheKey(accountId: string) {
   return `levelup:query-cache:${accountId}`
 }
 
-// Only finished Workout reads: never an error, a pending read or another module.
+// The modules whose reads are kept. Weight keeps every entry (about 28 kB a
+// year of daily weighing), since its "Tudo" chart needs them all.
+const KEPT_MODULES = new Set(['workout', 'weight'])
+
+// Only finished Workout and Weight reads: never an error, a pending read or
+// another module.
 export function shouldPersistQuery(query: { queryKey: readonly unknown[]; state: { status: string } }) {
-  return query.state.status === 'success' && query.queryKey[0] === 'workout'
+  return query.state.status === 'success' && KEPT_MODULES.has(String(query.queryKey[0]))
 }
 
 // A read of finished workouts of this kind ('history', 'month', …).
