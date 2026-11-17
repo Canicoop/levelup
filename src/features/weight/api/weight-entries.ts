@@ -7,8 +7,10 @@ import { supabase } from '@/lib/supabase'
 
 const COLUMNS = 'id, entry_date, weight_kg'
 
-// The Data API's row limit (Supabase's default "Max rows"). A full page means
-// there may be more.
+// The Data API's row limit: Supabase's "Max rows", left at its default of 1000
+// on both projects. A full page means there may be more. A lower setting would
+// end the read early and silently, so it must not go below this (see
+// docs/decisions.md, Weight module).
 const PAGE_SIZE = 1000
 
 // What the app may write: the weight only. The generated Insert type also
@@ -18,18 +20,22 @@ type WeightEntryWrite = { weight_kg: number }
 
 // Every entry of the user, newest first. Read in pages, so "Tudo" keeps the
 // oldest entries once there are more than a page (about three years of daily
-// weighing). Entries are unique per day, so the order is stable across pages.
+// weighing). Each page asks for the days before the last one it has (a
+// keyset), not for an offset: an entry logged or deleted between two requests
+// would shift offsets and repeat or skip one at the boundary. Days are unique
+// per user, so no entry is ever cut between pages.
 export async function fetchWeightEntries(): Promise<WeightEntry[]> {
   const entries: WeightEntry[] = []
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await supabase
-      .from('weight_entries')
-      .select(COLUMNS)
+  let before: DayKey | null = null
+  for (;;) {
+    const query = supabase.from('weight_entries').select(COLUMNS)
+    const { data, error } = await (before === null ? query : query.lt('entry_date', before))
       .order('entry_date', { ascending: false })
-      .range(from, from + PAGE_SIZE - 1)
+      .limit(PAGE_SIZE)
     if (error) throw error
     entries.push(...data.map(toWeightEntry))
     if (data.length < PAGE_SIZE) return entries
+    before = data[data.length - 1].entry_date
   }
 }
 

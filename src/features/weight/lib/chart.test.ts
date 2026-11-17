@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   chartPoints,
+  dailyDots,
   movingAverage,
-  showDailyDot,
   timeDomain,
   timeTicks,
   weightDomain,
@@ -157,22 +157,21 @@ describe('weightDomain and weightTicks', () => {
   })
 })
 
-describe('showDailyDot', () => {
-  it('shows every dot up to the limit', () => {
+describe('dailyDots', () => {
+  it('gives every daily value a dot up to the limit', () => {
     const points = [point('2026-11-16', 78.5), point('2026-11-17', 78.4)]
-    expect(showDailyDot(points, 0)).toBe(true)
-    expect(showDailyDot(points, 1)).toBe(true)
+    expect([...dailyDots(points)]).toEqual([0, 1])
   })
 
-  it('never shows a dot for an empty point', () => {
-    expect(showDailyDot([point('2026-11-11', null)], 0)).toBe(false)
+  it('never gives a dot to an empty point', () => {
+    const points = [point('2026-11-10', 78.5), point('2026-11-11', null), point('2026-11-15', 78.4)]
+    expect([...dailyDots(points)]).toEqual([0, 2])
   })
 
-  it('above the limit, shows only isolated values', () => {
+  it('above the limit, keeps only isolated values', () => {
     const many = Array.from({ length: 130 }, (_, index) => point(`d${index}`, 78))
     many[60] = point('gap', null)
     many[62] = point('gap', null)
-    expect(showDailyDot(many, 10)).toBe(false)
-    expect(showDailyDot(many, 61)).toBe(true)
+    expect([...dailyDots(many)]).toEqual([61])
   })
 })

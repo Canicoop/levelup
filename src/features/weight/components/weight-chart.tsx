@@ -12,7 +12,7 @@ import {
 import { Card } from '@/components/ui/card'
 import {
   chartPoints,
-  showDailyDot,
+  dailyDots,
   timeDomain,
   timeTicks,
   weightDomain,
@@ -128,6 +128,8 @@ function Plot({
   const ticks = timeTicks(start, today)
   const labels = new Map(ticks.map((day) => [dayTime(day), formatAxisDay(day, span)]))
   const yTicks = weightTicks(weights)
+  // Once per render, in one pass; the dot renderer below asks for every point.
+  const dots = dailyDots(points)
 
   return (
     // Hidden from screen readers: the figure's caption and the history carry
@@ -180,7 +182,7 @@ function Plot({
             strokeWidth={1.5}
             dot={(props: { cx?: number; cy?: number; index?: number }) => {
               const { cx, cy, index = 0 } = props
-              if (cx == null || cy == null || !showDailyDot(points, index)) return <g key={`dot-${index}`} />
+              if (cx == null || cy == null || !dots.has(index)) return <g key={`dot-${index}`} />
               return (
                 <circle
                   key={`dot-${index}`}

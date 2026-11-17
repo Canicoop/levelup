@@ -61,16 +61,20 @@ export function WeightPage() {
 
   // Home's "Registar peso" (see register-intent.ts): once the entries are
   // known, open today's sheet, once per navigation (the location's key).
-  // Adjusted during render, as React advises for state that follows other
-  // values; the request is then cleared with replace, so going back or
-  // reloading does not open the sheet again.
+  // While a read is on its way the entries may be the device's copy, and
+  // miss an entry logged today on another device, so it waits for that read;
+  // without network the read pauses and the copy is used. The day is read now,
+  // not from `today`, which can be a minute old. Adjusted during render, as
+  // React advises for state that follows other values; the request is then
+  // cleared with replace, so going back or reloading does not open it again.
   const location = useLocation()
   const navigate = useNavigate()
   const fromHome = wantsRegister(location.state)
+  const reading = query.fetchStatus === 'fetching'
   const [handledKey, setHandledKey] = useState<string | null>(null)
-  if (fromHome && entries && handledKey !== location.key) {
+  if (fromHome && entries && !reading && handledKey !== location.key) {
     setHandledKey(location.key)
-    setTarget(todaySheet(entries, today))
+    setTarget(todaySheet(entries, lisbonToday(new Date())))
     setSheetOpen(true)
   }
   useEffect(() => {

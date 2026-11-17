@@ -86,14 +86,20 @@ export function weightTicks([low, high]: [number, number]): number[] {
 // the line is drawn.
 export const MAX_DOTS = 120
 
-// Whether the daily value at `index` gets a dot: every one up to MAX_DOTS
+// The indices of the daily values that get a dot: every one up to MAX_DOTS
 // points, and above that only an isolated one (no daily value on either side),
 // which would otherwise not show at all, since a line needs two points.
-export function showDailyDot(points: ChartPoint[], index: number) {
-  if (points[index]?.weight == null) return false
+// Worked out once per series, in one pass, since the chart asks for every
+// point (asking per point, with a count each time, was quadratic).
+export function dailyDots(points: ChartPoint[]): Set<number> {
   const daily = points.filter((point) => point.weight !== null).length
-  if (daily <= MAX_DOTS) return true
-  return points[index - 1]?.weight == null && points[index + 1]?.weight == null
+  const dots = new Set<number>()
+  points.forEach((point, index) => {
+    if (point.weight === null) return
+    const isolated = points[index - 1]?.weight == null && points[index + 1]?.weight == null
+    if (daily <= MAX_DOTS || isolated) dots.add(index)
+  })
+  return dots
 }
 
 // One point of the chart, in kg. `time` places it on a time axis, so points
