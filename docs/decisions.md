@@ -608,7 +608,7 @@ Icons, manifest and iOS details: see *App icon*.
 - **Archive instead of delete** when historical records reference an item (categories, exercises, routines).
 - **Money uses `numeric(12,2)`**, never floating point.
 - **Timestamps use `timestamptz`.** Daily grouping uses the user's local day.
-- **One body weight entry per day.** A second entry on the same day replaces the first (a `unique (user_id, entry_date)` constraint and an upsert).
+- **One body weight entry per day, for today only.** A second entry on the same day replaces the first (a `unique (user_id, entry_date)` constraint and an upsert), and the day is Lisbon's today, set by the database (see *weight_entries*).
 
 ### Main tables
 - **Account:** `profiles`
@@ -623,18 +623,19 @@ Icons, manifest and iOS details: see *App icon*.
 - **Finance:** `categories`, `transactions`, `budgets`, `subscriptions`
 
 ### weight_entries
-The daily body weight log, created by `supabase/migrations/20261030165634_create_weight_entries.sql`. Named for what each row is, one entry, instead of the earlier `body_weights`.
+The daily body weight log, created by `supabase/migrations/20261030165634_create_weight_entries.sql` and changed by `supabase/migrations/20261116171035_weight_entries_today_only.sql` (step 6.2), so that only today's entry can be written. Named for what each row is, one entry, instead of the earlier `body_weights`.
 
 | Column | Type | Notes |
 |---|---|---|
 | `id` | `uuid` | Primary key, `gen_random_uuid()` |
 | `user_id` | `uuid` | `default auth.uid()`, references `auth.users` with `on delete cascade` |
-| `entry_date` | `date` | The user's local day |
-| `weight_kg` | `numeric(5,2)` | `check (weight_kg > 0 and weight_kg <= 500)`: only impossible values. The tighter range for real use is the form's job (Zod) |
+| `entry_date` | `date` | Lisbon's calendar day: `default ((now() at time zone 'Europe/Lisbon')::date)`. The app cannot write it (see *Privileges and RLS*) |
+| `weight_kg` | `numeric(5,2)` | `check (weight_kg > 0 and weight_kg <= 500)`: only impossible values; `check (weight_kg = round(weight_kg, 1))`: one decimal at most. The tighter range for real use (20,0–300,0 kg) is the form's job |
 | `created_at`, `updated_at` | `timestamptz` | `default now()`; `updated_at` is refreshed by the `set_updated_at` trigger |
 
 - **One entry per day:** `unique (user_id, entry_date)`. Its index also serves the RLS filter and ordering by date, so there is no other index.
-- **No "not in the future" check:** a `check` constraint with `current_date` would depend on the day it runs, and PostgreSQL assumes check constraints always give the same result. The form validates it instead.
+- **Today only, decided by the database** (step 6.2): the default above, no privilege on `entry_date`, and insert and update policies that only accept Lisbon's today. **Why not a `check`:** PostgreSQL assumes a check constraint always gives the same result, and one with `now()` or `current_date` would change by itself at midnight; a default and a policy are evaluated for each statement. **Why not `current_date`:** it follows the session's time zone (UTC on Supabase), so between midnight and 01:00 in summer it would still be yesterday in Lisbon.
+- **One decimal is a `check`, not `numeric(4,1)`:** the narrower type would round 78.45 to 78.5 silently; the check refuses it, like the untrimmed names of the gym tables.
 - **`set_updated_at()`** is generic, so later tables reuse it. It has an empty `search_path` (Supabase's linter rule) and no `EXECUTE` for `public`, `anon` or `authenticated`.
 
 ### Gym tables
@@ -669,13 +670,14 @@ Created by `supabase/migrations/20261102165341_create_gym_tables.sql`. Every tab
 ### Privileges and RLS
 **Decision:** every table starts from no privileges and grants only what the app needs. For `weight_entries`:
 - `revoke all on table … from anon, authenticated`: in this project, new tables give both roles `TRUNCATE`, `TRIGGER` and `MAINTAIN` by default, and `TRUNCATE` ignores RLS.
-- `authenticated`: `SELECT` and `DELETE` on the table; `INSERT` and `UPDATE` only on `entry_date` and `weight_kg`. `id`, `user_id` and the timestamps always come from the database, and `user_id` can neither be set to another user nor changed later.
+- `authenticated`: `SELECT` and `DELETE` on the table; `INSERT` and `UPDATE` only on `weight_kg` (on `entry_date` too until step 6.2). `id`, `user_id`, `entry_date` and the timestamps always come from the database: `user_id` can neither be set to another user nor changed later, and an entry's day can neither be chosen nor changed.
 - `anon`: nothing.
 - RLS enabled explicitly (even though the project enables it automatically), with one policy per operation, for `authenticated` only, comparing `(select auth.uid())` with `user_id`. The `select` wrapper makes PostgreSQL evaluate it once per statement instead of once per row.
+- The insert and update policies also require `entry_date` to be Lisbon's today, `(select (now() at time zone 'Europe/Lisbon')::date)`, so only today's entry can be written, even if a grant on `entry_date` came back by mistake. An update of an older entry finds no row (0 rows, no error). The select and delete policies cover every own entry.
 
-**Why:** the project settings are "Enable automatic RLS" on (an event trigger, `ensure_rls`) and "Automatically expose new tables" off, so nothing is reachable through the Data API until it is granted. Column-level grants make the database, not the frontend, decide which fields a user may write. The insert policy stays as a second barrier.
+**Why:** the project settings are "Enable automatic RLS" on (an event trigger, `ensure_rls`) and "Automatically expose new tables" off, so nothing is reachable through the Data API until it is granted. Column-level grants make the database, not the frontend, decide which fields a user may write. The insert and update policies stay as a second barrier.
 
-**Upsert:** omitted columns take their defaults without needing a privilege, so `insert (entry_date, weight_kg) … on conflict (user_id, entry_date) do update set weight_kg = excluded.weight_kg` works without `user_id`. From the app: send only `{ entry_date, weight_kg }` with `onConflict: 'user_id,entry_date'`; sending `id` or `user_id` fails with a permission error.
+**Upsert:** omitted columns take their defaults without needing a privilege, so `insert (weight_kg) … on conflict (user_id, entry_date) do update set weight_kg = excluded.weight_kg` works without `user_id` or `entry_date`; the row it meets is today's, which the update policy allows. From the app: send only `{ weight_kg }` with `onConflict: 'user_id,entry_date'`; sending `id`, `user_id` or `entry_date` fails with a permission error.
 
 **Gym tables:** the same approach, with `revoke all` first and nothing for `anon`.
 - `SELECT` on all six tables for `authenticated`.
@@ -719,8 +721,8 @@ Created by `supabase/migrations/20261102165341_create_gym_tables.sql`. Every tab
 
 ### Generated types
 - `src/lib/database.types.ts` comes from `npm run db:types` (`supabase gen types typescript --linked --schema public`), and is never edited by hand. It is regenerated after each migration. The client is created with `createClient<Database>`.
-- **The generated `Insert` and `Update` types are wider than the database allows:** they show `id`, `user_id` and the timestamps as optional, because the generator does not know about column-level privileges. The Weight module's data layer must accept only `{ entry_date, weight_kg }`, with its own narrower type.
-- **`weight_kg` arrives as a `number`:** the Data API returns `numeric` as a JSON number. For weights with two decimals this loses no precision, and they are not used in money calculations, so the rule "money is never floating point" does not apply.
+- **The generated `Insert` and `Update` types are wider than the database allows:** they show `id`, `user_id`, `entry_date` and the timestamps as optional, because the generator does not know about column-level privileges. The Weight module's data layer must accept only `{ weight_kg }`, with its own narrower type.
+- **`weight_kg` arrives as a `number`:** the Data API returns `numeric` as a JSON number. For weights with one decimal this loses no precision, and they are not used in money calculations, so the rule "money is never floating point" does not apply. The app works on whole tenths (see *Weight module*).
 - **Gym tables and `submit_workout`:** the types now include the six gym tables and `submit_workout` (`Args: { workout: Json }`, `Returns: string`). The note on wider `Insert` and `Update` types applies to them too: the gym data layer uses its own types for what each table, and the `submit_workout` payload, accept. `last_exercise_sets` is typed too (`Args: { exercise_ids: string[] }`, with one row per set).
 
 ### Accepted advisor warnings
@@ -793,6 +795,8 @@ Get-Content supabase\.temp\project-ref          # still levelup-dev's ref
 
 On 2026-11-16 this applied the 4 migrations, and the last `migration list` showed all 4 in both columns.
 
+On 2026-11-16 (step 6.2) the same sequence applied `20261116171035_weight_entries_today_only.sql`, after a read-only check on both projects that no weight had two decimals (both had 0 entries); the last `migration list` showed all 5 in both columns, and the CLI was still linked to `levelup-dev` afterwards.
+
 ### Database security tests
 **Decision:** security tests are plain SQL files in `supabase/tests/`, run by the user in the SQL Editor of `levelup-dev`. `supabase test db` (pgTAP) runs in Docker, which the project does not use.
 
@@ -802,17 +806,22 @@ On 2026-11-16 this applied the 4 migrations, and the last `migration list` showe
 - Two fake users are created in `auth.users` inside the transaction, so the repository holds no real user IDs.
 - A failed check raises an error starting with `FAIL`, and the last result reads "All … checks passed".
 
-**`supabase/tests/weight_entries_rls.sql` covers:**
+**`supabase/tests/weight_entries_rls.sql` covers** (rewritten in step 6.2 for "today only"; older entries are created as `postgres`, which RLS does not apply to):
 - `anon` cannot select, insert, update, delete or truncate;
-- a user inserts without `user_id` and gets their own;
-- inserting with another user's `user_id`, or with a chosen `id`, fails on privileges;
-- a user sees, updates and deletes only their own entries; another user's entry is not visible even by `id`, and updates or deletes of it affect 0 rows;
-- changing `user_id` and `TRUNCATE` fail on privileges;
-- an upsert without `user_id` replaces the weight, keeps the row and its `user_id`, and refreshes `updated_at`;
-- a second plain insert for the same day and impossible weights (0, 600) are rejected;
-- the other user's entry is untouched by all of the above.
+- a user logs with the weight only and gets their own `user_id` and Lisbon's today, worked out without the column's expression (in a session set to Lisbon); the session's time zone does not change it (`UTC`, `Pacific/Kiritimati` and `Pacific/Pago_Pago`, whose dates always differ);
+- inserting with another user's `user_id`, a chosen `id` or a chosen `entry_date` (yesterday, or even today) fails on privileges;
+- a user sees every own entry and none of another user's, even by `id`;
+- today's own entry can be updated; an older own entry cannot (0 rows, the weight unchanged), nor can another user's (0 rows);
+- changing `entry_date` or `user_id`, and `TRUNCATE`, fail on privileges;
+- with `entry_date` granted for a moment, the policies alone still refuse logging tomorrow and moving today's entry to yesterday;
+- an upsert with the weight only replaces today's weight, keeps the row and its `user_id`, and refreshes `updated_at`; a second plain insert on the same day is rejected;
+- 0 and 600 are refused by the range check, 78.45 by the one-decimal check, and 78.4 is stored;
+- any own entry can be deleted, older or today's; another user's cannot (0 rows);
+- the other user's entries are untouched by all of the above.
 
-**Result on 2026-10-30:** all checks passed, and no fake users or entries were left behind. A manual test in the app with two Google accounts follows when the Weight screen exists (Phase 6).
+**Limit:** `now()` is fixed inside the transaction, so midnight cannot be simulated here; the app's side of it is left to Vitest (`lisbonToday`, step 6.3).
+
+**Result on 2026-10-30:** all checks passed, and no fake users or entries were left behind. **On 2026-11-16** (step 6.2), the rewritten file passed on `levelup-dev` and on `levelup-prod` after the migration, and `gym_rls.sql` passed again on both. A manual test in the app with two Google accounts follows when the Weight screen exists (Phase 6).
 
 **`supabase/tests/gym_rls.sql` covers:**
 - `anon` cannot select, insert, update, delete or truncate any of the six tables, or execute `submit_workout` or `last_exercise_sets`;
