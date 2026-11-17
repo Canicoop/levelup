@@ -566,6 +566,13 @@ Loading, empty and error states are shared components, so every module handles t
 
   Update once ESLint and typescript-eslint depend on `minimatch` 11.0.1 or later.
 - **Known `npm audit` findings: `workbox-build`** (added with `vite-plugin-pwa` in step 4.4b), 4 of the findings (`npm audit` on 2026-11-10: 19 in total, 3 low and 16 moderate, none in production dependencies). `vite-plugin-pwa` 2.0.0 → `workbox-build` 7.4.1 brings `glob` 11.1.0 (moderate, GHSA-3g3m-2fjr-6pw4, and `minimatch` above) and `@rollup/plugin-node-resolve` 16.0.3 → `deepmerge` 4.3.1 (the same low finding as shadcn's). Accepted for the same reasons: `workbox-build` only runs inside `npm run build`, on the repository's own files, to write the service worker, and none of it reaches the bundle; the suggested fix downgrades `vite-plugin-pwa` to 1.1.0 with `--force`. Update once `workbox-build` depends on fixed versions.
+- **Known `npm audit` findings: `picomatch`** up to 4.0.7 (high, ReDoS through single-branch repeated extglobs, GHSA-fc5q-39xc-vjpf, published on 2026-11-17), which took `npm audit` to 29 findings (10 moderate, 19 high). It is reached only through development and build tools: Vite, Vitest, typescript-eslint, shadcn (`fast-glob`) and Workbox. Accepted because:
+  - it only affects code that matches globs given by an attacker; here those tools only match the repository's own patterns;
+  - it never reaches the app: `npm ls picomatch --omit=dev` is empty, and the built bundle does not contain it;
+  - no fixed release exists yet (4.0.7 is the latest), and `npm audit fix --force` would downgrade Vite to 6 and Vitest to 3;
+  - `npm audit fix` without `--force`, simulated on a copy of the lockfile, would update 19 packages within their ranges (Vite 8.3.5 → 8.3.8, Rolldown 1.2.15 → 1.2.19, ESLint 10.13.0 → 10.15.0, typescript-eslint 8.72.1 → 8.73.0) and only take the count to 27, so it was not run for this.
+
+  Update once `picomatch` publishes a fixed release.
 - **The `cn` package** (about 26 kB minified), which the generated components import, entered the bundle with the navigation bars. Lighter alternatives (such as `cn/lite`) will be evaluated later.
 
 ### Installable on iPhone (no App Store)
@@ -1068,5 +1075,5 @@ The MVP runs on free tiers: GitHub, Supabase Free and Vercel Hobby (personal, no
 | Custom domain | Phase 5 (optional) |
 | Lazy loading for the other modules, to address Vite's 500 kB chunk warning (Workout is lazy already, see *React Router 8 in data mode*) | When each module has code |
 | Vite's 500 kB warning is back since step 6.5: the main chunk is 506 kB minified after the bundler moved shared code into it, while what loads at start grew under 1 kB, and Recharts (step 6.6) did not change it (see *React Router 8 in data mode*). Not hidden with `chunkSizeWarningLimit`: look at a `codeSplitting` group | Phase 9 |
-| `npm audit` reported 29 findings (19 high) on 2026-11-17, from a new advisory on `picomatch` (ReDoS), reached through the development tools only (Vite, Vitest, ESLint, shadcn, Workbox); the lockfile before Recharts gives the same count. See whether `npm audit fix` without `--force` resolves it, and record what stays | The step after 6.6 |
+| Update `picomatch` once a release fixes GHSA-fc5q-39xc-vjpf (after 4.0.7), then run `npm audit` again (see *shadcn/ui on Base UI*, known findings) | When it is released |
 | Move the generic error helpers (`NotFoundError`, `requireRows`, `isNetworkError`, `getErrorMessage`) from `src/features/workout/lib/errors.ts` to `src/lib/errors.ts`, as a `refactor` commit of its own. The Weight module imports them from the Workout module for now (step 6.4); a third module makes the shared place worth the change | When the Finance module starts (Phase 7) |
