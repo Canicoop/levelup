@@ -162,6 +162,13 @@ Decided on 2026-11-16, before Phase 6 (step 6.1). The details of each screen are
 - **Charts use Recharts** (planned in *Frontend*), pinned to an exact version and only in the Weight chunk.
 - **The form is plain code,** like the workout's `parseWeight`: a single field does not justify React Hook Form and Zod.
 
+**Data layer** (step 6.4, `src/features/weight/api/` and `hooks/`)
+- **One read for everything:** `fetchWeightEntries` reads every entry (`id`, `entry_date`, `weight_kg`), newest first, in pages of 1000 (the Data API's default "Max rows") until a page comes back short, so "Tudo" keeps the oldest entries after about three years of daily weighing. Every screen works out its period, chart and summary from that one list (`weightKeys.entries()`). **Why not a read per period:** a year of daily entries is about 365 short rows, and one list keeps the page, the filter and Home's card in step without more requests.
+- **Saving sends only `{ weight_kg }`** (its own type, `WeightEntryWrite`, not the generated `Insert`), as an upsert on `user_id,entry_date`: the database sets the day and the user. If Lisbon's day changed since the sheet opened, `saveTodayWeight` throws `DayChangedError` before sending anything.
+- **Deleting** asks for the id back and turns no row into `NotFoundError` (`requireRows`).
+- **After a write,** the Weight reads are asked for again (`weightKeys.all`); on success the mutation stays pending until that read ends, as in the Workout module, so the screen never shows the old state as saved.
+- **Messages** (`weightErrorMessage`): "O dia mudou. Regista o peso de hoje.", "Este registo já não existe.", and otherwise the Workout module's messages (no network, database codes), whose helpers it imports (see *Open questions*).
+
 **Home**
 - **The Weight card shows real data:** the current weight, its relative day ("hoje", "ontem"…) and the difference from the previous entry. With no entry today, "Registar peso" opens `/peso` with the sheet already open, so the drawer stays out of the main chunk. There is no mini chart, so Recharts stays out of the main chunk too.
 
@@ -866,7 +873,7 @@ On 2026-11-16 (step 6.2) the same sequence applied `20261116171035_weight_entrie
 - **The Weight module does not depend on the device's time zone** (step 6.3): its days are Lisbon's, worked out with `timeZone: 'Europe/Lisbon'` and formatted in UTC. Its six test files were also run once with `TZ` set to `America/New_York`, through a temporary config outside the repository that only changed `test.env.TZ` (2026-11-17): all 62 passed, while `format.test.ts`, run with them, failed its zone check with "America/New_York", which shows the zone had changed.
 - **Tailwind reads only `.tsx` files (`@source not "./**/*.ts"` in `src/index.css`):** Tailwind scans `src` for class names in any text, comments included. Words in test descriptions ("absolute", "relative") had added `.absolute` and `.relative` to the production CSS, and later the word "table" in a comment of a data-layer file added `.table`. Excluding only the tests would not have caught the second case, so every `.ts` file is excluded: logic and tests live in `.ts`, and Tailwind classes only in `.tsx`. With the exclusion, the CSS is byte-for-byte the same as without those files.
 
-**What the 625 tests cover:**
+**What the 629 tests cover:**
 
 | File | Tests | Covers |
 |---|---|---|
@@ -907,6 +914,7 @@ On 2026-11-16 (step 6.2) the same sequence applied `20261116171035_weight_entrie
 | `src/features/weight/lib/periods.test.ts` | 8 | `periodStart` for 1M, 3M, 1A and Tudo, `entriesInPeriod`, `periodSummary` (the first entry inside the period, a current weight older than the period, a single entry, Tudo) |
 | `src/features/weight/lib/chart.test.ts` | 11 | `movingAverage` (at least 3 entries in 7 calendar days, only on days with an entry, unrounded, across a clock change), `chartPoints` (the period's entries at their dates, averages using entries just before the period, lines joined up to 3 days apart and broken after) |
 | `src/features/weight/lib/labels.test.ts` | 9 | `formatEntryDay` ("hoje", "ontem", a weekday, a date, another year), `formatDeleteQuestion` (always a date, never a weekday), `homeWeightSummary` |
+| `src/features/weight/lib/errors.test.ts` | 4 | `weightErrorMessage`: the day changed, an entry that no longer exists, no network, and database codes falling back to the generic messages |
 
 No test file was removed: the tests of the 12 weeks, the sliding and the sticking pick were in `history.test.ts` and went with that code.
 
@@ -1046,3 +1054,4 @@ The MVP runs on free tiers: GitHub, Supabase Free and Vercel Hobby (personal, no
 | Publish the Google OAuth app and complete its Branding (optional: only to show the app's name and logo on Google's sign-in screen; it stays in Testing, which works for any account with these scopes, see *Sign-in with Google only*) | Optional |
 | Custom domain | Phase 5 (optional) |
 | Lazy loading for the other modules, to address Vite's 500 kB chunk warning (Workout is lazy already, see *React Router 8 in data mode*) | When each module has code |
+| Move the generic error helpers (`NotFoundError`, `requireRows`, `isNetworkError`, `getErrorMessage`) from `src/features/workout/lib/errors.ts` to `src/lib/errors.ts`, as a `refactor` commit of its own. The Weight module imports them from the Workout module for now (step 6.4); a third module makes the shared place worth the change | When the Finance module starts (Phase 7) |
