@@ -9,8 +9,8 @@ import {
 } from '@/features/workout/api/history'
 import { workoutKeys } from '@/features/workout/api/query-keys'
 import { usePendingWorkouts } from '@/features/workout/hooks/use-finished-workouts'
-import { NotFoundError } from '@/features/workout/lib/errors'
 import { inMonth, mergeWithPending, pendingAsRecords, type Month, type WorkoutRecord } from '@/features/workout/lib/history'
+import { NotFoundError } from '@/lib/errors'
 
 // The reads of finished workouts, with the ones waiting to be sent laid over
 // them (rule AY). The queue has its own store, so a workout shows at once, and

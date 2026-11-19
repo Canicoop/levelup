@@ -2,7 +2,7 @@ import { dayChanged, toWeightEntry, type WeightEntry } from '@/features/weight/l
 import { DayChangedError } from '@/features/weight/lib/errors'
 import type { DayKey } from '@/features/weight/lib/lisbon-day'
 import { toKg, type Tenths } from '@/features/weight/lib/weight-values'
-import { requireRows } from '@/features/workout/lib/errors'
+import { requireRows } from '@/lib/errors'
 import { supabase } from '@/lib/supabase'
 
 const COLUMNS = 'id, entry_date, weight_kg'

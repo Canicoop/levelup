@@ -1,6 +1,5 @@
 import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query'
 import { workoutKeys } from '@/features/workout/api/query-keys'
-import { NotFoundError } from '@/features/workout/lib/errors'
 import {
   inMonth,
   monthOf,
@@ -10,6 +9,7 @@ import {
   type WorkoutRecord,
 } from '@/features/workout/lib/history'
 import { UUID } from '@/features/workout/lib/uuid'
+import { NotFoundError } from '@/lib/errors'
 import { supabase } from '@/lib/supabase'
 
 // Finished workouts, through the Data API: a workout with its routine, its

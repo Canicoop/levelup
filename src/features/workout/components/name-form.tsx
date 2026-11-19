@@ -2,7 +2,7 @@ import { useId, useState, type FormEvent, type RefObject } from 'react'
 import { useSheetBusy } from '@/components/sheet-busy'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { getErrorMessage } from '@/features/workout/lib/errors'
+import { workoutErrorMessage } from '@/features/workout/lib/errors'
 import { cleanName } from '@/features/workout/lib/names'
 
 type NameFormProps = {
@@ -40,7 +40,7 @@ export function NameForm({
   const errorId = useId()
   useSheetBusy(isPending)
 
-  const error = invalid ?? (saveError ? getErrorMessage(saveError) : null)
+  const error = invalid ?? (saveError ? workoutErrorMessage(saveError) : null)
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()

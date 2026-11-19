@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { HistoryRow } from '@/features/workout/components/history-row'
 import { useWorkoutHistory } from '@/features/workout/hooks/use-workout-history'
-import { getErrorMessage } from '@/features/workout/lib/errors'
+import { workoutErrorMessage } from '@/features/workout/lib/errors'
 import { useNow } from '@/hooks/use-now'
 import { isWaitingForNetwork } from '@/lib/query-state'
 
@@ -64,7 +64,7 @@ export function WorkoutHistory() {
             )}
             {query.isFetchNextPageError && (
               <p role="alert" className="text-sm text-destructive">
-                {getErrorMessage(query.error)}
+                {workoutErrorMessage(query.error)}
               </p>
             )}
           </div>

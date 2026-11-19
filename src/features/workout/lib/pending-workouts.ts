@@ -1,5 +1,5 @@
-import { isNetworkError } from '@/features/workout/lib/errors'
 import type { SubmitWorkoutPayload } from '@/features/workout/lib/workout-payload'
+import { isNetworkError } from '@/lib/errors'
 
 // A finished workout waiting to be sent with submit_workout. The names are kept
 // for the summary screen and the "por enviar" line, which must work without

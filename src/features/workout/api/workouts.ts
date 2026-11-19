@@ -1,7 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { workoutKeys } from '@/features/workout/api/query-keys'
 import { groupLastSets, type LastSetsByExercise } from '@/features/workout/lib/active-workout'
-import { isNetworkError } from '@/features/workout/lib/errors'
 import {
   lastSetsFromCopy,
   mergeLastSetsCopy,
@@ -13,6 +12,7 @@ import { classifySubmitError, sendablePendingWorkouts, type SubmitOutcome } from
 import { withTimeout } from '@/features/workout/lib/with-timeout'
 import type { SubmitWorkoutPayload } from '@/features/workout/lib/workout-payload'
 import { getPendingWorkouts } from '@/features/workout/pending-workouts-store'
+import { isNetworkError } from '@/lib/errors'
 import { supabase } from '@/lib/supabase'
 
 // The finished workouts not in the database yet, which every read below lays

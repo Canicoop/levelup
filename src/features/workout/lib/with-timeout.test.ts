@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { TimeoutError } from '@/features/workout/lib/errors'
 import { withTimeout } from '@/features/workout/lib/with-timeout'
+import { TimeoutError } from '@/lib/errors'
 
 describe('withTimeout', () => {
   beforeEach(() => {

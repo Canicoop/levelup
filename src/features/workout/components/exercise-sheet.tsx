@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { NameForm } from '@/features/workout/components/name-form'
 import { useArchiveExercise, useRenameExercise } from '@/features/workout/hooks/use-exercise-mutations'
 import { useExerciseRoutines, useExercises } from '@/features/workout/hooks/use-workout-queries'
-import { getErrorMessage } from '@/features/workout/lib/errors'
+import { workoutErrorMessage } from '@/features/workout/lib/errors'
 import { validateExerciseName } from '@/features/workout/lib/names'
 import type { Exercise, ExerciseRoutine } from '@/features/workout/lib/types'
 import { isWaitingForNetwork } from '@/lib/query-state'
@@ -127,13 +127,13 @@ function ArchiveExercise({
           {routines.data
             ? archiveMessage(routines.data)
             : routines.isError
-              ? getErrorMessage(routines.error)
+              ? workoutErrorMessage(routines.error)
               : 'A verificar rotinas…'}
         </p>
       )}
       {archive.error && (
         <p role="alert" className="text-center text-sm text-destructive">
-          {getErrorMessage(archive.error)}
+          {workoutErrorMessage(archive.error)}
         </p>
       )}
       <div className="flex flex-col gap-2">

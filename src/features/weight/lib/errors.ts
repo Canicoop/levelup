@@ -1,7 +1,4 @@
-// The generic helpers live in the Workout module for now; they move to
-// src/lib/errors.ts when Finance needs them too (see Open questions in
-// docs/decisions.md).
-import { NotFoundError, getErrorMessage } from '@/features/workout/lib/errors'
+import { NotFoundError, getErrorMessage } from '@/lib/errors'
 
 // Lisbon's day changed between opening the sheet and saving: the value was
 // meant for the day before, so it is not sent (see docs/decisions.md, Weight module).

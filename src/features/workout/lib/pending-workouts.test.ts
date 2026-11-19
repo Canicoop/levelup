@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { TimeoutError } from '@/features/workout/lib/errors'
 import {
   addPendingWorkout,
   classifySubmitError,
@@ -12,6 +11,7 @@ import {
   serializePendingWorkouts,
   type PendingWorkout,
 } from '@/features/workout/lib/pending-workouts'
+import { TimeoutError } from '@/lib/errors'
 
 function pending(id: string, finishedAt = '2026-11-03T19:00:00.000Z'): PendingWorkout {
   return {

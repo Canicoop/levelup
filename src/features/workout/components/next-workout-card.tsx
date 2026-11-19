@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ChooseRoutineSheet } from '@/features/workout/components/choose-routine-sheet'
 import { useStartWorkout } from '@/features/workout/hooks/use-start-workout'
 import { useLastRoutineId, useRoutines } from '@/features/workout/hooks/use-workout-queries'
-import { getErrorMessage } from '@/features/workout/lib/errors'
+import { workoutErrorMessage } from '@/features/workout/lib/errors'
 import { formatExerciseCount } from '@/features/workout/lib/labels'
 import { nextRoutine } from '@/features/workout/lib/next-routine'
 
@@ -61,7 +61,7 @@ export function NextWorkoutCard() {
         )}
         {start.error && (
           <p role="alert" className="text-sm text-destructive">
-            {getErrorMessage(start.error)}
+            {workoutErrorMessage(start.error)}
           </p>
         )}
         <div className="flex flex-col gap-1">

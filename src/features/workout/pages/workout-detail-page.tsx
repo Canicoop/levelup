@@ -6,7 +6,6 @@ import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PendingBadge } from '@/features/workout/components/pending-badge'
 import { useWorkoutDetail } from '@/features/workout/hooks/use-workout-history'
-import { NotFoundError } from '@/features/workout/lib/errors'
 import { formatSetCount } from '@/features/workout/lib/finish-labels'
 import {
   countRecordSets,
@@ -16,6 +15,7 @@ import {
 } from '@/features/workout/lib/history'
 import { formatExerciseCount } from '@/features/workout/lib/labels'
 import { useNow } from '@/hooks/use-now'
+import { NotFoundError } from '@/lib/errors'
 import { isWaitingForNetwork } from '@/lib/query-state'
 
 const BACK = { to: '/treino', label: 'Voltar ao Treino' }

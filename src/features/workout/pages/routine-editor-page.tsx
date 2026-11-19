@@ -16,7 +16,7 @@ import { RenameRoutineSheet } from '@/features/workout/components/rename-routine
 import { RoutineExerciseList } from '@/features/workout/components/routine-exercise-list'
 import { useSetRoutineArchived } from '@/features/workout/hooks/use-routine-mutations'
 import { useRoutine, useRoutines } from '@/features/workout/hooks/use-workout-queries'
-import { RoutineNotFoundError, getErrorMessage } from '@/features/workout/lib/errors'
+import { RoutineNotFoundError, workoutErrorMessage } from '@/features/workout/lib/errors'
 import type { Routine, RoutineSummary, RoutineWithExercises } from '@/features/workout/lib/types'
 import { isWaitingForNetwork } from '@/lib/query-state'
 
@@ -127,7 +127,7 @@ function ArchivedNotice({ routine }: { routine: Routine }) {
         </div>
         {reactivate.error && (
           <p role="alert" className="text-sm text-destructive">
-            {getErrorMessage(reactivate.error)}
+            {workoutErrorMessage(reactivate.error)}
           </p>
         )}
       </div>

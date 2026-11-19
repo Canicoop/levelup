@@ -3,7 +3,7 @@ import { ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { useSetExerciseArchived } from '@/features/workout/hooks/use-exercise-mutations'
-import { getErrorMessage } from '@/features/workout/lib/errors'
+import { workoutErrorMessage } from '@/features/workout/lib/errors'
 import type { Exercise } from '@/features/workout/lib/types'
 
 // Collapsed by default, like the archived routines (see ArchivedRoutines).
@@ -61,7 +61,7 @@ function ArchivedExerciseRow({ exercise }: { exercise: Exercise }) {
       </div>
       {reactivate.error && (
         <p role="alert" className="text-sm text-destructive">
-          {getErrorMessage(reactivate.error)}
+          {workoutErrorMessage(reactivate.error)}
         </p>
       )}
     </li>

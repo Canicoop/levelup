@@ -13,11 +13,11 @@ import {
   setRoutineArchived,
   updateRoutinePositions,
 } from '@/features/workout/api/routines'
-import { ValidationError } from '@/features/workout/lib/errors'
 import { moveItem, nextPosition } from '@/features/workout/lib/positions'
 import { ROUTINE_FULL_MESSAGE, isRoutineFull } from '@/features/workout/lib/routine-limits'
 import { DEFAULT_TARGETS } from '@/features/workout/lib/targets'
 import type { Exercise, ExerciseChoice, Routine, RoutineExercise, Targets } from '@/features/workout/lib/types'
+import { ValidationError } from '@/lib/errors'
 
 type Direction = 'up' | 'down'
 

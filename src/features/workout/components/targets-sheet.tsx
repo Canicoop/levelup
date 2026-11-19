@@ -8,7 +8,7 @@ import {
   useRemoveRoutineExercise,
   useUpdateRoutineExercise,
 } from '@/features/workout/hooks/use-routine-mutations'
-import { getErrorMessage } from '@/features/workout/lib/errors'
+import { workoutErrorMessage } from '@/features/workout/lib/errors'
 import { validateTargets } from '@/features/workout/lib/targets'
 import type { RoutineExercise } from '@/features/workout/lib/types'
 
@@ -73,7 +73,7 @@ function TargetsForm({
   const busy = update.isPending || remove.isPending
   useSheetBusy(busy)
 
-  const error = invalid ?? (update.error ? getErrorMessage(update.error) : null)
+  const error = invalid ?? (update.error ? workoutErrorMessage(update.error) : null)
 
   function edit() {
     setInvalid(null)
@@ -200,7 +200,7 @@ function TargetsForm({
         </Button>
         {remove.error && (
           <p id={ids.removeError} role="alert" className="text-sm text-destructive">
-            {getErrorMessage(remove.error)}
+            {workoutErrorMessage(remove.error)}
           </p>
         )}
       </div>

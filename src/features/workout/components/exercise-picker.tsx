@@ -5,7 +5,7 @@ import { OfflineState } from '@/components/offline-state'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useExercises } from '@/features/workout/hooks/use-workout-queries'
-import { getErrorMessage } from '@/features/workout/lib/errors'
+import { workoutErrorMessage } from '@/features/workout/lib/errors'
 import { canCreateExercise, filterExercises } from '@/features/workout/lib/exercise-search'
 import { cleanName } from '@/features/workout/lib/names'
 import type { Exercise, ExerciseChoice } from '@/features/workout/lib/types'
@@ -94,7 +94,7 @@ export function ExercisePicker({
       )}
       {error && (
         <p role="alert" className="text-sm text-destructive">
-          {getErrorMessage(error)}
+          {workoutErrorMessage(error)}
         </p>
       )}
 

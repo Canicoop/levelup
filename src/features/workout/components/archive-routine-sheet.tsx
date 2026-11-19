@@ -3,7 +3,7 @@ import { BottomSheet } from '@/components/bottom-sheet'
 import { useSheetBusy } from '@/components/sheet-busy'
 import { Button } from '@/components/ui/button'
 import { useSetRoutineArchived } from '@/features/workout/hooks/use-routine-mutations'
-import { getErrorMessage } from '@/features/workout/lib/errors'
+import { workoutErrorMessage } from '@/features/workout/lib/errors'
 import type { Routine } from '@/features/workout/lib/types'
 
 type ArchiveRoutineSheetProps = {
@@ -31,7 +31,7 @@ function ArchiveRoutineConfirm({ routine, onCancel }: { routine: Routine; onCanc
       <p className="text-center text-sm text-pretty text-muted-foreground">Podes reativá-la em Arquivadas.</p>
       {archive.error && (
         <p role="alert" className="text-center text-sm text-destructive">
-          {getErrorMessage(archive.error)}
+          {workoutErrorMessage(archive.error)}
         </p>
       )}
       <div className="flex flex-col gap-2">

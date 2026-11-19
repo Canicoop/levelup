@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card'
 import { ReorderButtons } from '@/features/workout/components/reorder-buttons'
 import { TargetsSheet } from '@/features/workout/components/targets-sheet'
 import { useMoveRoutineExercise } from '@/features/workout/hooks/use-routine-mutations'
-import { getErrorMessage } from '@/features/workout/lib/errors'
+import { workoutErrorMessage } from '@/features/workout/lib/errors'
 import { formatTargets } from '@/features/workout/lib/targets'
 import type { RoutineExercise } from '@/features/workout/lib/types'
 
@@ -80,7 +80,7 @@ export function RoutineExerciseList({ routineId, entries }: RoutineExerciseListP
       )}
       {move.error && (
         <p role="alert" className="text-sm text-destructive">
-          {getErrorMessage(move.error)}
+          {workoutErrorMessage(move.error)}
         </p>
       )}
 

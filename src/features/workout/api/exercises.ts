@@ -1,8 +1,9 @@
 import { removeExerciseFromAllRoutines } from '@/features/workout/api/routine-exercises'
-import { DuplicateExerciseError, ValidationError, requireRows } from '@/features/workout/lib/errors'
+import { DuplicateExerciseError } from '@/features/workout/lib/errors'
 import { isExerciseNameTaken, resolveNewExercise } from '@/features/workout/lib/exercise-search'
 import { cleanName, validateExerciseName } from '@/features/workout/lib/names'
 import type { Exercise } from '@/features/workout/lib/types'
+import { ValidationError, requireRows } from '@/lib/errors'
 import { supabase } from '@/lib/supabase'
 
 // Sorted here rather than in the database: the database orders text by its own

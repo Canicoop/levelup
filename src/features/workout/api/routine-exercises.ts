@@ -1,10 +1,11 @@
-import { AlreadyInRoutineError, requireRows } from '@/features/workout/lib/errors'
+import { AlreadyInRoutineError } from '@/features/workout/lib/errors'
 import type {
   ExerciseRoutine,
   NewRoutineExercise,
   PositionChange,
   RoutineExerciseChanges,
 } from '@/features/workout/lib/types'
+import { requireRows } from '@/lib/errors'
 import { supabase } from '@/lib/supabase'
 
 // A unique violation (23505) here can only be routine_exercises_one_per_routine:

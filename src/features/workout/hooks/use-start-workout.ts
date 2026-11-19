@@ -5,9 +5,9 @@ import { workoutKeys } from '@/features/workout/api/query-keys'
 import { fetchRoutine } from '@/features/workout/api/routines'
 import { REQUEST_LIMIT_MS, fetchLastSetsIfOnline } from '@/features/workout/api/workouts'
 import { startWorkout } from '@/features/workout/lib/active-workout'
-import { ValidationError } from '@/features/workout/lib/errors'
 import type { RoutineWithExercises } from '@/features/workout/lib/types'
 import { withTimeout } from '@/features/workout/lib/with-timeout'
+import { ValidationError } from '@/lib/errors'
 
 // Prepares a workout from a routine and opens it. The routine comes from the
 // cache when it is there, whatever its age: every active routine is prepared

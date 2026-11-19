@@ -12,7 +12,7 @@ import { CreateRoutineSheet } from '@/features/workout/components/create-routine
 import { ReorderButtons } from '@/features/workout/components/reorder-buttons'
 import { useMoveRoutine } from '@/features/workout/hooks/use-routine-mutations'
 import { useRoutines } from '@/features/workout/hooks/use-workout-queries'
-import { getErrorMessage } from '@/features/workout/lib/errors'
+import { workoutErrorMessage } from '@/features/workout/lib/errors'
 import { formatExerciseCount } from '@/features/workout/lib/labels'
 import type { RoutineSummary } from '@/features/workout/lib/types'
 import { isWaitingForNetwork } from '@/lib/query-state'
@@ -119,7 +119,7 @@ function ActiveRoutines({ routines, ordering }: { routines: RoutineSummary[]; or
       </Card>
       {move.error && (
         <p role="alert" className="text-sm text-destructive">
-          {getErrorMessage(move.error)}
+          {workoutErrorMessage(move.error)}
         </p>
       )}
     </div>

@@ -1,7 +1,7 @@
 import { BottomSheet } from '@/components/bottom-sheet'
 import { useSheetBusy } from '@/components/sheet-busy'
 import { useStartWorkout } from '@/features/workout/hooks/use-start-workout'
-import { getErrorMessage } from '@/features/workout/lib/errors'
+import { workoutErrorMessage } from '@/features/workout/lib/errors'
 import { formatExerciseCount } from '@/features/workout/lib/labels'
 import type { RoutineSummary } from '@/features/workout/lib/types'
 
@@ -29,7 +29,7 @@ function RoutinePicker({ routines }: { routines: RoutineSummary[] }) {
     <div className="flex flex-col gap-3">
       {start.error && (
         <p role="alert" className="text-sm text-destructive">
-          {getErrorMessage(start.error)}
+          {workoutErrorMessage(start.error)}
         </p>
       )}
       <ul className="-mx-4 max-h-[60dvh] divide-y divide-border overflow-y-auto overscroll-contain border-y border-border">

@@ -1,4 +1,4 @@
-import { TimeoutError } from '@/features/workout/lib/errors'
+import { TimeoutError } from '@/lib/errors'
 
 // Rejects with TimeoutError if the promise takes longer than `ms`. A weak gym
 // connection can leave a request hanging instead of failing.

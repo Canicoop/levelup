@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DayChangedError, weightErrorMessage } from '@/features/weight/lib/errors'
-import { NotFoundError } from '@/features/workout/lib/errors'
+import { NotFoundError } from '@/lib/errors'
 
 describe('weightErrorMessage', () => {
   it('asks to log today\'s weight when the day changed', () => {
