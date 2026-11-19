@@ -1,7 +1,7 @@
 import { historyRows, type WeightEntry } from '@/features/weight/lib/entries'
-import { dayTime, daysBetween, type DayKey } from '@/features/weight/lib/lisbon-day'
 import type { Period } from '@/features/weight/lib/periods'
 import { formatDifference, formatWeight, type Tenths } from '@/features/weight/lib/weight-values'
+import { dayTime, daysBetween, type DayKey } from '@/lib/lisbon-day'
 
 // Days are formatted from midnight UTC in the UTC zone (see dayTime), so the
 // device's time zone never shifts the name of a day.

@@ -1,5 +1,5 @@
-import { lisbonToday, type DayKey } from '@/features/weight/lib/lisbon-day'
 import { toTenths, type Tenths } from '@/features/weight/lib/weight-values'
+import { lisbonToday, type DayKey } from '@/lib/lisbon-day'
 
 export type WeightEntry = { id: string; day: DayKey; tenths: Tenths }
 

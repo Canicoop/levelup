@@ -1,9 +1,10 @@
 import { RoutineNotFoundError } from '@/features/workout/lib/errors'
-import { cleanName, validateRoutineName } from '@/features/workout/lib/names'
+import { validateRoutineName } from '@/features/workout/lib/names'
 import type { PositionChange, Routine, RoutineSummary, RoutineWithExercises } from '@/features/workout/lib/types'
 import { UUID } from '@/features/workout/lib/uuid'
 import { ValidationError, requireRows } from '@/lib/errors'
 import { supabase } from '@/lib/supabase'
+import { cleanName } from '@/lib/text'
 
 // All the user's routines, archived included, ordered by (position, created_at),
 // each with its number of exercises. `routine_exercises(count)` returns the

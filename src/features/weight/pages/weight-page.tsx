@@ -14,10 +14,10 @@ import { WeightHistory, WeightHistorySkeleton } from '@/features/weight/componen
 import { WeightSummary, WeightSummarySkeleton } from '@/features/weight/components/weight-summary'
 import { useWeightEntries } from '@/features/weight/hooks/use-weight-entries'
 import { canEdit, newestFirst, todayEntry, type WeightEntry } from '@/features/weight/lib/entries'
-import { lisbonToday } from '@/features/weight/lib/lisbon-day'
 import type { Period } from '@/features/weight/lib/periods'
 import { wantsRegister } from '@/features/weight/lib/register-intent'
 import { useNow } from '@/hooks/use-now'
+import { lisbonToday } from '@/lib/lisbon-day'
 import { isWaitingForNetwork } from '@/lib/query-state'
 
 export function WeightPage() {

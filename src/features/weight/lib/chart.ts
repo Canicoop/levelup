@@ -1,7 +1,7 @@
 import { oldestFirst, type WeightEntry } from '@/features/weight/lib/entries'
-import { dayTime, daysBetween, shiftDays, type DayKey } from '@/features/weight/lib/lisbon-day'
 import { entriesInPeriod, type Period } from '@/features/weight/lib/periods'
 import { toKg } from '@/features/weight/lib/weight-values'
+import { dayTime, daysBetween, shiftDays, type DayKey } from '@/lib/lisbon-day'
 
 const AVERAGE_WINDOW_DAYS = 7
 const AVERAGE_MIN_ENTRIES = 3

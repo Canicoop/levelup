@@ -1,7 +1,7 @@
-// The Weight module's days are Lisbon's calendar days, as "2026-11-17" (see
-// docs/decisions.md, Weight module): the database sets entry_date to Lisbon's
-// day, and the app must agree with it even on a phone in another time zone.
-// Unlike the Workout module, which uses the device's local day.
+// Lisbon's calendar days, as "2026-11-17", shared by the modules whose days are
+// Lisbon's (see docs/decisions.md, Weight module): the database sets their
+// dates to Lisbon's day, and the app must agree with it even on a phone in
+// another time zone. Unlike the Workout module, which uses the device's local day.
 //
 // Arithmetic is done on the text through UTC (Date.UTC), never on local Date
 // objects, so a clock change never makes a day longer or shorter and the

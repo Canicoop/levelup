@@ -10,7 +10,7 @@ import {
   type ChartPoint,
 } from '@/features/weight/lib/chart'
 import type { WeightEntry } from '@/features/weight/lib/entries'
-import { dayTime } from '@/features/weight/lib/lisbon-day'
+import { dayTime } from '@/lib/lisbon-day'
 
 const entry = (day: string, tenths: number): WeightEntry => ({ id: day, day, tenths })
 

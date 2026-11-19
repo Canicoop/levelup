@@ -5,7 +5,6 @@ import {
   findExerciseByName,
   isExerciseNameTaken,
   resolveNewExercise,
-  searchKey,
 } from '@/features/workout/lib/exercise-search'
 import type { Exercise } from '@/features/workout/lib/types'
 
@@ -60,16 +59,6 @@ describe('resolveNewExercise', () => {
   it('refuses the name of an active exercise, accents ignored', () => {
     expect(resolveNewExercise(exercises, 'SUPINO')).toEqual({ action: 'duplicate' })
     expect(resolveNewExercise(exercises, 'Supinó')).toEqual({ action: 'duplicate' })
-  })
-})
-
-describe('searchKey', () => {
-  it.each([
-    ['Elevação lateral', 'elevacao lateral'],
-    ['  PRÉ-exaustão ', 'pre-exaustao'],
-    ['Peck   deck', 'peck deck'],
-  ])('turns %j into %j', (text, expected) => {
-    expect(searchKey(text)).toBe(expected)
   })
 })
 

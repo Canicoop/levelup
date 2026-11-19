@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { weightKeys } from '@/features/weight/api/query-keys'
 import { deleteWeightEntry, saveTodayWeight } from '@/features/weight/api/weight-entries'
-import type { DayKey } from '@/features/weight/lib/lisbon-day'
 import type { Tenths } from '@/features/weight/lib/weight-values'
+import type { DayKey } from '@/lib/lisbon-day'
 
 // Every write refetches the Weight reads once it settles, success or failure,
 // as in the Workout module (see use-exercise-mutations.ts): on success the

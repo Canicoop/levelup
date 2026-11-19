@@ -4,8 +4,8 @@ import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { historyRows, type WeightEntry } from '@/features/weight/lib/entries'
 import { formatHistoryDay } from '@/features/weight/lib/labels'
-import type { DayKey } from '@/features/weight/lib/lisbon-day'
 import { formatDifference, formatWeight } from '@/features/weight/lib/weight-values'
+import type { DayKey } from '@/lib/lisbon-day'
 
 // Rows shown at first and added by each "Ver mais". Every entry is already in
 // memory, so "Ver mais" asks for nothing; it only keeps a year of entries from

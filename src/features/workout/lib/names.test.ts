@@ -1,17 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cleanName, validateExerciseName, validateRoutineName } from '@/features/workout/lib/names'
-
-describe('cleanName', () => {
-  it.each([
-    ['  Supino  ', 'Supino'],
-    ['Supino   inclinado', 'Supino inclinado'],
-    ['\tSupino\n inclinado ', 'Supino inclinado'],
-    ['', ''],
-    ['   ', ''],
-  ])('cleans %j to %j', (raw, expected) => {
-    expect(cleanName(raw)).toBe(expected)
-  })
-})
+import { validateExerciseName, validateRoutineName } from '@/features/workout/lib/names'
 
 describe('validateExerciseName', () => {
   it('accepts names from 1 to 80 characters', () => {

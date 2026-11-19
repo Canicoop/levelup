@@ -3,7 +3,7 @@ import { useSheetBusy } from '@/components/sheet-busy'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { workoutErrorMessage } from '@/features/workout/lib/errors'
-import { cleanName } from '@/features/workout/lib/names'
+import { cleanName } from '@/lib/text'
 
 type NameFormProps = {
   inputRef: RefObject<HTMLInputElement | null>

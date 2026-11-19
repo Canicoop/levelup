@@ -4,9 +4,9 @@ import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { todayEntry, type WeightEntry } from '@/features/weight/lib/entries'
 import { formatSummaryLine } from '@/features/weight/lib/labels'
-import type { DayKey } from '@/features/weight/lib/lisbon-day'
 import { periodSummary, type Period } from '@/features/weight/lib/periods'
 import { formatKg } from '@/features/weight/lib/weight-values'
+import type { DayKey } from '@/lib/lisbon-day'
 
 type WeightSummaryProps = {
   // Never empty: the page shows the empty state instead.

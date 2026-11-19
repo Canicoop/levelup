@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dayTime, daysBetween, lisbonToday, shiftDays, shiftMonths } from '@/features/weight/lib/lisbon-day'
+import { dayTime, daysBetween, lisbonToday, shiftDays, shiftMonths } from '@/lib/lisbon-day'
 
 describe('lisbonToday', () => {
   it('is a day ahead of UTC from 23:00 UTC in summer (UTC+1)', () => {

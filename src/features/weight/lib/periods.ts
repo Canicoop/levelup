@@ -1,6 +1,6 @@
 import { newestFirst, oldestFirst, type WeightEntry } from '@/features/weight/lib/entries'
-import { shiftMonths, type DayKey } from '@/features/weight/lib/lisbon-day'
 import type { Tenths } from '@/features/weight/lib/weight-values'
+import { shiftMonths, type DayKey } from '@/lib/lisbon-day'
 
 // The chart's filter: 1M, 3M, 1A, Tudo.
 export type Period = '1M' | '3M' | '1A' | 'all'

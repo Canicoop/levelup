@@ -7,8 +7,8 @@ import { useDeleteWeightEntry, useSaveTodayWeight } from '@/features/weight/hook
 import type { WeightEntry } from '@/features/weight/lib/entries'
 import { weightErrorMessage } from '@/features/weight/lib/errors'
 import { formatDeleteQuestion, formatEntryDate } from '@/features/weight/lib/labels'
-import type { DayKey } from '@/features/weight/lib/lisbon-day'
 import { formatKg, formatWeight, parseWeightInput, type Tenths } from '@/features/weight/lib/weight-values'
+import type { DayKey } from '@/lib/lisbon-day'
 
 // What the sheet is for, decided when it opens. `openedOn` is Lisbon's day at
 // that moment: saving after it changed is refused (see saveTodayWeight).

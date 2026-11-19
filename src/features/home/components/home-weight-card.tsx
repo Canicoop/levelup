@@ -4,9 +4,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ModuleCard } from '@/features/home/components/module-card'
 import { useWeightEntries } from '@/features/weight/hooks/use-weight-entries'
 import { homeWeightSummary } from '@/features/weight/lib/labels'
-import { lisbonToday } from '@/features/weight/lib/lisbon-day'
 import { REGISTER_INTENT } from '@/features/weight/lib/register-intent'
 import { useNow } from '@/hooks/use-now'
+import { lisbonToday } from '@/lib/lisbon-day'
 import { isWaitingForNetwork } from '@/lib/query-state'
 
 // Home's Weight card: the latest weight, its day and its difference from the

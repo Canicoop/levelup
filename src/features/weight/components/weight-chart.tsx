@@ -21,9 +21,9 @@ import {
 } from '@/features/weight/lib/chart'
 import type { WeightEntry } from '@/features/weight/lib/entries'
 import { formatAxisDay, formatChartDay, formatChartDescription } from '@/features/weight/lib/labels'
-import { dayTime, daysBetween, type DayKey } from '@/features/weight/lib/lisbon-day'
 import { entriesInPeriod, periodStart, type Period } from '@/features/weight/lib/periods'
 import { formatKg, toTenths } from '@/features/weight/lib/weight-values'
+import { dayTime, daysBetween, type DayKey } from '@/lib/lisbon-day'
 
 type WeightChartProps = {
   entries: WeightEntry[]
