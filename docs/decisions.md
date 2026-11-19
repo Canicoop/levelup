@@ -160,7 +160,7 @@ Decided on 2026-11-16, before Phase 6 (step 6.1). The details of each screen are
 - **Differences are neutral,** never red or green. With no goal, going up or down is neither good nor bad, and those colours are reserved for errors and confirmations.
 - **Calculations in whole tenths:** differences and averages work on tenths of a kg, so 78,4 − 78,9 is exactly −0,5. Weight is not money, but this keeps floating-point noise out of what is shown.
 - **Charts use Recharts** (planned in *Frontend*), pinned to an exact version (`recharts` 3.10.1, with `react-is` 19.3.1 to match React; 3.11.0 was a day old) and only in the Weight chunk. **It weighs about 106 kB gzip**, about twice the estimate: the Weight chunk went from 4.4 kB to 110.6 kB, while what loads at start did not change. Kept (step 6.6) because it costs one background download per new version (the chunk is preloaded and precached) and Finance will reuse it for its spending chart; drawing the chart by hand was the alternative.
-- **The form is plain code,** like the workout's `parseWeight`: a single field does not justify React Hook Form and Zod.
+- **The form is plain code,** like the workout's `parseWeight`, as every form in the app (see *Finance module*).
 
 **The screen** (step 6.5, `src/features/weight/pages/` and `components/`)
 - **In order:** the title, the summary card and the history. Without entries, one card with "Ainda não registaste o teu peso", "Regista o peso de hoje para começares a ver a evolução." and "Registar peso", and no history.
@@ -187,10 +187,68 @@ Decided on 2026-11-16, before Phase 6 (step 6.1). The details of each screen are
 **Reviewed** (step 6.8, 2026-11-17, `code-review` at the medium level, on every change since step 6.1): 10 findings. **Fixed:** the offset paging (now a keyset), the quadratic dot rule (`dailyDots`), and Home's shortcut using a day up to a minute old and choosing the sheet from a stale copy. **Kept, with the reason:** paging that assumes a "Max rows" of 1000 (recorded above); a read kept after a failed refetch could in theory hold a deleted record, but nothing in the app is deleted while a screen reads it (exercises and routines are archived, workouts kept, and the weight list never fails as "not found"), and the screen already showed that data from memory; sorting the entries on every render (under 1 ms for 1000 entries, and the page renders once a minute or on a change); the Workout error helpers (already in *Open questions*); the weight parser beside the workout's (different rules on purpose); and the chart's kg values (exact, and Recharts needs them). **Verified** in Playwright: 1153 entries read in two pages with one deleted in between, all of them, none repeated; the shortcut during a 2.5 s read opened "Peso de hoje" with the other device's value once it ended; the loading, error and offline states of the page and of Home's card, the card recovering when the network came back; 320 and 1280px with no horizontal scroll.
 
 ### Finance module
+Decided on 2026-11-19 (step 7.1). The tables are designed in step 7.2; the details of each screen are added as they are built.
+
 - **Manual entry only.** No bank integrations.
 - **Fixed monthly budget**, overall and per category, applied every month until changed.
 - **Subscriptions, version A:** a list with amount, billing cycle and next payment date. **Version B** (automatically creating expenses on the billing date) is planned after the MVP.
 - **Currency:** EUR only.
+
+**Income and expenses**
+- **Every transaction has a type, expense or income, and an amount that is always positive.** The type says which way the money went; the sign never does.
+- **Income is kept simple:** the same fields as an expense, with no budget or chart of its own.
+- **The month shows what came in, what went out and the balance** (income minus expenses).
+- **The budget, the chart and Home's card count expenses only.**
+- **Why:** the README promises income and expense tracking, and adding income later would need a migration and a review of every total.
+
+**Categories**
+- **The user's own, each of one type:** an expense or an income category. A transaction only takes a category of its own type.
+- **Required on every transaction.**
+- **Suggested categories, only on request:** with no categories, archived ones included, the page offers "Criar categorias sugeridas", and only that tap creates them. Expenses: Alimentação, Restaurantes, Transportes, Casa, Saúde, Lazer, Compras, Educação and Outros. Income: Salário and Outros. Nothing is created implicitly, as with exercises.
+- **Names are unique within a type, ignoring case, accents and leading or trailing spaces,** as with exercises (see *Gym module*), so "Outros" can exist once for each type.
+- **A category that nothing uses (no transaction, budget or subscription) is deleted; one used by any of them is archived, never deleted.** The same rule as exercises.
+- **No colour or icon per category.** **Why:** the "Graphite" identity keeps colour for data (see *Visual identity*), and the name is enough to tell categories apart.
+
+**A transaction**
+- **Fields:** type, amount, category, date, merchant (optional) and note (optional).
+- **The amount** accepts a comma or a point, from 0,01 € to 99 999,99 € in the form. The database only refuses impossible values.
+- **The date** defaults to today in Lisbon and can be any earlier day, never a later one. It is stored as a `date`, with no time.
+- **The list goes from the newest to the oldest,** within a day too, by the order in which the transactions were logged.
+- **The merchant** is up to 80 characters. It is ready for photographed receipts, which are out of scope for the MVP.
+- **The note** is up to 200 characters.
+- **Any transaction can be edited, or deleted after a confirmation.**
+
+**Money in the app**
+- **Text at the boundary, whole cents inside the app.** Reads select `amount::text`, and a pure function turns that text into cents. Writes send text ("12.50"). Every calculation is done on integers, and an amount is only formatted on screen ("1234,56 €", EUR only).
+- **Why:** an amount never goes through a floating-point number. This differs from the Weight module, where `weight_kg` arrives as a number.
+
+**Budgets**
+- **A budget applies from a month on.** Every change is a new row, with the amount and the month it starts in. A month's budget is the one in the latest row already in force in that month, so earlier months stay as they were.
+- **A change always starts in the current month.** A second change in the same month replaces that month's row instead of adding another, so there are never two rows for the same category (or for the overall budget) in one month.
+- **The overall budget (no category) and the category budgets are independent.** Category budgets are optional and only exist for expense categories, and their sum does not have to match the overall budget.
+- **Removing a budget is also a new row** ("no budget from this month on").
+- **Going over the budget does not use red,** which is kept for errors (see *Visual identity*). The text says so, and the bar stays full.
+
+**Subscriptions (version A)**
+- **Fields:** the name (up to 80 characters), the amount (with the same rules as a transaction), the billing cycle (every 1, 3, 6 or 12 months), an expense category (required) and the date of one payment, as a reference.
+- **The next payment is calculated, never stored,** always from the reference date's day. When that day does not exist in a month, it moves to that month's last day, and back to the reference day in the months that have it (31 January → 28 February → 31 March).
+- **The page shows the monthly cost and the upcoming payments.** A subscription that is not monthly counts its amount divided by its number of months, rounded to the cent, with half a cent rounded up. The total is the sum of those amounts.
+- **Subscriptions do not count as the month's spending.** In version A a payment is logged as an ordinary transaction, so it is never counted twice.
+- **Cancelling a subscription archives it.**
+
+**Forms are plain code**
+- The state lives in `useState`, and the validation in pure functions tested with Vitest, like `parseWeight` and `validateTargets`.
+- **React Hook Form and Zod are no longer planned.** **Why:** one way to build forms across the app, no new dependency, and the hard rules (money and dates) would be our own functions anyway.
+
+**Everything else follows the existing patterns**
+- **Months are Lisbon's,** like the Weight module's days. The page opens on this month, with ‹ and › for earlier months, never later ones.
+- **Reads:** transactions by month; categories, budgets and subscriptions whole. Totals are calculated in the app (see *Data*).
+- **Writing needs the network.** The reads are kept on the device, as in the Weight module (see *Offline handling*).
+- **The chart:** horizontal bars of spending per category, with Recharts, only in the Finance chunk, which becomes lazy.
+- **Home's Finance card** shows the month's spending and what is left of the overall budget, or how far over it the month is.
+- **Security:** `user_id`, Row Level Security, column-level privileges, composite foreign keys on `(id, user_id)` and SQL tests, as in the gym tables (see *Privileges and RLS*).
+
+**Out of scope for the MVP:** subscriptions version B, photographed receipts, asking questions about the data, recurring transactions, several accounts and transfers, and export.
 
 ### Interface language
 **Decision:** The app interface is in European Portuguese (pt-PT). Code, comments and documentation are written in English.
@@ -447,7 +505,7 @@ Google's account chooser shows the Supabase project's domain (`<project>.supabas
 | Styling | Tailwind CSS v4 + shadcn/ui | Consistent design system; components live in the codebase and can be customised |
 | Routing | React Router 8 (data mode) | Standard routing solution; see below |
 | Server state | TanStack Query | Handles loading, errors, caching and refetching consistently |
-| Forms | React Hook Form + Zod | Performant forms with schema validation |
+| Forms | Plain code: `useState` and pure validators tested with Vitest | One way to build forms, no dependency (see *Finance module*) |
 | Charts | Recharts | Simple, composable React charts |
 | Calendar (heatmap colours) | Custom CSS | No extra dependency needed |
 
@@ -636,8 +694,8 @@ Icons, manifest and iOS details: see *App icon*.
 - **`user_id` on every table**, so RLS policies are simple, fast and easy to test.
 - **Derived data is not stored.** "Last session" values, the calendar's colours and totals are calculated from existing data.
 - **Archive instead of delete** when historical records reference an item (categories, exercises, routines).
-- **Money uses `numeric(12,2)`**, never floating point.
-- **Timestamps use `timestamptz`.** Daily grouping uses the user's local day.
+- **Money uses `numeric(12,2)`**, never floating point. It reaches the app as text and is kept as whole cents (see *Finance module*).
+- **Timestamps use `timestamptz`.** Daily grouping uses the user's local day. **The Weight and Finance modules use Lisbon's day** instead, stored as a `date`.
 - **One body weight entry per day, for today only.** A second entry on the same day replaces the first (a `unique (user_id, entry_date)` constraint and an upsert), and the day is Lisbon's today, set by the database (see *weight_entries*).
 
 ### Main tables
@@ -650,7 +708,11 @@ Icons, manifest and iOS details: see *App icon*.
   - `workout_exercises`: the exercises done in a workout, in order. A record of what was done, so it does not change when the routine changes.
   - `workout_sets`: the logged sets of each exercise in a workout (weight × reps).
 - **Body weight:** `weight_entries`
-- **Finance:** `categories`, `transactions`, `budgets`, `subscriptions`
+- **Finance:**
+  - `categories`: the user's categories, each for expenses or income; archived, never deleted, once anything uses them.
+  - `transactions`: income and expenses, each with a category of its own type and a date.
+  - `budgets`: one row per change, for the overall budget or a category's, from a month on.
+  - `subscriptions`: version A, with a reference payment date; archived when cancelled.
 
 ### weight_entries
 The daily body weight log, created by `supabase/migrations/20261030165634_create_weight_entries.sql` and changed by `supabase/migrations/20261116171035_weight_entries_today_only.sql` (step 6.2), so that only today's entry can be written. Named for what each row is, one entry, instead of the earlier `body_weights`.

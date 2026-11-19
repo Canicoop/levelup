@@ -21,9 +21,10 @@ A personal life dashboard to track gym workouts, body weight and personal financ
 
 ### Finance
 - Income and expense tracking with custom categories
-- Fixed monthly budget (overall and per category)
+- Each month's income, expenses and balance
+- Fixed monthly budget (overall and per category), changed from a given month on
 - Spending by category chart
-- Subscription tracking
+- Subscription tracking, with the monthly cost and upcoming payments
 
 ### Dashboard
 - Overview of all modules using real data
@@ -42,7 +43,7 @@ A personal life dashboard to track gym workouts, body weight and personal financ
 | UI | Tailwind CSS v4, shadcn/ui | ✅ In use |
 | Routing | React Router 8 | ✅ In use |
 | Data fetching | TanStack Query | ✅ In use |
-| Forms | React Hook Form, Zod | Planned |
+| Forms | Plain React state, validators tested with Vitest | ✅ In use |
 | Charts | Recharts | ✅ In use |
 | Backend | Supabase (PostgreSQL, Auth, Row Level Security) | ✅ In use |
 | Unit tests | Vitest | ✅ In use |
