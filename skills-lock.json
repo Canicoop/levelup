@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "skills": {
     "emil-design-eng": {
       "source": "emilkowalski/skills",
@@ -18,6 +18,13 @@
       "sourceType": "github",
       "skillPath": "skills/mobile-native/SKILL.md",
       "computedHash": "8d77850a34ec20f745aed3215aa0d587e90438599bb09dc72d9d09ce896a5765"
+    },
+    "playwright-best-practices": {
+      "source": "currents-dev/playwright-best-practices-skill",
+      "commit": "0b75b5835a87de1fdd202ba965f3bc5a27738fdf",
+      "sourceType": "github",
+      "skillPath": "playwright-best-practices/SKILL.md",
+      "computedHash": "111e9d3e9d63dea34814120fb6583c0b28ee45371662801d8e8d8bdf4b05dcb0"
     },
     "review-animations": {
       "source": "emilkowalski/skills",
