@@ -757,7 +757,28 @@ Created by `supabase/migrations/20261102165341_create_gym_tables.sql`. Every tab
 
 **Decision:** all foreign keys, to `auth.users` and between the gym tables, are `on delete cascade`; none restricts.
 
-**Why:** deleting a user must delete all their data. With a restricting key, the delete would stop at the first table that still had rows pointing at it. The app never deletes exercises, routines or workouts (they are archived, or kept as history), so in practice the cascades only run when an account is deleted.
+**Why:** deleting a user must delete all their data. With a restricting key, the delete would stop at the first table that still had rows pointing at it. The app never deletes exercises, routines or workouts (they are archived, or kept as history), so in practice the cascades only run when an account is deleted. The Finance tables' keys to `categories` are the exception (see *Privileges and RLS*).
+
+### Finance tables
+Created by `supabase/migrations/20261119223732_create_finance_tables.sql` (step 7.2). Every table has `id` (`gen_random_uuid()`), `user_id` (`default auth.uid()`), `created_at` and `updated_at`, refreshed by the `set_updated_at` trigger.
+
+| Table | Columns | Rules |
+|---|---|---|
+| `categories` | `kind`, `name`, `archived_at` | `kind` is `expense` or `income`; name 1–40 characters, no whitespace at either end; unique per user and kind on `lower(name)`, archived categories included; `unique (id, user_id, kind)`, the target of the composite foreign keys |
+| `transactions` | `kind`, `category_id`, `amount`, `occurred_on`, `merchant`, `note` | `amount numeric(12,2)` above 0; `occurred_on` defaults to Lisbon's today; `merchant` null or 1–80 characters and `note` null or 1–200, no whitespace at either end |
+| `budgets` | `category_id`, `category_kind`, `starts_on`, `amount` | `category_id` null is the overall budget; `amount` null or above 0; `starts_on` the first day of a month; `unique nulls not distinct (user_id, category_id, starts_on)` |
+| `subscriptions` | `name`, `amount`, `interval_months`, `reference_date`, `category_id`, `category_kind`, `archived_at` | Name 1–80 characters, no whitespace at either end, may repeat; `amount numeric(12,2)` above 0; `interval_months` 1, 3, 6 or 12 |
+
+- **The category's kind is part of the foreign key.** A transaction points at `categories (id, user_id, kind)` through `(category_id, user_id, kind)`, so its category must be of the same user and the same kind; changing a transaction's kind without its category fails (23503). Budgets and subscriptions have `category_kind`, always `'expense'` (a default, a check, and no privilege), in the same kind of key, so they only take expense categories. **Why a column and not a trigger:** a declarative rule, the same composite keys as the gym tables, and no function to maintain. With `category_id` null (the overall budget) the key is not checked (`MATCH SIMPLE`).
+- **`occurred_on`** defaults to `(now() at time zone 'Europe/Lisbon')::date`, like `entry_date` in *weight_entries*. Earlier days can be written; later ones are refused by the policies (see *Privileges and RLS*).
+- **Untrimmed texts are refused, not trimmed,** like the gym names. The app trims them and sends `null` for an empty merchant or note, so `''` is never stored.
+- **The order within a day** comes from `created_at`, which the client cannot write and which never changes: the list orders by `occurred_on desc, created_at desc, id desc`.
+- **`starts_on` is decided by the database:** `default (date_trunc('month', now() at time zone 'Europe/Lisbon'))::date`, a check that it is a month's first day, no privilege, and policies that only accept the current month. A budget always starts this month, and earlier months never change.
+- **One row per category, or for the overall budget, per month:** `unique nulls not distinct` (PostgreSQL 15 and later; both projects run 17), so two overall rows in the same month collide too, and `set_budget`'s upsert replaces the month's row (see *set_budget*).
+- **`amount` null is "no budget from this month on":** a new row, like any change. 0 is refused, since it would be a real budget.
+- **Money:** `numeric(12,2)`, and the database only refuses 0 or less. The form's limit (99 999,99 €) is the app's, so raising it needs no migration. **Accepted:** `numeric(12,2)` rounds a third decimal silently (12.345 is stored as 12.35, checked by the security tests). The app sends text with two decimals, from whole cents, so only a hand-made request could send a third one, and the amount stored is still valid.
+- **Indexes,** besides those behind the unique constraints: `transactions (user_id, occurred_on desc, created_at desc)`, for a month's read in the list's order, and `(category_id)` on `transactions` and `subscriptions`, since deleting a category checks that nothing uses it. Budgets are covered by their unique constraint.
+- **To check in step 7.4:** that the Data API (inserts and updates on `transactions` and `subscriptions`) and `rpc('set_budget')` accept `amount` sent as text ("300.00"), as the app will send it.
 
 ### Privileges and RLS
 **Decision:** every table starts from no privileges and grants only what the app needs. For `weight_entries`:
@@ -780,6 +801,20 @@ Created by `supabase/migrations/20261102165341_create_gym_tables.sql`. Every tab
   - `workouts` (including `id`), `workout_exercises` and `workout_sets`: insert only.
 - `DELETE` only on `routine_exercises`, to remove an exercise from a routine. Exercises and routines are archived, and workouts are history.
 - One policy per granted operation, for `authenticated` only, with `(select auth.uid()) = user_id`.
+
+**Finance tables** (step 7.2): the same approach, with `revoke all` first and nothing for `anon`.
+- `SELECT` on all four tables for `authenticated`.
+- `INSERT`, `UPDATE` and `DELETE` only where the app needs them:
+  - `categories`: insert `kind` and `name`; update `name` and `archived_at`, so a category's kind never changes; delete, which the foreign keys refuse while anything uses the category (23503), and the app archives it instead;
+  - `transactions`: insert and update `kind`, `category_id`, `amount`, `occurred_on`, `merchant` and `note`; delete;
+  - `budgets`: insert `category_id` and `amount`, and update `amount` only, through `set_budget`; no delete, since removing a budget is a new row;
+  - `subscriptions`: insert and update `name`, `amount`, `interval_months`, `reference_date` and `category_id`, and update `archived_at` too; delete, since nothing refers to a subscription in version A (cancelling archives it).
+- `id`, `user_id`, `category_kind`, `starts_on` and the timestamps always come from the database.
+- One policy per granted operation, for `authenticated` only, with `(select auth.uid()) = user_id`, and two more conditions:
+  - **Transactions:** the insert and update policies require `occurred_on <= (select (now() at time zone 'Europe/Lisbon')::date)`, so no day after Lisbon's today (42501). **Why a policy:** a check constraint cannot use `now()` (PostgreSQL assumes it always gives the same result), while a policy is evaluated for each statement, as in *weight_entries*. A trigger would give a clearer error (23514), at the cost of a function to maintain.
+  - **Budgets:** the insert and update policies (`with check`, and `using` for the update) require `starts_on` to be the first day of Lisbon's current month, so an update of an earlier month's row finds no row (0 rows, no error), even if a grant on `starts_on` came back by mistake.
+
+**The foreign keys to `categories` do not cascade,** an exception to *Every foreign key cascades*: those of `transactions`, `budgets` and `subscriptions` are `NO ACTION`, the default. **Why:** deleting a category that anything uses must fail (23503), so the app archives it; one that nothing uses is deleted. **Why `NO ACTION` and not `RESTRICT`:** `NO ACTION` is checked at the end of the statement. When a user is deleted, the cascades from `auth.users` remove their categories and the rows that use them in the same statement, so the check passes; `RESTRICT` is checked at once and could fail halfway. Test 5 of `finance_rls.sql` deletes a user whose categories are used by transactions, budgets and a subscription (see *Database security tests*). The foreign keys to `auth.users` still cascade.
 
 ### submit_workout
 **Decision:** a finished workout is saved through `public.submit_workout(workout jsonb)`, created by `supabase/migrations/20261102170833_create_submit_workout.sql` and called as `supabase.rpc('submit_workout', { workout })`.
@@ -811,18 +846,29 @@ Created by `supabase/migrations/20261102165341_create_gym_tables.sql`. Every tab
 - **An exercise with no history** returns no rows.
 - **`EXECUTE`** only for `authenticated`; revoked from `public` and `anon`.
 
+### set_budget
+**Decision:** budgets are written through `public.set_budget(category_id uuid, amount numeric)`, created by `supabase/migrations/20261119223732_create_finance_tables.sql` and called as `supabase.rpc('set_budget', { category_id, amount })`. It sets this month's budget for a category, or the overall budget with `category_id` null; `amount` null removes it from this month on.
+
+**Why:** a second change in the same month replaces that month's row, which is an upsert on `(user_id, category_id, starts_on)`. The Data API's upsert puts every column it sends in `DO UPDATE SET`, so it would need `UPDATE` on `category_id`, and a client could then move a month's row to another category. The function's upsert only updates `amount`, so the grants stay at insert `(category_id, amount)` and update `(amount)`.
+
+- **The upsert:** `insert … on conflict (user_id, category_id, starts_on) do update set amount = excluded.amount`. `user_id` and `starts_on` come from their defaults, and the conflict is found with `category_id` null too, thanks to `nulls not distinct`.
+- **Returns** the row's `id`, the same one for a second change in the same month.
+- **`security invoker` with an empty `search_path`,** like `submit_workout`: RLS, the column grants and the composite foreign key apply inside it, so another user's category or an income category fails (23503), and 0 fails the check (23514). Its arguments are qualified with the function's name (`set_budget.category_id`), since they share names with columns.
+- **`EXECUTE`** only for `authenticated`; revoked from `public` and `anon`.
+
 ### Generated types
 - `src/lib/database.types.ts` comes from `npm run db:types` (`supabase gen types typescript --linked --schema public`), and is never edited by hand. It is regenerated after each migration. The client is created with `createClient<Database>`.
 - **The generated `Insert` and `Update` types are wider than the database allows:** they show `id`, `user_id`, `entry_date` and the timestamps as optional, because the generator does not know about column-level privileges. The Weight module's data layer must accept only `{ weight_kg }`, with its own narrower type.
 - **`weight_kg` arrives as a `number`:** the Data API returns `numeric` as a JSON number. For weights with one decimal this loses no precision, and they are not used in money calculations, so the rule "money is never floating point" does not apply. The app works on whole tenths (see *Weight module*).
 - **Gym tables and `submit_workout`:** the types now include the six gym tables and `submit_workout` (`Args: { workout: Json }`, `Returns: string`). The note on wider `Insert` and `Update` types applies to them too: the gym data layer uses its own types for what each table, and the `submit_workout` payload, accept. `last_exercise_sets` is typed too (`Args: { exercise_ids: string[] }`, with one row per set).
+- **Finance tables and `set_budget`** (step 7.2): the types gained the four tables and `set_budget`, and nothing else changed. `amount` shows as `number`, but the app reads it as text (`amount::text`) and keeps whole cents (see *Finance module*), so it never goes through a float. `kind` and `category_kind` show as `string`, not the two values the checks allow. `set_budget` shows `Args: { amount: number; category_id: string }`, although it accepts `null` for both: the overall budget, and no budget. The Finance data layer uses its own types, as the other modules do.
 
 ### Accepted advisor warnings
 Supabase's Security Advisor reports three warnings that are not about the app's tables, accepted as they are:
 - **`rls_auto_enable()` is `SECURITY DEFINER` and executable by `anon` and `authenticated`** (reported for each role): it is Supabase's own function behind "Enable automatic RLS", run by an event trigger. Event trigger functions cannot be called directly, and it is not ours to change.
 - **Leaked password protection is disabled:** the app has no passwords, only Google sign-in.
 
-The Security Advisor reports nothing about `weight_entries`, `set_updated_at`, the gym tables or `submit_workout`.
+The Security Advisor reports nothing about `weight_entries`, `set_updated_at`, the gym tables or `submit_workout`, nor (2026-11-19, on `levelup-dev`, step 7.2) about the finance tables or `set_budget`.
 
 **Performance Advisor** (2026-11-02), accepted for now and to be reviewed once there is real data:
 - **8 "Unindexed foreign keys"** on the gym tables: they only cost time when the referenced row is deleted, which only happens when an account is deleted.
@@ -889,6 +935,8 @@ On 2026-11-16 this applied the 4 migrations, and the last `migration list` showe
 
 On 2026-11-16 (step 6.2) the same sequence applied `20261116171035_weight_entries_today_only.sql`, after a read-only check on both projects that no weight had two decimals (both had 0 entries); the last `migration list` showed all 5 in both columns, and the CLI was still linked to `levelup-dev` afterwards.
 
+On 2026-11-19 (step 7.2) the user applied `20261119223732_create_finance_tables.sql` to `levelup-dev` with `db push --linked`. It reaches `levelup-prod` at the end of Phase 7 (step 7.10), with the sequence above.
+
 ### Database security tests
 **Decision:** security tests are plain SQL files in `supabase/tests/`, run by the user in the SQL Editor of `levelup-dev`. `supabase test db` (pgTAP) runs in Docker, which the project does not use.
 
@@ -940,6 +988,24 @@ On 2026-11-16 (step 6.2) the same sequence applied `20261116171035_weight_entrie
 - deleting a user removes all their rows from the six tables, and none of the other user's.
 
 **Result on 2026-11-02:** all checks passed. **On 2026-11-03,** with the `last_exercise_sets` checks added: all checks passed.
+
+**`supabase/tests/finance_rls.sql` covers** (step 7.2):
+- `anon` cannot select, insert, update, delete or truncate any of the four tables, or execute `set_budget`;
+- a transaction gets its own `user_id` and Lisbon's today, worked out without the column's expression, in sessions set to `Pacific/Kiritimati` and `Pacific/Pago_Pago`; an earlier day can be chosen; 12.5 is read back as `12.50`, and 12.345 is stored as 12.35 (the accepted rounding);
+- category names are unique per user and kind, ignoring case (the same name for another user, or in the other kind, is fine); names with whitespace at either end, empty names, names over 40 characters and an unknown kind are refused;
+- the composite foreign keys with the kind (23503): another user's category, an expense with an income category and the reverse, and changing a transaction's kind without its category; `set_budget` and subscriptions with another user's category or an income category;
+- limits (23514): amounts of 0 or less, in transactions, subscriptions and `set_budget`; a merchant or note that is empty, untrimmed (a trailing newline included) or too long; a subscription every 2 months;
+- no day after Lisbon's today, on insert and on update (42501);
+- columns and operations outside the grants fail on privileges: writing `id`, `user_id`, `created_at`, `category_kind` or `starts_on`, changing a category's kind or a budget's month or category, deleting a budget, and `TRUNCATE`;
+- `set_budget`: the month is the first day of Lisbon's current month; a second change in the same month keeps one row and its `id`, for the overall budget and for a category; `null` removes the budget; an earlier month's row (created as `postgres`) cannot be updated (0 rows) and stays as it was when this month's row changes;
+- another user's rows are not visible, even by `id`, and updates or deletes of them affect 0 rows, a subscription's delete included;
+- a category used by transactions, by a budget (even one with no amount) or by a subscription cannot be deleted (23503); an unused one is deleted; an archived name stays taken; own transactions and subscriptions can be deleted, a subscription can be archived, and subscription names may repeat;
+- `set_budget` is `security invoker` with an empty `search_path`;
+- deleting a user removes all their rows from the four tables, with the `NO ACTION` keys to `categories` in between, and none of the other user's.
+
+**Limits:** `now()` is fixed inside the transaction, so midnight, a new month and the order of transactions logged on the same day (`created_at`) cannot be simulated here; the app's side of them is left to Vitest.
+
+**Result on 2026-11-19** (step 7.2, on `levelup-dev`, after the migration): all checks passed, and `gym_rls.sql` and `weight_entries_rls.sql` passed again.
 
 ### Testing strategy
 - **Unit tests (Vitest):** in use. Pure logic now (see *Unit tests*); later money calculations, budgets, subscription totals and date grouping.

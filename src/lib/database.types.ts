@@ -14,6 +14,77 @@ export type Database = {
   }
   public: {
     Tables: {
+      budgets: {
+        Row: {
+          amount: number | null
+          category_id: string | null
+          category_kind: string
+          created_at: string
+          id: string
+          starts_on: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number | null
+          category_id?: string | null
+          category_kind?: string
+          created_at?: string
+          id?: string
+          starts_on?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          amount?: number | null
+          category_id?: string | null
+          category_kind?: string
+          created_at?: string
+          id?: string
+          starts_on?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budgets_category_fkey"
+            columns: ["category_id", "user_id", "category_kind"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id", "user_id", "kind"]
+          },
+        ]
+      }
+      categories: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          id: string
+          kind: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          id?: string
+          kind: string
+          name: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       exercises: {
         Row: {
           archived_at: string | null
@@ -124,6 +195,103 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          amount: number
+          archived_at: string | null
+          category_id: string
+          category_kind: string
+          created_at: string
+          id: string
+          interval_months: number
+          name: string
+          reference_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          archived_at?: string | null
+          category_id: string
+          category_kind?: string
+          created_at?: string
+          id?: string
+          interval_months: number
+          name: string
+          reference_date: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          amount?: number
+          archived_at?: string | null
+          category_id?: string
+          category_kind?: string
+          created_at?: string
+          id?: string
+          interval_months?: number
+          name?: string
+          reference_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_category_fkey"
+            columns: ["category_id", "user_id", "category_kind"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id", "user_id", "kind"]
+          },
+        ]
+      }
+      transactions: {
+        Row: {
+          amount: number
+          category_id: string
+          created_at: string
+          id: string
+          kind: string
+          merchant: string | null
+          note: string | null
+          occurred_on: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          category_id: string
+          created_at?: string
+          id?: string
+          kind: string
+          merchant?: string | null
+          note?: string | null
+          occurred_on?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          amount?: number
+          category_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          merchant?: string | null
+          note?: string | null
+          occurred_on?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_category_fkey"
+            columns: ["category_id", "user_id", "kind"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id", "user_id", "kind"]
+          },
+        ]
       }
       weight_entries: {
         Row: {
@@ -281,6 +449,10 @@ export type Database = {
           set_position: number
           weight_kg: number
         }[]
+      }
+      set_budget: {
+        Args: { amount: number; category_id: string }
+        Returns: string
       }
       submit_workout: { Args: { workout: Json }; Returns: string }
     }
