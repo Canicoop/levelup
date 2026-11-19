@@ -2,7 +2,7 @@
 
 This document records the main technical and product decisions for LevelUP, and the reasons behind them. New decisions are added as the project evolves.
 
-_Last updated: 2026-11-16_
+_Last updated: 2026-11-19_
 
 ---
 
@@ -981,6 +981,7 @@ Skills live in `.claude/skills/` and are pinned in `skills-lock.json`.
 | emil-design-eng | `emilkowalski/skills` | Animation and interaction polish |
 | mobile-native | `emilkowalski/skills` | Native-feeling behaviour on iPhone |
 | review-animations | `emilkowalski/skills` | Animation review, manual invocation only (`/review-animations`) |
+| playwright-best-practices | `currents-dev/playwright-best-practices-skill` | Playwright test patterns (Phase 9 end-to-end tests); Markdown guides only. Its validation loop runs `npx playwright test`, which waits until `@playwright/test` is installed with approval |
 
 **Evaluated and not installed:**
 - **Taste skill:** focused on landing pages, and instructs the agent not to ask for approval, which conflicts with the project's working rules.
@@ -1080,3 +1081,4 @@ The MVP runs on free tiers: GitHub, Supabase Free and Vercel Hobby (personal, no
 | Vite's 500 kB warning is back since step 6.5: the main chunk is 506 kB minified after the bundler moved shared code into it, while what loads at start grew under 1 kB, and Recharts (step 6.6) did not change it (see *React Router 8 in data mode*). Not hidden with `chunkSizeWarningLimit`: look at a `codeSplitting` group | Phase 9 |
 | Update `picomatch` once a release fixes GHSA-fc5q-39xc-vjpf (after 4.0.7), then run `npm audit` again (see *shadcn/ui on Base UI*, known findings) | When it is released |
 | Move the generic error helpers (`NotFoundError`, `requireRows`, `isNetworkError`, `getErrorMessage`) from `src/features/workout/lib/errors.ts` to `src/lib/errors.ts`, as a `refactor` commit of its own. The Weight module imports them from the Workout module for now (step 6.4); a third module makes the shared place worth the change | When the Finance module starts (Phase 7) |
+| Cardio activities (such as the treadmill) with an estimated calorie count, now out of scope for the MVP (see *MVP scope*): what to log (activity, duration, distance) and how to estimate the calories, which needs the body weight from the Weight module | After Phase 7, with the polish |

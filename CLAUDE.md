@@ -5,7 +5,7 @@ LevelUP is a mobile-first personal life dashboard (gym, body weight, finance, da
 
 - Product scope and all technical decisions: `docs/decisions.md`. Read it before planning any work.
 - Roadmap and setup: `README.md`.
-- **Current phase: Phase 6 — Body weight module.** Phase 4 (gym module) is complete. Phase 5 (first production deploy, on Vercel) is complete. Phase 6 follows the plan approved on 2026-11-16 (steps 6.1 to 6.8, and 6.5b); next is step 6.5b.
+- **Current phase: Phase 7 — Finance module.** Phase 4 (gym module), Phase 5 (first production deploy, on Vercel) and Phase 6 (body weight module) are complete. Phase 7 follows the plan approved on 2026-11-19 (steps 7.0 to 7.10, and 7.5b); step 7.0 (housekeeping) is in progress, next is step 7.1.
 
 ## How we work (mandatory)
 1. **Communicate with the user in European Portuguese.** Code, comments, commit messages and documentation are written in English.
@@ -36,7 +36,7 @@ LevelUP is a mobile-first personal life dashboard (gym, body weight, finance, da
 ## Tech stack and conventions
 - React 19, Vite 8, ESLint with typescript-eslint.
 - **TypeScript is pinned to `~6.0.3`.** Do not upgrade to 7 until typescript-eslint supports it.
-- In use: Tailwind CSS v4 (CSS-first configuration, no `tailwind.config.js`), shadcn/ui, React Router, TanStack Query, Supabase, Vitest. Planned: React Hook Form + Zod, Recharts, React Testing Library, Playwright.
+- In use: Tailwind CSS v4 (CSS-first configuration, no `tailwind.config.js`), shadcn/ui, React Router, TanStack Query, Supabase, Vitest, Recharts. Planned: React Hook Form + Zod, React Testing Library, Playwright.
 - Unit tests sit next to the code as `*.test.ts` and run in a fixed time zone (`Europe/Lisbon`, set in `vite.config.ts`).
 - Tailwind classes go only in `.tsx` files: `src/index.css` excludes every `.ts` file from Tailwind's scan.
 - Feature-based structure: `src/features/<feature>/` (components, pages, api, hooks, schemas). Shared code goes in `src/lib/` and `src/components/`.
