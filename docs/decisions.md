@@ -1024,7 +1024,7 @@ On 2026-11-19 (step 7.2) the user applied `20261119223732_create_finance_tables.
 - **The Weight module does not depend on the device's time zone** (step 6.3): its days are Lisbon's, worked out with `timeZone: 'Europe/Lisbon'` and formatted in UTC. Its six test files were also run once with `TZ` set to `America/New_York`, through a temporary config outside the repository that only changed `test.env.TZ` (2026-11-17): all 62 passed, while `format.test.ts`, run with them, failed its zone check with "America/New_York", which shows the zone had changed.
 - **Tailwind reads only `.tsx` files (`@source not "./**/*.ts"` in `src/index.css`):** Tailwind scans `src` for class names in any text, comments included. Words in test descriptions ("absolute", "relative") had added `.absolute` and `.relative` to the production CSS, and later the word "table" in a comment of a data-layer file added `.table`. Excluding only the tests would not have caught the second case, so every `.ts` file is excluded: logic and tests live in `.ts`, and Tailwind classes only in `.tsx`. With the exclusion, the CSS is byte-for-byte the same as without those files.
 
-**What the 667 tests cover:**
+**What the 774 tests cover:**
 
 | File | Tests | Covers |
 |---|---|---|
@@ -1069,6 +1069,8 @@ On 2026-11-19 (step 7.2) the user applied `20261119223732_create_finance_tables.
 | `src/features/weight/lib/labels.test.ts` | 21 | `formatEntryDay` ("hoje", "ontem", a weekday, a date, another year), `formatEntryDate`, `formatHistoryDay` (capitalised), `formatSummaryLine` (with a difference, "sem alteração desde ontem", only the day), `formatAxisDay` ("17 nov", "nov 2025"), `formatChartDay`, `formatChartDescription` (two weights, a single entry, an empty period), `formatDeleteQuestion` (always a date, never a weekday), `homeWeightSummary` |
 | `src/features/weight/lib/errors.test.ts` | 4 | `weightErrorMessage`: the day changed, an entry that no longer exists, no network, and database codes falling back to the generic messages |
 | `src/features/weight/lib/register-intent.test.ts` | 3 | `wantsRegister`: Home's request recognised; no state, or a cleared one, and any other state ignored |
+| `src/features/finance/lib/money.test.ts` | 83 | `parseAmountInput` (a comma or a point, spaces between groups of three, a € at either end, and each refusal: empty, more than two decimals with "1.500" and "12,500", a sign, points between thousands, a € inside, out of 0,01–99 999,99 €, a long number checked before converting), `parseDbAmount` (throws for anything numeric(12, 2)::text never gives), `toDbAmount`, `formatEuros` (grouping from five digits with U+00A0, a minus sign U+2212, and the same text as `Intl.NumberFormat('pt-PT')` in EUR) and `formatAmountInput`, both read back as the same amount |
+| `src/features/finance/lib/months.test.ts` | 24 | `currentMonth` (both clock changes of 2026, 23:00 UTC in summer, the new year), `monthOfDay`, `monthStart`, `nextMonthStart`, `monthReadRange` (February in a leap and a common year, December), `shiftMonth` (across years, ±12) and `isFutureMonth` |
 
 No test file was removed: the tests of the 12 weeks, the sliding and the sticking pick were in `history.test.ts` and went with that code.
 
