@@ -48,6 +48,15 @@ export function monthReadRange(month: MonthKey): { from: DayKey; to: DayKey } {
   return { from: monthStart(month), to: nextMonthStart(month) }
 }
 
+// The month the page shows once the current month changes from `was` to `now`
+// (a new month while the app stayed open, seen when useNow ticks or the app
+// comes back to the foreground): a page on the month that was current follows
+// to the new one; one the user moved to another month stays there. As Home's
+// calendar (see followCurrentMonth in the Workout module).
+export function followCurrentMonth(shown: MonthKey, was: MonthKey, now: MonthKey): MonthKey {
+  return shown === was ? now : shown
+}
+
 // Whether a month comes after the current one: the page never shows it. "YYYY-MM"
 // keys sort as text in calendar order.
 export function isFutureMonth(month: MonthKey, current: MonthKey) {

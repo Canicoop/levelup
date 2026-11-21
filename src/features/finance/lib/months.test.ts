@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   currentMonth,
+  followCurrentMonth,
   isFutureMonth,
   monthOfDay,
   monthReadRange,
@@ -87,6 +88,16 @@ describe('shiftMonth', () => {
     ['2026-11', 0, '2026-11'],
   ])('moves %j by %i to %j', (month, months, expected) => {
     expect(shiftMonth(month, months)).toBe(expected)
+  })
+})
+
+describe('followCurrentMonth', () => {
+  it('moves a page on the month that was current to the new one', () => {
+    expect(followCurrentMonth('2026-11', '2026-11', '2026-12')).toBe('2026-12')
+  })
+
+  it('leaves a page the user moved to another month where it is', () => {
+    expect(followCurrentMonth('2026-09', '2026-11', '2026-12')).toBe('2026-09')
   })
 })
 
