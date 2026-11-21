@@ -1,16 +1,13 @@
-import { Wallet } from 'lucide-react'
 import { Link } from 'react-router'
-import { EmptyState } from '@/components/empty-state'
 import { ErrorState } from '@/components/error-state'
 import { PageHeader } from '@/components/layout/page-header'
 import { OfflineState } from '@/components/offline-state'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useCreateSuggestedCategories } from '@/features/finance/hooks/use-category-mutations'
+import { NoCategories } from '@/features/finance/components/no-categories'
 import { useCategories } from '@/features/finance/hooks/use-finance-queries'
 import { shouldOfferSuggestions } from '@/features/finance/lib/categories'
-import { financeErrorMessage } from '@/features/finance/lib/errors'
 import { isWaitingForNetwork } from '@/lib/query-state'
 
 // The Finance page. In order: the header (with "Categorias"), the month's card
@@ -35,7 +32,15 @@ export function FinancePage() {
       {/* As elsewhere, the data shows whenever there is some, and the states
           only when there is nothing to show. */}
       {list ? (
-        shouldOfferSuggestions(list) && <NoCategories />
+        shouldOfferSuggestions(list) && (
+          <NoCategories
+            ownAction={
+              <Link to="/financas/categorias" className={buttonVariants({ variant: 'outline', size: 'lg' })}>
+                Criar as minhas
+              </Link>
+            }
+          />
+        )
       ) : isWaitingForNetwork(categories) ? (
         <OfflineState />
       ) : categories.isError ? (
@@ -44,40 +49,6 @@ export function FinancePage() {
         <FinanceSkeleton />
       )}
     </div>
-  )
-}
-
-// With no categories at all, archived ones included: the suggested ones, with
-// one tap, or the user's own on the categories screen. The names are not listed
-// here (step 7.5's decision 8).
-function NoCategories() {
-  const create = useCreateSuggestedCategories()
-
-  return (
-    <Card>
-      <div className="flex flex-col gap-3 px-4">
-        <EmptyState
-          icon={Wallet}
-          title="Ainda não tens categorias"
-          description="Cria as categorias sugeridas para começares, ou cria as tuas."
-          action={
-            <div className="flex w-full flex-col gap-2 sm:flex-row">
-              <Button size="lg" disabled={create.isPending} onClick={() => create.mutate()}>
-                {create.isPending ? 'A criar…' : 'Criar categorias sugeridas'}
-              </Button>
-              <Link to="/financas/categorias" className={buttonVariants({ variant: 'outline', size: 'lg' })}>
-                Criar as minhas
-              </Link>
-            </div>
-          }
-        />
-        {create.error && (
-          <p role="alert" className="text-sm text-destructive">
-            {financeErrorMessage(create.error)}
-          </p>
-        )}
-      </div>
-    </Card>
   )
 }
 
