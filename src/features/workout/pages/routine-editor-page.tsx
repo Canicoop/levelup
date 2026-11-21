@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { cn } from 'cn'
 import { Plus } from 'lucide-react'
 import { Link, useParams } from 'react-router'
 import { ErrorState } from '@/components/error-state'
@@ -42,9 +41,7 @@ export function RoutineEditorPage() {
           <p className="text-sm text-pretty text-muted-foreground">
             O endereço pode estar errado, ou a rotina já não existe.
           </p>
-          {/* cn resolves the variant's border over the base border-transparent;
-              buttonVariants alone keeps both. */}
-          <Link to="/treino" className={cn(buttonVariants({ variant: 'outline' }))}>
+          <Link to="/treino" className={buttonVariants({ variant: 'outline' })}>
             Voltar ao Treino
           </Link>
         </div>

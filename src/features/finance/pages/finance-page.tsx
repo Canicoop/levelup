@@ -1,5 +1,4 @@
 import { useId, useState } from 'react'
-import { cn } from 'cn'
 import { Link } from 'react-router'
 import { ErrorState } from '@/components/error-state'
 import { PageHeader } from '@/components/layout/page-header'
@@ -49,9 +48,7 @@ export function FinancePage() {
     <div className="flex flex-col gap-8">
       <PageHeader title="Finanças">
         {list && !shouldOfferSuggestions(list) && (
-          // cn() merges the variant's border-border over the base's
-          // border-transparent, as Button does; without it the outline is lost.
-          <Link to="/financas/categorias" className={cn(buttonVariants({ variant: 'outline' }))}>
+          <Link to="/financas/categorias" className={buttonVariants({ variant: 'outline' })}>
             Categorias
           </Link>
         )}
@@ -64,7 +61,7 @@ export function FinancePage() {
         shouldOfferSuggestions(list) ? (
           <NoCategories
             ownAction={
-              <Link to="/financas/categorias" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }))}>
+              <Link to="/financas/categorias" className={buttonVariants({ variant: 'outline', size: 'lg' })}>
                 Criar as minhas
               </Link>
             }
