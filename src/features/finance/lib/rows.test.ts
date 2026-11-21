@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
+  toBudgetArgs,
   toBudgetRow,
   toCategory,
   toSubscription,
+  toSubscriptionWrite,
   toTransaction,
+  toTransactionWrite,
   type DbCategory,
   type DbSubscription,
   type DbTransaction,
@@ -101,5 +104,58 @@ describe('toSubscription', () => {
 
   it('throws for a period the database never allows', () => {
     expect(() => toSubscription({ ...row, interval_months: 2 })).toThrow('Unexpected interval from the database')
+  })
+})
+
+describe('toTransactionWrite', () => {
+  it('sends the amount as text, the day as occurred_on, and only the columns with a privilege', () => {
+    const write = toTransactionWrite({
+      kind: 'expense',
+      categoryId: 'c1',
+      cents: 1250,
+      day: '2026-11-20',
+      merchant: 'Pingo Doce',
+      note: null,
+    })
+    expect(write).toEqual({
+      kind: 'expense',
+      category_id: 'c1',
+      amount: '12.50',
+      occurred_on: '2026-11-20',
+      merchant: 'Pingo Doce',
+      note: null,
+    })
+    expect(Object.keys(write).sort()).toEqual(['amount', 'category_id', 'kind', 'merchant', 'note', 'occurred_on'])
+  })
+})
+
+describe('toSubscriptionWrite', () => {
+  it('sends the amount as text and only the columns with a privilege', () => {
+    const write = toSubscriptionWrite({
+      name: 'Spotify',
+      cents: 1099,
+      intervalMonths: 3,
+      referenceDate: '2026-10-31',
+      categoryId: 'c1',
+    })
+    expect(write).toEqual({
+      name: 'Spotify',
+      amount: '10.99',
+      interval_months: 3,
+      reference_date: '2026-10-31',
+      category_id: 'c1',
+    })
+    expect(Object.keys(write).sort()).toEqual(['amount', 'category_id', 'interval_months', 'name', 'reference_date'])
+  })
+})
+
+describe('toBudgetArgs', () => {
+  it('sends a category\'s budget with the amount as text', () => {
+    expect(toBudgetArgs('c1', 30000)).toEqual({ category_id: 'c1', amount: '300.00' })
+  })
+
+  it('sends null for the overall budget and to remove a budget', () => {
+    expect(toBudgetArgs(null, 120000)).toEqual({ category_id: null, amount: '1200.00' })
+    expect(toBudgetArgs(null, null)).toEqual({ category_id: null, amount: null })
   })
 })

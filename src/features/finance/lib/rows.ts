@@ -1,9 +1,10 @@
 import type { BudgetRow } from '@/features/finance/lib/budgets'
 import type { Category, Kind } from '@/features/finance/lib/categories'
-import { parseDbAmount } from '@/features/finance/lib/money'
+import { parseDbAmount, toDbAmount, type Cents } from '@/features/finance/lib/money'
 import { monthOfDay } from '@/features/finance/lib/months'
 import { INTERVAL_MONTHS, type IntervalMonths, type Subscription } from '@/features/finance/lib/subscriptions'
 import type { Transaction } from '@/features/finance/lib/totals'
+import type { SubscriptionValues, TransactionValues } from '@/features/finance/lib/validation'
 
 // The finance tables' rows as the Data API returns them, and their conversion
 // into the app's types. Amounts are read as amount::text, so they arrive as
@@ -84,4 +85,55 @@ export function toSubscription(row: DbSubscription): Subscription {
     categoryId: row.category_id,
     archivedAt: row.archived_at,
   }
+}
+
+// What the app may write: only the columns with a privilege (see
+// docs/decisions.md, Privileges and RLS). The generated Insert and Update types
+// also allow id, user_id and the timestamps, which the database refuses.
+// Amounts go as text ("12.50"), from whole cents.
+
+export type TransactionWrite = {
+  kind: Kind
+  category_id: string
+  amount: string
+  occurred_on: string
+  merchant: string | null
+  note: string | null
+}
+
+export type SubscriptionWrite = {
+  name: string
+  amount: string
+  interval_months: IntervalMonths
+  reference_date: string
+  category_id: string
+}
+
+// set_budget's arguments: category_id null is the overall budget, amount null
+// removes the budget from this month on.
+export type SetBudgetArgs = { category_id: string | null; amount: string | null }
+
+export function toTransactionWrite(values: TransactionValues): TransactionWrite {
+  return {
+    kind: values.kind,
+    category_id: values.categoryId,
+    amount: toDbAmount(values.cents),
+    occurred_on: values.day,
+    merchant: values.merchant,
+    note: values.note,
+  }
+}
+
+export function toSubscriptionWrite(values: SubscriptionValues): SubscriptionWrite {
+  return {
+    name: values.name,
+    amount: toDbAmount(values.cents),
+    interval_months: values.intervalMonths,
+    reference_date: values.referenceDate,
+    category_id: values.categoryId,
+  }
+}
+
+export function toBudgetArgs(categoryId: string | null, cents: Cents | null): SetBudgetArgs {
+  return { category_id: categoryId, amount: cents === null ? null : toDbAmount(cents) }
 }
