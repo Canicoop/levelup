@@ -5,7 +5,7 @@ import { NotFoundPage } from '@/components/errors/not-found-page'
 import { AppShell } from '@/components/layout/app-shell'
 import { redirectIfSignedIn, requireSession } from '@/features/auth/loaders'
 import { SignInPage } from '@/features/auth/pages/sign-in-page'
-import { FinancePage } from '@/features/finance/pages/finance-page'
+import { loadFinancePages } from '@/features/finance/load-pages'
 import { HomePage } from '@/features/home/pages/home-page'
 import { SettingsPage } from '@/features/settings/pages/settings-page'
 import { loadWeightPages } from '@/features/weight/load-pages'
@@ -13,8 +13,9 @@ import { loadWorkoutPages } from '@/features/workout/load-pages'
 
 // A module's pages move to `lazy` once the module has real code; until then
 // they are imported eagerly, since splitting empty pages only adds requests.
-// Lazy so far: Workout and Weight. Workout's routes share one import function,
-// which AppShell also uses to preload the chunk (see load-pages.ts).
+// Lazy so far: Workout, Weight and Finance. Each module's routes share one
+// import function, which AppShell also uses to preload the Workout and Weight
+// chunks (see load-pages.ts).
 export const router = createBrowserRouter([
   {
     ErrorBoundary: RouteError,
@@ -58,7 +59,11 @@ export const router = createBrowserRouter([
             lazy: { Component: async () => (await loadWorkoutPages()).ExercisesPage },
           },
           { path: 'peso', lazy: { Component: async () => (await loadWeightPages()).WeightPage } },
-          { path: 'financas', Component: FinancePage },
+          { path: 'financas', lazy: { Component: async () => (await loadFinancePages()).FinancePage } },
+          {
+            path: 'financas/categorias',
+            lazy: { Component: async () => (await loadFinancePages()).CategoriesPage },
+          },
           { path: 'definicoes', Component: SettingsPage },
           // Development-only preview of shared states. The branch is removed
           // from production builds, so the page and its chunk are never emitted.
